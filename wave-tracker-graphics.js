@@ -1,4 +1,3 @@
-import {regionLabelPosition} from './region-labels.js';
 import {channelOrdinate} from './wave-channel.js';
 import {trackingProfile} from './wave-tracker.js';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js?v=20261113-rainbow-physical';
@@ -36,27 +35,9 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'}
   inner+=`<g data-flow-angle="${a*180/Math.PI}">`+line(cx-9*dx,cy-9*dy,cx+9*dx,cy+9*dy,c,1)+poly([[cx+9*dx,cy+9*dy],[cx+4*dx-2*dy,cy+4*dy+2*dx],[cx+4*dx+2*dy,cy+4*dy-2*dx]],c)+'</g>';
  }}
  if(t.endX<end-1e-8)inner+=`<rect x="${X(t.endX)}" y="40" width="${Math.max(0,X(end)-X(t.endX))}" height="${height-90}" fill="#fff" opacity=".88"/>`;
- const grouped=new Map();
- for(const [name,z]of Object.entries(s.regions??{})){
-  const id=z.stateId;if(!id)continue;const group=grouped.get(id)??{names:[],state:z};group.names.push(name.replace(/^Region /,''));grouped.set(id,group);
- }
- const patches=new Map(),runs=new Map();
- const append=(points,p)=>{if(points.length>1){const a=points.at(-2),b=points.at(-1),cross=(b[0]-a[0])*(p[1]-b[1])-(b[1]-a[1])*(p[0]-b[0]);if(Math.abs(cross)<1e-6){points[points.length-1]=p;return;}}points.push(p);};
- const finish=(id,run)=>{if(!run)return;const list=patches.get(id)??[];list.push([...run.bottom,...run.top.slice().reverse()]);patches.set(id,list);};
- for(const slab of t.slabs){const seen=new Set();for(let i=0;i<slab.states.length;i++){
-  const id=slab.states[i].stateId;if(!grouped.has(id))continue;seen.add(id);
-  const bl=[X(slab.left),Y(slab.bottoms[i])],br=[X(slab.right),Y(slab.tops[i])],tl=[X(slab.left),Y(slab.bottoms[i+1])],tr=[X(slab.right),Y(slab.tops[i+1])];
-  let run=runs.get(id);if(run&&(Math.hypot(run.bottom.at(-1)[0]-bl[0],run.bottom.at(-1)[1]-bl[1])>1e-5||Math.hypot(run.top.at(-1)[0]-tl[0],run.top.at(-1)[1]-tl[1])>1e-5)){finish(id,run);run=null;}
-  if(!run)run={bottom:[bl],top:[tl]};append(run.bottom,br);append(run.top,tr);runs.set(id,run);
- }for(const [id,run]of runs)if(!seen.has(id)){finish(id,run);runs.delete(id);}}
- for(const [id,run]of runs)finish(id,run);
- const area=poly=>Math.abs(poly.reduce((a,p,i)=>{const q=poly[(i+1)%poly.length];return a+p[0]*q[1]-p[1]*q[0];},0));
- for(const [id,group]of grouped){const polys=(patches.get(id)??[]).filter(p=>area(p)>1e-7).sort((a,b)=>area(b)-area(a)).slice(0,8),position=regionLabelPosition(polys);if(!position)continue;const [px,py]=position.point,name=group.names.join('/');
-  inner+=`<g data-tracked-region="${name}" data-region-clearance="${position.clearance}">${txt(px,py+5,name,'#ffffff',18,'middle')}</g>`;
- }
  inner+='</g>';
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(...V(wall[i]),...V(wall[i+1]),'#111',1.6);
  if(s.limitX!==null)inner+=line(X(t.endX),43,X(t.endX),height-54,'#8e6d42',1,'4 4');
  inner+=txt(24,height-31,`Solved distance from inlet: ${fmt(t.endX,5)} m`,'#53616b',12)+txt(616,height-31,`Channel length: ${fmt(end,5)} m`,'#53616b',12,'end')+txt(24,height-8,t.hasFanApproximation?'Direct relations + approximate fan interactions':'Direct shock relations · inspect events below','#53616b',12);
- return {inner,label:'Attached shocks, expansion fronts and slip-line interactions',meta:'Region numbers refer to the selected event · intermediate fan-front states are not numbered',field:{quantity:key,options,label,min,max,units,note:t.hasFanApproximation?'Direct relations + finite-fan approximation':'Direct shock–expansion states',palette:cornerPalette}};
+ return {inner,label:'Attached shocks, expansion fronts and slip-line interactions',meta:'Computed event-driven field · region properties are listed in the table',field:{quantity:key,options,label,min,max,units,note:t.hasFanApproximation?'Direct relations + finite-fan approximation':'Direct shock–expansion states',palette:cornerPalette}};
 }
