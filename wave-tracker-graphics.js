@@ -1,3 +1,4 @@
+import {regionLabelPosition} from './region-labels.js';
 import {channelOrdinate} from './wave-channel.js';
 import {trackingProfile} from './wave-tracker.js';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js?v=20261113-rainbow-physical';
@@ -39,14 +40,19 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'}
  for(const [name,z]of Object.entries(s.regions??{})){
   const id=z.stateId;if(!id)continue;const group=grouped.get(id)??{names:[],state:z};group.names.push(name.replace(/^Region /,''));grouped.set(id,group);
  }
- const labelCells=new Map();
- for(const slab of t.slabs)for(let i=0;i<slab.states.length;i++){
-  const id=slab.states[i].stateId;if(!grouped.has(id))continue;
-  const points=[[X(slab.left),Y(slab.bottoms[i])],[X(slab.right),Y(slab.tops[i])],[X(slab.right),Y(slab.tops[i+1])],[X(slab.left),Y(slab.bottoms[i+1])]],area=Math.abs(points.reduce((sum,a,j)=>{const b=points[(j+1)%4];return sum+a[0]*b[1]-a[1]*b[0];},0))/2;
-  if(area>(labelCells.get(id)?.area??0))labelCells.set(id,{area,points,point:points.reduce((c,p)=>[c[0]+p[0]/4,c[1]+p[1]/4],[0,0])});
- }
- for(const [id,group]of grouped){const cell=labelCells.get(id);if(!cell)continue;const [px,py]=cell.point,name=group.names.join('/'),width=Math.max(...cell.points.map(p=>p[0]))-Math.min(...cell.points.map(p=>p[0])),thickness=cell.area/Math.max(1,width);
-  inner+=`<g data-tracked-region="${name}">${txt(px,py+5,name,'#ffffff',16,'middle')}</g>`;
+ const patches=new Map(),runs=new Map();
+ const append=(points,p)=>{if(points.length>1){const a=points.at(-2),b=points.at(-1),cross=(b[0]-a[0])*(p[1]-b[1])-(b[1]-a[1])*(p[0]-b[0]);if(Math.abs(cross)<1e-6){points[points.length-1]=p;return;}}points.push(p);};
+ const finish=(id,run)=>{if(!run)return;const list=patches.get(id)??[];list.push([...run.bottom,...run.top.slice().reverse()]);patches.set(id,list);};
+ for(const slab of t.slabs){const seen=new Set();for(let i=0;i<slab.states.length;i++){
+  const id=slab.states[i].stateId;if(!grouped.has(id))continue;seen.add(id);
+  const bl=[X(slab.left),Y(slab.bottoms[i])],br=[X(slab.right),Y(slab.tops[i])],tl=[X(slab.left),Y(slab.bottoms[i+1])],tr=[X(slab.right),Y(slab.tops[i+1])];
+  let run=runs.get(id);if(run&&(Math.hypot(run.bottom.at(-1)[0]-bl[0],run.bottom.at(-1)[1]-bl[1])>1e-5||Math.hypot(run.top.at(-1)[0]-tl[0],run.top.at(-1)[1]-tl[1])>1e-5)){finish(id,run);run=null;}
+  if(!run)run={bottom:[bl],top:[tl]};append(run.bottom,br);append(run.top,tr);runs.set(id,run);
+ }for(const [id,run]of runs)if(!seen.has(id)){finish(id,run);runs.delete(id);}}
+ for(const [id,run]of runs)finish(id,run);
+ const area=poly=>Math.abs(poly.reduce((a,p,i)=>{const q=poly[(i+1)%poly.length];return a+p[0]*q[1]-p[1]*q[0];},0));
+ for(const [id,group]of grouped){const polys=(patches.get(id)??[]).filter(p=>area(p)>1e-7).sort((a,b)=>area(b)-area(a)).slice(0,8),position=regionLabelPosition(polys);if(!position)continue;const [px,py]=position.point,name=group.names.join('/');
+  inner+=`<g data-tracked-region="${name}" data-region-clearance="${position.clearance}">${txt(px,py+5,name,'#ffffff',18,'middle')}</g>`;
  }
  inner+='</g>';
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(...V(wall[i]),...V(wall[i+1]),'#111',1.6);

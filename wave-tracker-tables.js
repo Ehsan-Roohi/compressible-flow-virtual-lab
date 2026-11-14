@@ -1,6 +1,10 @@
 const degrees=a=>a*180/Math.PI;
+export function drawableTrackingEvents(r){
+ const present=new Set();for(const slab of r.tracking.slabs){if(slab.right-slab.left<=1e-10)continue;for(let i=0;i<slab.states.length;i++)if(slab.bottoms[i+1]-slab.bottoms[i]+slab.tops[i+1]-slab.tops[i]>1e-10)present.add(slab.states[i].stateId);}
+ return new Set(r.tracking.events.filter(e=>(e.bookRegions?Object.values(e.bookRegions):e.match?[e.lower,e.upper,e.match.a.after,e.match.b.after]:[e.before,e.after]).every(z=>present.has(z?.stateId))).map(e=>e.index));
+}
 export function defaultTrackingEvent(r){
- const es=r.tracking.events;return (es.find(e=>e.bookCase)??es.at(-1))?.index??null;
+ const es=r.tracking.events,visible=drawableTrackingEvents(r);return (es.find(e=>e.bookCase&&visible.has(e.index))??es.find(e=>e.match&&e.incoming.includes('Oblique shock')&&visible.has(e.index))??es.find(e=>e.type==='Wall reflection'&&visible.has(e.index))??es.find(e=>visible.has(e.index))??es[0])?.index??null;
 }
 export function selectTrackingEvent(r,index){
  const e=r.tracking.events.find(e=>e.index===Number(index))??r.tracking.events[0];

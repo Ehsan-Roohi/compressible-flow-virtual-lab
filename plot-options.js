@@ -1,4 +1,4 @@
-import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261114-final-view';
+import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261114-region-markers';
 import {pressureTurningPlot} from './pressure-turning.js?v=20261114-region-markers';
 import {ramjetPlots} from './ramjet-inlet.js?v=20261114-region-markers';
