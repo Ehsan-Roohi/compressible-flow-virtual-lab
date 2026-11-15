@@ -10,7 +10,11 @@ export function solveWedge({M=2,thetaCone=10,wedgeAlpha=0,gamma=1.4}={}){
   if(compression>limit.theta+1e-12)return {...base,status:'detached',kind:'Detached shock',reason:`${side} surface exceeds the attached-shock turn limit (${deg(limit.theta).toFixed(3)}°).`};
   try{const kind=Math.abs(compression)<1e-12?'No wave':compression>0?'Oblique shock':'Expansion fan',w=kind==='Oblique shock'?obliqueShock(M,compression,gamma):kind==='Expansion fan'?expansion(M,-compression,gamma):{M2:M,p:1,T:1,rho:1,p0:1},surface={M:w.M2,p:w.p,T:w.T,rho:w.rho,p0:w.p0,u:w.M2/M*Math.sqrt(w.T),theta:wall};return {...base,status:'ok',kind,beta:w.beta??null,wave:w,surface};}catch(e){return {...base,status:'unsupported',kind:'Model limit',reason:e.message};}
  });
- return {M,gamma,theta,alpha,faces,thetaMax:limit.theta,status:faces.every(f=>f.status==='ok')?'ok':faces.some(f=>f.status==='ok')?'partial':'detached'};
+ const factor=2/(gamma*M*M);for(const f of faces)f.Cp=f.status==='ok'?factor*(f.surface.p-1):null;
+ const [Cpu,Cpl]=faces.map(f=>f.Cp),complete=faces.every(f=>f.status==='ok');
+ const Cx=complete?(Cpu+Cpl)*Math.tan(theta):null,Cy=complete?Cpl-Cpu:null;
+ const aerodynamics={status:complete?'ok':'unavailable',Cpu,Cpl,Cx,Cy,CD:complete?Cx*Math.cos(alpha)+Cy*Math.sin(alpha):null,CL:complete?Cy*Math.cos(alpha)-Cx*Math.sin(alpha):null,referenceArea:'Axial reference length × unit span',pressureReference:'Freestream static pressure',scope:'Inclined-face excess-pressure loads only; base-pressure correction and skin friction excluded'};
+ return {M,gamma,theta,alpha,faces,aerodynamics,thetaMax:limit.theta,status:faces.every(f=>f.status==='ok')?'ok':faces.some(f=>f.status==='ok')?'partial':'detached'};
 }
 export const bodyProperties=[['M','Surface Mach','',s=>s.M],['p','Surface pressure ratio','p/p∞',s=>s.p],['T','Surface temperature ratio','T/T∞',s=>s.T],['rho','Surface density ratio','ρ/ρ∞',s=>s.rho],['p0','Stagnation-pressure recovery','p₀/p₀∞',s=>s.p0],['u','Surface speed ratio','u/u∞',s=>s.u]];
 export function solveBodyLab(x){

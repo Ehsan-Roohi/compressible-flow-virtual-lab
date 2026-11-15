@@ -6,7 +6,7 @@ import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-
 import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261114-conditional-duct';
 import {ductInputs} from './duct-input.js?v=20261112-state-inputs';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
-import {solveBodyLab,bodyPlots} from './wedge-cone.js?v=20261114-both-walls';
+import {solveBodyLab,bodyPlots} from './wedge-cone.js?v=20261115-wedge-drag';
 import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './channel-comparison.js';
 import {channelSolverName,solveShockExpansionChannel} from './channel-solver.js?v=20261114-custom-final';
 import {solveWaveTracker,trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
@@ -15,7 +15,7 @@ import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20
 import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261109-wedge-cone';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261109-wedge-cone';
-import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-remove-bent';
+import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-wedge-drag';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261110-fanno-layout';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -324,6 +324,8 @@ export function calculate(id,x){x=normalizeStateInputs(id,x);if(['rayleigh','fan
 
  else if(id==='cone'&&['Wedge','Compare both'].includes(x.bodyGeometry)){
   result=solveBodyLab({...x,gamma:g});notice=result.reason;rows=result.bodyTable.rows.flatMap(r=>r.values.map((v,i)=>({...row(`${result.bodyTable.columns[i]} · ${r.label}`,v,r.unit),panel:'body'})));
+  const aero=result.wedge.aerodynamics;
+  rows.push(row('Wedge pressure-drag coefficient C_D',aero.CD),row('Wedge lift coefficient C_L',aero.CL),row('Wedge upper-surface C_p',aero.Cpu),row('Wedge lower-surface C_p',aero.Cpl));
   rows.push(row('Maximum attached wedge turn',p.deg(result.wedge.thetaMax),'°'),row('Maximum wedge half-angle at this incidence',Math.max(0,p.deg(result.wedge.thetaMax)-Math.abs(x.wedgeAlpha??0)),'°'));if(result.cone?.limits)rows.push(row('Maximum attached cone half-angle',result.cone.limits.thetaMaxDeg,'°'),row('Minimum cone Mach for attached shock',result.cone.limits.critical.M,'Mcrit'));if(result.wallReflection){const q=result.wallReflection;rows.push(row('Reflected shock angle β',p.deg(q.shock.beta),'°'),row('Reflection location x',q.hit,'m'),row('Reflected pressure ratio',q.shock.p,'p₃/p₂'));const free=bodyInlet,dim=z=>p.state(z.M,free.T*z.T,free.p*z.p,g,R);for(const [title,z,beta]of [['Wall-side incident shock · 1 → 2',q.regions[2],q.face.beta],['Opposite-face incident shock · 1 → 4',q.regions[4],q.other.beta]])shockDetails.push(shockStateSection({kind:'oblique',title,location:'Wedge leading edge',before:dim(q.regions[1]),after:dim(z),gamma:g,R,extra:[{label:'Shock angle β',value:p.deg(beta),unit:'°'}]}));shockDetails.push(shockStateSection({kind:'oblique',title:'Reflected shock · 2 → 3',location:x.nearbyWall,before:dim(q.regions[2]),after:dim(q.regions[3]),gamma:g,R,extra:[{label:'Shock angle β',value:p.deg(q.shock.beta),unit:'°'}]}));if(q.both){const u=q.upperReflection;rows.push(row('Upper reflected shock angle β',p.deg(u.shock.beta),'°'),row('Upper reflection location x',u.hit,'m'));shockDetails.push(shockStateSection({kind:'oblique',title:'Upper reflected shock · 4 → 5',location:'Upper wall',before:dim(q.regions[4]),after:dim(q.regions[5]),gamma:g,R,extra:[{label:'Shock angle β',value:p.deg(u.shock.beta),unit:'°'}]}));}}scene={kind:result.bodyComparison?'bodyCompare':'wedge',...result};chart=bodyPlots(result)[0]?.chart??{title:'No accepted surface states',xlabel:'η',ylabel:'M',series:[]};
  }
  else if(id==='cone'){
