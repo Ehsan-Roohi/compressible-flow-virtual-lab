@@ -28,3 +28,16 @@ test('Intersecting wave families are left unresolved rather than assigned a fabr
  const view=sceneSVG({kind:'airfoil',...schematic},{});assert.match(view.field.note,/Approximate display; wave interactions are neglected/);
  assert.ok(airfoilContour(schematic).cells.length>airfoilContour(r).cells.length);
 });
+
+test('Schematic fans retain rainbow variation on both sides and disclose the local color scale',()=>{
+ const x={...defaults('airfoil'),airfoilShape:'Custom panels',alpha:15,upperSegments:[{angle:5,length:.5},{angle:-4,length:.3}],lowerSegments:[{angle:0,length:.5}]};
+ const d=calculate('airfoil',x),c=airfoilContour(d.result),fans=c.cells.filter(z=>Number.isFinite(z.fanColor));
+ for(const upper of [true,false]){
+  const colors=fans.filter(z=>upper?z.py<150:z.py>150).map(z=>z.fanColor);
+  assert.ok(Math.min(...colors)<.1);assert.ok(Math.max(...colors)>.9);
+ }
+ const local=calculate('airfoil',{...x,airfoilFieldMode:'Local analytical · resolved regions'});
+ assert.ok(airfoilContour(local.result).cells.every(z=>z.fanColor===undefined));
+ const view=sceneSVG(d.scene,d.inputs);assert.match(view.svg,/data-airfoil-approximation="true"/);assert.match(view.svg,/fan colors use local rainbow scales/);assert.match(view.field.note,/read values with cursor/);
+ assert.deepEqual(d.result.nonlinear,local.result.nonlinear);
+});
