@@ -38,3 +38,12 @@ test('Nonlinear surface states and integrated forces match independent SciPy ref
  const {readFileSync}=await import('node:fs'),refs=JSON.parse(readFileSync(new URL('./airfoil-reference.json',import.meta.url)));
  for(const ref of refs){const x={...defaults('airfoil'),...ref,geometryInput:'Dimensions',airfoilShape:ref.thickness?'Asymmetric double wedge':'Flat plate'},r=solveAirfoil(x);assert.equal(r.nonlinear.status,'ok');for(const key of ['CL','CD','CM'])near(r.nonlinear[key],ref[key],2e-9);r.nonlinear.panels.forEach((p,i)=>{near(p.Cp,ref.panels[i].Cp,2e-9);near(p.M,ref.panels[i].M,2e-9);near(p.p/r.freestream.p,ref.panels[i].p,2e-9);near(p.T/r.freestream.T,ref.panels[i].T,2e-9);});}
 });
+
+test('Airfoil incidence supports ±30° while retaining physical solution limits',()=>{
+ const x={...defaults('airfoil'),airfoilShape:'Flat plate',airfoilMethod:'Shock–Expansion',M:5};
+ const control=inputDefinitions('airfoil',x).find(v=>v.key==='alpha');assert.equal(control.min,-30);assert.equal(control.max,30);
+ const plus=solveAirfoil({...x,alpha:30}),minus=solveAirfoil({...x,alpha:-30});
+ assert.equal(plus.nonlinear.status,'ok');assert.equal(minus.nonlinear.status,'ok');near(plus.nonlinear.CL,-minus.nonlinear.CL);near(plus.nonlinear.CD,minus.nonlinear.CD);
+ assert.equal(solveAirfoil({...x,M:1.1,alpha:30}).status,'unsupported');
+ assert.throws(()=>solveAirfoil({...x,alpha:30.1}),/30°/);
+});

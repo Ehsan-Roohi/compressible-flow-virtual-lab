@@ -15,7 +15,7 @@ import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20
 import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261109-wedge-cone';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261109-wedge-cone';
-import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-airfoil-contours';
+import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-airfoil-alpha30';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261110-fanno-layout';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -117,7 +117,7 @@ export const labs={
  {key:'geometryInput',label:'Geometry definition',value:'Angles & lengths',options:['Angles & lengths','Dimensions']},
  {key:'upperSegments',label:'Upper surface segments',type:'segments',value:[{angle:4.573921259900861,length:0.5015974481593781}]},
  {key:'lowerSegments',label:'Lower surface segments',type:'segments',value:[{angle:-4.573921259900861,length:0.5015974481593781}]},
- input('M','Freestream Mach',3,1.1,20,.01,'M∞'),input('alpha','Angle of attack α',4,-10,10,.1,'°'),
+ input('M','Freestream Mach',3,1.1,20,.01,'M∞'),input('alpha','Angle of attack α',4,-30,30,.1,'°'),
  input('diamondFrontAngle','Front-panel angle magnitude',4.573921259900861,.05,84,.05,'°'),input('diamondRearAngle','Rear-panel angle magnitude',4.573921259900861,.05,84,.05,'°'),input('diamondFrontLength','Front-panel length / chord',.5015974481593781,.001,2,.001,'Lf/c'),input('diamondRearLength','Rear-panel length / chord',.5015974481593781,.001,2,.001,'Lr/c'),
  input('thickness','Maximum thickness',.08,0,.2,.001,'t/c'),input('peak','Peak location',.5,.15,.85,.01,'x/c'),input('camber','Peak camber',0,-.08,.08,.001,'y/c'),
  {key:'upperProfile',label:'Upper vertices · x/c,y/c',type:'textarea',value:'0,0; 0.3,0.04; 0.7,0.03; 1,0'},

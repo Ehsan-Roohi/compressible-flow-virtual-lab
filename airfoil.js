@@ -66,7 +66,7 @@ export function airfoilForces(panels,cps,alpha=0,linear=false){
 }
 export function solveAirfoil(x){
  const {M,alpha=0,gamma:g=1.4,R=287,T1=300,p1=101}=x;
- requireValue(finite(M,alpha,T1,p1)&&M>=1.1&&M<=20&&Math.abs(alpha)<=10&&T1>0&&p1>0,'Require 1.1 ≤ M ≤ 20, |α| ≤ 10°, and positive freestream temperature and pressure.');
+ requireValue(finite(M,alpha,T1,p1)&&M>=1.1&&M<=20&&Math.abs(alpha)<=30&&T1>0&&p1>0,'Require 1.1 ≤ M ≤ 20, |α| ≤ 30°, and positive freestream temperature and pressure.');
  const geometry=airfoilGeometry(x),a=rad(alpha),B=Math.sqrt(M*M-1),freestream={...state(M,T1,p1*1000,g,R),theta:a},q=.5*g*freestream.p*M*M;
  const linearPanels=geometry.panels.map(p=>({...p,Cp:(p.side==='Upper'?1:-1)*2*(p.slope-a)/B}));
  const linear={status:'ok',panels:linearPanels,...airfoilForces(geometry.panels,linearPanels.map(p=>p.Cp),a,true),potential:[]};
