@@ -24,6 +24,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
 
  if(schematic&&contour)inner+=`<g data-airfoil-approximation="true">${txt(24,s.geometry.diamond?43:28,'Physical colors outside overlaps · schematic colors in overlaps','#263c4d',12)}</g>`;
+ if(s.geometry.bentPlate){const b=s.geometry.bentPlate,p=s.geometry.panels.filter(p=>p.side==='Upper');inner+=txt(24,43,`h/c = ${fmt(b.height,4)} · xᵦ/c = ${fmt(b.position,4)} · θ₁ = ${fmt(p[0].theta*180/Math.PI,4)}° · θ₂ = ${fmt(p[1].theta*180/Math.PI,4)}°`,'#263c4d',12);}
  if(s.geometry.diamond){const q=s.geometry.diamond;inner+=txt(24,28,`θf = ${fmt(q.diamondFrontAngle,4)}° · θr = ${fmt(q.diamondRearAngle,4)}° · Lf/c = ${fmt(q.diamondFrontLength,4)} · Lr/c = ${fmt(q.diamondRearLength,4)}`,'#263c4d',12);}
  if(contour){
   const paths=new Map(),valid=[],size=contour.step;let run=null,colorRun=null;
