@@ -1,4 +1,4 @@
-import {solveTrailingEdge} from './airfoil-trailing.js?v=20261108-trailing-edge';
+import {solveTrailingEdge} from './airfoil-trailing.js?v=20261115-connected-plates';
 import {state,obliqueShock,expansion,rad,deg,isentropic,PhysicsError} from './physics.js';
 import {requireValue,finite} from './numerics.js';
 const point=(x,y)=>({x,y});
@@ -64,6 +64,16 @@ export function automaticSurface(segments,label='Plate',max=20){
  requireValue(lengths.every(v=>v>1e-8)&&points.every(p=>Math.abs(p.y)<=.3),`${label}: adjusted geometry needs a negligible panel or exceeds |y/c| = 0.3. Change target proportions or angles.`);
  points[points.length-1]=point(1,0);return {points,lengths,closing:null};
 }
+export function connectedSurface(segments,label='Plate',max=20){
+ requireValue(Array.isArray(segments)&&segments.length>=1&&segments.length<=max,`${label}: enter 1–${max} connected panels.`);
+ const physical=[point(0,0)];
+ for(const [i,p]of segments.entries()){
+  requireValue(finite(p.angle,p.length)&&Math.abs(p.angle)<85&&p.length>0,`${label} panel ${i+1}: require |angle| < 85° and a positive length in metres.`);
+  const a=physical.at(-1);physical.push(point(a.x+p.length*Math.cos(rad(p.angle)),a.y+p.length*Math.sin(rad(p.angle))));
+ }
+ const ref=physical.at(-1).x;requireValue(physical.every(p=>finite(p.x,p.y))&&Number.isFinite(ref)&&ref>1e-10,'The connected plate must have a positive horizontal extent.');
+ return {points:physical.map(p=>point(p.x/ref,p.y/ref)),lengths:segments.map(p=>p.length),closing:null,physical,reference:ref};
+}
 export const surfaceSegments=(points,includeClosing=false)=>points.slice(0,includeClosing?-1:-2).map((p,i)=>{const b=points[i+1];return {angle:deg(Math.atan2(b.y-p.y,b.x-p.x)),length:Math.hypot(b.x-p.x,b.y-p.y)};});
 export function presetSegments(x){
  const camber=x.airfoilShape==='Diamond'?0:x.camber??0,t=x.thickness??.08,peak=x.peak??.5;
@@ -89,9 +99,10 @@ function diamondPoints(x){
 }
 const ordinate=(points,x)=>{let i=0;while(i<points.length-2&&points[i+1].x<x)i++;const a=points[i],b=points[i+1];return a.y+(b.y-a.y)*(x-a.x)/(b.x-a.x);};
 export function airfoilGeometry(x){
- requireValue(['Flat plate','Bent flat plate','Diamond','Asymmetric double wedge','Custom panels'].includes(x.airfoilShape),'Choose a supported sharp airfoil geometry.');
- let upper,lower;const angleMode=x.geometryInput==='Angles & lengths';
+ requireValue(['Flat plate','Bent flat plate','Connected flat plates','Diamond','Asymmetric double wedge','Custom panels'].includes(x.airfoilShape),'Choose a supported sharp airfoil geometry.');
+ let upper,lower,connected;const angleMode=x.geometryInput==='Angles & lengths';
  if(x.airfoilShape==='Flat plate'){upper=[point(0,0),point(1,0)];lower=upper.map(p=>({...p}));}
+ else if(x.airfoilShape==='Connected flat plates'){connected=connectedSurface(x.upperSegments);upper=connected.points;lower=upper.map(p=>({...p}));}
  else if(x.airfoilShape==='Bent flat plate'){
   if(x.plateDefinition==='Multiple panels')upper=(x.plateLengthMode==='Keep earlier lengths'?constrainedSurface:automaticSurface)(x.upperSegments,'Plate',20).points;
   else{
@@ -112,7 +123,7 @@ export function airfoilGeometry(x){
  const panels=[];for(const [side,points]of [['Upper',upper],['Lower',lower]])for(let i=0;i<points.length-1;i++){
   const a=points[i],b=points[i+1],dx=b.x-a.x,dy=b.y-a.y;panels.push({id:`${side[0]}${i+1}`,side,index:i,a,b,dx,dy,slope:dy/dx,theta:Math.atan2(dy,dx),length:Math.hypot(dx,dy),automatic:angleMode&&!(x.airfoilShape==='Custom panels'&&(side==='Upper'?x.upperSegments:x.lowerSegments).length>=2)&&i===points.length-2,automaticLength:angleMode&&x.airfoilShape==='Custom panels'&&(side==='Upper'?x.upperSegments:x.lowerSegments).length>=2&&i>=points.length-3});
  }
- return {upper,lower,panels,...(x.airfoilShape==='Bent flat plate'?{bentPlate:{multiple:x.plateDefinition==='Multiple panels',height:x.bendHeight??.12,position:x.bendPosition??.5}}:{}),...(x.airfoilShape==='Diamond'?{diamond:diamondInputValues({upper})}:{})};
+ return {upper,lower,panels,...(connected?{connectedPlate:connected}:{}),...(x.airfoilShape==='Bent flat plate'?{bentPlate:{multiple:x.plateDefinition==='Multiple panels',height:x.bendHeight??.12,position:x.bendPosition??.5}}:{}),...(x.airfoilShape==='Diamond'?{diamond:diamondInputValues({upper})}:{})};
 }
 export function airfoilForces(panels,cps,alpha=0,linear=false){
  let Cx=0,Cy=0,CM=0;panels.forEach((p,i)=>{const sign=p.side==='Upper'?1:-1,fx=sign*cps[i]*p.dy,fy=-sign*cps[i]*p.dx;Cx+=fx;Cy+=fy;CM+=(linear?0:(p.a.y+p.b.y)/2*fx)-((p.a.x+p.b.x)/2-.25)*fy;});
@@ -144,7 +155,7 @@ export function solveAirfoil(x){
   }
   Object.assign(nonlinear,airfoilForces(geometry.panels,nonlinear.panels.map(p=>p.Cp),a));
  }catch(e){if(!(e instanceof PhysicsError))throw e;nonlinear={status:'unsupported',reason:e.message,panels:[],waves:[]};}
- const trailingEdge=nonlinear.status==='ok'?solveTrailingEdge(nonlinear.panels.filter(p=>p.side==='Upper').at(-1),nonlinear.panels.filter(p=>p.side==='Lower').at(-1),g,R):{status:'unavailable',reason:'An accepted supersonic Shock–Expansion surface solution is required.'};
+ const trailingEdge=nonlinear.status==='ok'?solveTrailingEdge(nonlinear.panels.filter(p=>p.side==='Upper').at(-1),nonlinear.panels.filter(p=>p.side==='Lower').at(-1),g,R,geometry.upper.at(-1)):{status:'unavailable',reason:'An accepted supersonic Shock–Expansion surface solution is required.'};
  const method=x.airfoilMethod??'Compare both',models=method==='Linearized theory'?['linear']:method==='Shock–Expansion'?['nonlinear']:['linear','nonlinear'];
  const warnings=[];if(models.includes('linear')&&(Math.max(...geometry.panels.map(p=>Math.abs(p.theta-a)))>rad(6)||M<1.4))warnings.push('Small-disturbance approximation is strained; compare the methods carefully.');if(models.includes('nonlinear')&&nonlinear.status!=='ok')warnings.push('Shock–Expansion unavailable: '+nonlinear.reason);
  return {airfoilFieldMode:x.airfoilFieldMode??'Before first wave interaction',gamma:g,R,trailingEdge,status:models.length===1&&models[0]==='nonlinear'&&nonlinear.status!=='ok'?'unsupported':'ok',geometry,linear,nonlinear,models,freestream,q,alpha:a,warning:warnings.join(' ')||null};

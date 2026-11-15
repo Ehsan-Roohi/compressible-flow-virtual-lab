@@ -1,4 +1,5 @@
-import {airfoilDomain,limitedAirfoil} from './airfoil-domain.js';
+import {airfoilView} from './airfoil-view.js?v=20261115-connected-plates';
+import {airfoilDomain,limitedAirfoil} from './airfoil-domain.js?v=20261115-connected-plates';
 import {state,prandtlMeyer} from './physics.js';
 import {airfoilRegionLabel,isFlatPlate} from './airfoil-region-labels.js?v=20261115-plate-regions';
 const cache=new WeakMap();
@@ -15,7 +16,7 @@ export function airfoilFieldSampler(s){
   if(x<0)return {...s.freestream,region:s.geometry.diamond||isFlatPlate(s)?'1':'∞'};
   let side;
   if(x<=1){const up=ordinate(s.geometry.upper,x),lo=ordinate(s.geometry.lower,x);if(y<up-1e-10&&y>lo+1e-10)return null;side=y>=up?'Upper':'Lower';}
-  else{if(s.trailingEdge?.status!=='ok')return null;side=y>=Math.tan(s.trailingEdge.phi)*(x-1)?'Upper':'Lower';}
+  else{if(s.trailingEdge?.status!=='ok')return null;side=y>=s.geometry.upper.at(-1).y+Math.tan(s.trailingEdge.phi)*(x-1)?'Upper':'Lower';}
   let z=s.freestream,region=s.geometry.diamond||isFlatPlate(s)?'1':'∞',ready=true,approximate=false,lastUniform=null;
   for(const {w,sign,fan}of sides[side]){
    if(x<w.origin.x-1e-10||w.kind==='No wave')continue;
@@ -40,9 +41,9 @@ export function airfoilFieldSampler(s){
 }
 export function airfoilContour(s,quantity='pressure'){
  const sampler=airfoilFieldSampler(s);if(!sampler)return null;
- const domain=limitedAirfoil(s)?airfoilDomain(s):null;
+ const domain=limitedAirfoil(s)?airfoilDomain(s):null,{scale,leadingX,originY}=airfoilView(s);
  const key=quantity in airfoilFieldProperties?quantity:'pressure',property=airfoilFieldProperties[key],cells=[];let min=Infinity,max=-Infinity;
- for(let py=46;py<234;py+=1)for(let px=20;px<620;px+=1){if(domain&&(px+.5-84)/350>domain.limit)continue;const z=sampler.sample((px+.5-84)/350,(150-py-.5)/350);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,fan:z.region==='Expansion fan'});}
+ for(let py=46;py<234;py+=1)for(let px=20;px<620;px+=1){if(domain&&(px+.5-leadingX)/scale>domain.limit)continue;const z=sampler.sample((px+.5-leadingX)/scale,(originY-py-.5)/scale);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,fan:z.region==='Expansion fan'});}
  return {key,property,cells,min,max,step:1,domain};
 }
-export function probeAirfoilField(s,px,py){if(px<20||px>620||py<46||py>234||limitedAirfoil(s)&&(px-84)/350>airfoilDomain(s).limit)return null;return airfoilFieldSampler(s)?.sample((px-84)/350,(150-py)/350)??null;}
+export function probeAirfoilField(s,px,py){const {scale,leadingX,originY}=airfoilView(s);if(px<20||px>620||py<46||py>234||limitedAirfoil(s)&&(px-leadingX)/scale>airfoilDomain(s).limit)return null;return airfoilFieldSampler(s)?.sample((px-leadingX)/scale,(originY-py)/scale)??null;}

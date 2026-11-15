@@ -1,4 +1,4 @@
-import {probeAirfoilField} from './airfoil-field.js?v=20261115-edit-lengths';
+import {probeAirfoilField} from './airfoil-field.js?v=20261115-connected-plates';
 import {shockFanMode,shockFanPreset} from './shock-fan-example.js?v=20261114-final-view';
 import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
@@ -21,20 +21,20 @@ import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selec
 import {probeTracking} from './wave-tracker-graphics.js?v=20261115-event-no-numbers';
 import {chapter6Example} from './regular-channel.js?v=20261109-wedge-cone';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
-import {airfoilTables} from './airfoil-tables.js?v=20261115-plate-regions';
-import {airfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261115-edit-lengths';
+import {airfoilTables} from './airfoil-tables.js?v=20261115-connected-plates';
+import {airfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261115-connected-plates';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261115-edit-lengths';
+import {plotOptions} from './plot-options.js?v=20261115-connected-plates';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261115-edit-lengths';
-import {sceneSVG,chartSVG,fmt} from './graphics.js?v=20261115-edit-lengths';
+import {labs,chapters,defaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261115-connected-plates';
+import {sceneSVG,chartSVG,fmt} from './graphics.js?v=20261115-connected-plates';
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingWaveShape=null,pendingBookCase=null,pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261115-edit-lengths',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261115-connected-plates',import.meta.url),{type:'module'});
 function renderNav(){ $('chapters').innerHTML=chapters.map(([n,title,,ids])=>`<a href="#${ids[0]}" class="${ids.includes(id)?'active':''}" ${ids.includes(id)?'aria-current="page"':''}><span><span class="nav-title">${title}</span></span></a>`).join('');}
 function openLab(){stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;let next=location.hash.slice(1)||'rayleigh';if(['oblique','expansion'].includes(next)){pendingLegacyCorner=next;pendingWaveShape=next==='oblique'?'Compression ramp':'Expansion corner';location.hash='wall';return;}if(next==='balances'){location.hash='foundations';return;}if(next==='linear'){location.hash='airfoil';return;}if(!labs[next]){location.hash='rayleigh';return;}id=next;current=null;stopAnimation();inputs=defaults(id);try{let saved=JSON.parse(localStorage.getItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':'')));if(saved&&typeof saved==='object'){for(let k in inputs)if(k in saved)inputs[k]=saved[k];if(id==='wall'&&saved.theta===undefined&&saved.wallSegments?.length)inputs.theta=Math.abs(saved.wallSegments[0].angle);if(id==='airfoil'&&!saved.geometryInput){const old=airfoilGeometry({...inputs,geometryInput:inputs.airfoilShape==='Custom panels'?'Coordinates':'Dimensions'});inputs.upperSegments=surfaceSegments(old.upper,inputs.airfoilShape==='Custom panels');inputs.lowerSegments=surfaceSegments(old.lower,inputs.airfoilShape==='Custom panels');inputs.geometryInput='Angles & lengths';}if(['oblique','expansion'].includes(id)&&saved.cornerColorVersion!==1)inputs.cornerView='Analytical contours';}}catch{}inputs.fluid=gasInfo(inputs).name;if(pendingWaveShape){if(id==='wall'){if(pendingWaveShape===ramjetMode)inputs={...inputs,...ramjetPreset};inputs.wallShape=pendingWaveShape;if(pendingWaveShape!=='Custom wall'&&pendingWaveShape!==ramjetMode&&pendingWaveShape!==shockFanMode){inputs.boundaryMode='Single wall';inputs.theta=Math.abs(wallPresets[pendingWaveShape][0].angle);}if(pendingWaveShape===shockFanMode)inputs={...inputs,...shockFanPreset};if(pendingWaveShape!==ramjetMode&&pendingWaveShape!==shockFanMode)inputs.wallSegments=wallPresets[pendingWaveShape].map(p=>({...p,angle:p.angle*(inputs.wallSide==='Gas below wall'?-1:1)}));}if(id==='collision'){inputs.interactionType=pendingWaveShape;inputs.geometryMode='Custom geometry';}pendingWaveShape=null;}if(pendingBookCase){inputs={...inputs,...chapter6Example(pendingBookCase)};pendingBookCase=null;}if(pendingLegacyCorner&&id==='wall'){let legacy=defaults(pendingLegacyCorner);try{legacy={...legacy,...JSON.parse(localStorage.getItem('gdvl-inputs-'+pendingLegacyCorner)||'{}')};}catch{}for(const key of ['M1','T1','p1','gamma','R','fluid','branch','cornerView','theta'])if(legacy[key]!==undefined)inputs[key]=legacy[key];inputs.wallSide='Gas above wall';pendingLegacyCorner=null;}if(pendingCustomChannel&&id==='wall'){inputs.wallShape='Custom wall';inputs.boundaryMode='Channel';inputs.channelSolver='Shock–Expansion';pendingCustomChannel=false;}if(id==='collision')inputs.geometryMode='Custom geometry';if(id==='wall')inputs.channelSolver=channelSolverName(inputs.channelSolver);let l=labs[id];$('labTitle').textContent=l.chapter===6?'Supersonic Wave Lab':l.title;$('description').textContent=l.description;$('model').textContent=l.model;$('limitations').textContent=l.limitations;let chapter=chapters.find(x=>x[0]===l.chapter);$('labTabs').hidden=l.chapter===6||chapter[3].length<2;$('labTabs').innerHTML=l.chapter===6||chapter[3].length<2?'':chapter[3].map(k=>`<button type="button" data-lab="${k}" class="${id===k?'active':''}">${labs[k].title}</button>`).join('');$('labTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>location.hash=b.dataset.lab);renderNav();renderInputs();solve();}
 const waveShapes=['Compression ramp','Expansion corner','Custom wall',ramjetMode];
@@ -60,14 +60,14 @@ function bindWallSegments(f){
  box.querySelector('.segment-add').onclick=()=>{if(inputs[key].length>=8)return;inputs[key]=[...inputs[key],{angle:inputs[key].at(-1).angle,length:1}];inputs.wallShape='Custom wall';renderInputs();request++;schedule();};
 }
 function segmentEditor(f){
- const values=inputs[f.key]??[],max=['Custom panels','Bent flat plate'].includes(inputs.airfoilShape)?20:1,side=inputs.airfoilShape==='Bent flat plate'?'Plate':f.key==='upperSegments'?'Upper':'Lower',constrained=['Custom panels','Bent flat plate'].includes(inputs.airfoilShape)&&values.length>=2,adjustAll=inputs.airfoilShape==='Bent flat plate'&&inputs.plateLengthMode!=='Keep earlier lengths';
- return `<div id="value-${f.key}" class="segment-editor" role="group" aria-label="${side} segment geometry"><table><thead><tr><th>#</th><th>Angle (°)</th><th>${adjustAll?'Target L/c':'L/c'}</th>${adjustAll?'<th>Adjusted L/c</th>':''}<th></th></tr></thead><tbody>${values.map((p,i)=>`<tr><th>${i+1}</th><td><input type="number" step="any" inputmode="decimal" data-index="${i}" data-property="angle" value="${Number.isFinite(p.angle)?fmt(p.angle,6):''}" aria-label="${side} segment ${i+1} angle"></td><td><input type="number" step="any" inputmode="decimal" data-index="${i}" data-property="length" ${!adjustAll&&(constrained||values.length===1&&Math.abs(p.angle)<1e-12)&&i>=values.length-2?'readonly title="Calculated to close at the trailing edge"':''} value="${Number.isFinite(p.length)?fmt(p.length,6):''}" aria-label="${side} segment ${i+1} length"></td>${adjustAll?`<td data-adjusted-length="${i}">—</td>`:''}<td><button type="button" data-remove="${i}" aria-label="Remove ${side.toLowerCase()} segment ${i+1}">×</button></td></tr>`).join('')}<tr class="segment-auto" data-closing-row><th>Closing</th><td data-closing-angle>—</td><td data-closing-length>—</td><td></td></tr></tbody></table><button type="button" class="segment-add" ${values.length>=max?'disabled':''}>+ Add segment</button><p class="control-hint" data-closure-message></p></div>`;
+ const values=inputs[f.key]??[],chain=inputs.airfoilShape==='Connected flat plates',max=['Custom panels','Bent flat plate','Connected flat plates'].includes(inputs.airfoilShape)?20:1,side=['Bent flat plate','Connected flat plates'].includes(inputs.airfoilShape)?'Plate':f.key==='upperSegments'?'Upper':'Lower',constrained=['Custom panels','Bent flat plate'].includes(inputs.airfoilShape)&&values.length>=2,adjustAll=inputs.airfoilShape==='Bent flat plate'&&inputs.plateLengthMode!=='Keep earlier lengths';
+ return `<div id="value-${f.key}" class="segment-editor" role="group" aria-label="${side} segment geometry"><table><thead><tr><th>#</th><th>Angle (°)</th><th>${chain?'Length (m)':adjustAll?'Target L/c':'L/c'}</th>${adjustAll?'<th>Adjusted L/c</th>':''}<th></th></tr></thead><tbody>${values.map((p,i)=>`<tr><th>${i+1}</th><td><input type="number" step="any" inputmode="decimal" data-index="${i}" data-property="angle" value="${Number.isFinite(p.angle)?fmt(p.angle,6):''}" aria-label="${side} segment ${i+1} angle"></td><td><input type="number" step="any" inputmode="decimal" data-index="${i}" data-property="length" ${!chain&&!adjustAll&&(constrained||values.length===1&&Math.abs(p.angle)<1e-12)&&i>=values.length-2?'readonly title="Calculated to close at the trailing edge"':''} value="${Number.isFinite(p.length)?fmt(p.length,6):''}" aria-label="${side} segment ${i+1} length"></td>${adjustAll?`<td data-adjusted-length="${i}">—</td>`:''}<td><button type="button" data-remove="${i}" aria-label="Remove ${side.toLowerCase()} segment ${i+1}">×</button></td></tr>`).join('')}<tr class="segment-auto" data-closing-row><th>Closing</th><td data-closing-angle>—</td><td data-closing-length>—</td><td></td></tr></tbody></table><button type="button" class="segment-add" ${values.length>=max?'disabled':''}>+ Add segment</button><p class="control-hint" data-closure-message></p></div>`;
 }
 function updateClosingSegment(key){
  const box=$('value-'+key);if(!box)return;
- const constrained=['Custom panels','Bent flat plate'].includes(inputs.airfoilShape)&&inputs[key].length>=2,adjustAll=inputs.airfoilShape==='Bent flat plate'&&inputs.plateLengthMode!=='Keep earlier lengths';
- let z,error;try{z=(adjustAll?automaticSurface:constrained?constrainedSurface:segmentSurface)(inputs[key],key==='upperSegments'?'Upper surface':'Lower surface',['Custom panels','Bent flat plate'].includes(inputs.airfoilShape)?20:1);}catch(e){error=e.message;}
- box.querySelector('[data-closing-row]').hidden=adjustAll||constrained||!!z&&!z.closing;
+ const chain=inputs.airfoilShape==='Connected flat plates',constrained=['Custom panels','Bent flat plate'].includes(inputs.airfoilShape)&&inputs[key].length>=2,adjustAll=inputs.airfoilShape==='Bent flat plate'&&inputs.plateLengthMode!=='Keep earlier lengths';
+ let z,error;try{z=(chain?connectedSurface:adjustAll?automaticSurface:constrained?constrainedSurface:segmentSurface)(inputs[key],key==='upperSegments'?'Upper surface':'Lower surface',['Custom panels','Bent flat plate','Connected flat plates'].includes(inputs.airfoilShape)?20:1);}catch(e){error=e.message;}
+ box.querySelector('[data-closing-row]').hidden=chain||adjustAll||constrained||!!z&&!z.closing;
  box.querySelector('[data-closing-angle]').textContent=z?.closing?fmt(z.closing.angle,6):'—';
  box.querySelector('[data-closing-length]').textContent=z?.closing?fmt(z.closing.length,6):'—';
  for(const input of box.querySelectorAll('input[data-property="length"]'))if(input.readOnly){
@@ -75,7 +75,7 @@ function updateClosingSegment(key){
   if(Number.isFinite(value))inputs[key][i]={...inputs[key][i],length:value};
  }
  for(const cell of box.querySelectorAll('[data-adjusted-length]')){const v=z?.lengths?.[Number(cell.dataset.adjustedLength)];cell.textContent=Number.isFinite(v)?fmt(v,8):'—';}
- box.querySelector('[data-closure-message]').textContent=error??(adjustAll?'All target lengths are editable. Adjusted lengths satisfy trailing-edge closure while retaining the target proportions as closely as possible.':constrained?'The final two lengths are calculated from the angles to meet at x/c = 1, y/c = 0. No extra panel is added.':z?.closing?'The closing panel reaches x/c = 1, y/c = 0. Its angle and length are calculated.':'Surface ends at the trailing edge; no extra panel is added.');
+ box.querySelector('[data-closure-message]').textContent=error??(chain?'Angles are measured from horizontal; lengths are in metres. Panels connect exactly as entered. No automatic closure or length adjustment.':adjustAll?'All target lengths are editable. Adjusted lengths satisfy trailing-edge closure while retaining the target proportions as closely as possible.':constrained?'The final two lengths are calculated from the angles to meet at x/c = 1, y/c = 0. No extra panel is added.':z?.closing?'The closing panel reaches x/c = 1, y/c = 0. Its angle and length are calculated.':'Surface ends at the trailing edge; no extra panel is added.');
 }
 
 function bindSegmentEditor(f){
@@ -83,8 +83,9 @@ function bindSegmentEditor(f){
  for(const n of box.querySelectorAll('input'))n.oninput=()=>{const index=Number(n.dataset.index),property=n.dataset.property;inputs[f.key]=inputs[f.key].map((p,i)=>i===index?{...p,[property]:n.value.trim()===''?NaN:Number(n.value)}:p);changed();};
  for(const button of box.querySelectorAll('[data-remove]'))button.onclick=()=>{inputs[f.key]=inputs[f.key].filter((_,i)=>i!==Number(button.dataset.remove));renderInputs();changed();};
  box.querySelector('.segment-add').onclick=()=>{
-  const values=inputs[f.key];if(values.length>=(['Custom panels','Bent flat plate'].includes(inputs.airfoilShape)?20:1))return;
-  if(values.length>=2){const i=values.length-2,p=values[i];inputs[f.key]=[...values.slice(0,i),{...p,length:p.length/2},{...p,length:p.length/2},...values.slice(i+1)];}
+  const values=inputs[f.key];if(values.length>=(['Custom panels','Bent flat plate','Connected flat plates'].includes(inputs.airfoilShape)?20:1))return;
+  if(inputs.airfoilShape==='Connected flat plates'){const p=values.at(-1)??{angle:0,length:1};inputs[f.key]=[...values,{...p}];}
+  else if(values.length>=2){const i=values.length-2,p=values[i];inputs[f.key]=[...values.slice(0,i),{...p,length:p.length/2},{...p,length:p.length/2},...values.slice(i+1)];}
   else if(values.length===1)inputs[f.key]=[...values,{angle:-values[0].angle,length:values[0].length}];
   else inputs[f.key]=[{angle:0,length:1}];
   renderInputs();changed();
@@ -103,9 +104,10 @@ function changeAirfoilGeometry(key,value){
  }
  if(key==='airfoilShape'){
   inputs.geometryInput='Angles & lengths';
+  if(value==='Connected flat plates'&&previous)inputs.upperSegments=surfaceSegments(previous.upper,true);
   if(value==='Bent flat plate'&&inputs.plateDefinition==='Multiple panels'&&previous)inputs.upperSegments=surfaceSegments(previous.upper,true);
   if(value==='Custom panels'&&previous){inputs.upperSegments=surfaceSegments(previous.upper,inputs.airfoilShape==='Custom panels');inputs.lowerSegments=surfaceSegments(previous.lower,inputs.airfoilShape==='Custom panels');}
-  else if(!['Flat plate','Bent flat plate'].includes(value)){const preset=presetSegments({...inputs,camber:value==='Asymmetric double wedge'?(inputs.camber||.01):0});inputs.upperSegments=preset.upper;inputs.lowerSegments=preset.lower;if(value==='Diamond'){Object.assign(inputs,diamondInputValues(airfoilGeometry(inputs)));inputs.geometryInput='Angle & length ratio';}}
+  else if(!['Flat plate','Bent flat plate','Connected flat plates'].includes(value)){const preset=presetSegments({...inputs,camber:value==='Asymmetric double wedge'?(inputs.camber||.01):0});inputs.upperSegments=preset.upper;inputs.lowerSegments=preset.lower;if(value==='Diamond'){Object.assign(inputs,diamondInputValues(airfoilGeometry(inputs)));inputs.geometryInput='Angle & length ratio';}}
  }
  renderInputs();request++;schedule();
 }
@@ -121,6 +123,7 @@ function arrangeWallInputs(){
  for(const key of ['wallSegments','upperWallSegments']){const editor=$('editor-'+key);if(editor)$('wallEditorControls').append(editor.closest('.input-group'));}
  for(const key of ['upperSegments','lowerSegments','upperProfile','lowerProfile']){const control=$('value-'+key);if(control)$('wallEditorControls').append(control.closest('.input-group'));}
  for(const key of ['trackingStep','trackingRefine','mocResolution','mocLines']){const control=$('value-'+key);if(control)$('wallSolverControls').append(control.closest('.input-group'));}
+ if(id==='airfoil'&&inputs.airfoilShape==='Connected flat plates'){const hint=document.createElement('p');hint.className='control-hint';hint.style.gridColumn='1 / -1';hint.textContent='Enter each absolute panel angle to horizontal and its length in metres. Panels connect end-to-end with zero thickness; the final point is free. No lengths are changed.';$('wallSetupControls').append(hint);}
  if(id==='airfoil'&&inputs.airfoilShape==='Bent flat plate'){const hint=document.createElement('p');hint.className='control-hint';hint.style.gridColumn='1 / -1';hint.textContent=inputs.plateDefinition==='Multiple panels'?'Zero thickness: both sides share the same plate. Add/remove up to 20 panels and set their absolute angles. Target lengths can be adjusted automatically to meet the trailing edge.':'Zero thickness: both sides follow the same two-panel path. h/c is camber height, not thickness. Panel angles and lengths are calculated; the trailing edge remains at x/c = 1, y/c = 0.';$('wallSetupControls').append(hint);}
  if(id==='airfoil'&&inputs.airfoilShape==='Diamond'){const hint=document.createElement('p');hint.className='control-hint';hint.style.gridColumn='1 / -1';hint.textContent='Upper and lower surfaces are mirrored. Angles are magnitudes relative to the chord; L/c is the actual inclined panel length divided by chord.';$('wallSetupControls').append(hint);}
  $('wallSolverSettings').hidden=!$('wallSolverControls').children.length;
