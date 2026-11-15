@@ -1,5 +1,5 @@
 import {readableInk} from './scene-labels.js';
-import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js?v=20261115-plate-regions';
+import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js?v=20261115-airfoil-schematic';
 import {airfoilRegionLabel,airfoilShockLabel,isFlatPlate} from './airfoil-region-labels.js?v=20261115-plate-regions';
 const airfoilPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function surfaceColor(t){
@@ -14,6 +14,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  const model=available?'nonlinear':s.models.includes('linear')?'linear':null,z=model?s[model]:null;
  const trailing=available&&s.trailingEdge?.status==='ok'?s.trailingEdge:null;
  const L=350,leadingX=84,trailingX=leadingX+L,V=p=>[leadingX+p.x*L,150-p.y*L];
+ const schematic=s.airfoilFieldMode==='Schematic · independent waves';
  const contour=available?airfoilContour(s,quantity):null,sampler=airfoilFieldSampler(s);
  const cps=z?.panels.map(p=>p.Cp)??[],min=cps.length?Math.min(...cps):0,max=cps.length?Math.max(...cps):0;
  const color=v=>surfaceColor(max-min<1e-12?.5:(v-min)/(max-min));
@@ -93,5 +94,5 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  inner+=line(100,289,122,289,'#000000',1.35)+txt(129,293,'Shock','#53616b',12)+line(217,289,239,289,'#477caa',.95)+txt(246,293,'Expansion fan','#53616b',12);
  if(trailing)inner+=line(415,289,437,289,'#344652',1,'5 4')+txt(444,293,trailing.interfaceKind,'#53616b',12);
  if(contour)inner=inner.replace(/<text\b([^>]*)>/g,(tag,a)=>{const px=Number(a.match(/\bx="([^"]+)"/)?.[1]),py=Number(a.match(/\by="([^"]+)"/)?.[1]);if(px<20||px>620||py<46||py>234)return tag;const z=sampler.sample((px-leadingX)/L,(150-py+6)/L);if(!z)return tag;const value=contour.property.read(z,s),ink=readableInk(surfaceColor((value-contour.min)/(contour.max-contour.min||1)));return tag.replace(/fill="[^"]*"/,`fill="${ink}"`);});
- return {inner,label:'Analytical airfoil wave field',meta:'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
+ return {inner,label:schematic?'Schematic airfoil contours':'Analytical airfoil wave field',meta:schematic?'Approximate display; wave interactions are neglected.':'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:schematic?'Approximate display; wave interactions are neglected. · β relative to local upstream flow':'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
 }

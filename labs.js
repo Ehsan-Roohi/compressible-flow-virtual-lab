@@ -15,7 +15,7 @@ import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20
 import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261109-wedge-cone';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261109-wedge-cone';
-import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-airfoil-alpha30';
+import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-airfoil-schematic';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261110-fanno-layout';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -113,6 +113,7 @@ export const labs={
  ],model:'Steady, adiabatic quasi-1D ideal-gas flow · isentropic sections',equation:'A/A* = M⁻¹ [2(1 + (γ − 1)M²/2)/(γ + 1)]^[(γ + 1)/(2(γ − 1))]',limitations:'Cross-section-averaged analytical model. Full external jets and flow separation are not resolved.'},
  airfoil:{chapter:9,title:'Supersonic Airfoil Lab',tag:'CHAPTER 9 · TWO METHODS',description:'Compare shock–expansion and linearized predictions on the same sharp airfoil, inspect panel states and recover the linearized surface potential.',inputs:[
  {key:'airfoilMethod',label:'Solution method',value:'Compare both',options:['Compare both','Shock–Expansion','Linearized theory']},
+ {key:'airfoilFieldMode',label:'Contour model',value:'Schematic · independent waves',options:['Schematic · independent waves','Local analytical · resolved regions']},
  {key:'airfoilShape',label:'Airfoil geometry',value:'Diamond',options:['Flat plate','Diamond','Asymmetric double wedge','Custom panels']},
  {key:'geometryInput',label:'Geometry definition',value:'Angles & lengths',options:['Angles & lengths','Dimensions']},
  {key:'upperSegments',label:'Upper surface segments',type:'segments',value:[{angle:4.573921259900861,length:0.5015974481593781}]},
@@ -142,6 +143,7 @@ function experimentInputs(id,x={}){
  }
  if(id==='airfoil')return labs.airfoil.inputs.filter(f=>{
   const flat=x.airfoilShape==='Flat plate',custom=x.airfoilShape==='Custom panels',angles=x.geometryInput==='Angles & lengths';
+  if(f.key==='airfoilFieldMode')return x.airfoilMethod!=='Linearized theory';
   if(f.key==='geometryInput')return custom||x.airfoilShape==='Diamond';
   if(f.key.startsWith('diamond')){if(x.airfoilShape!=='Diamond')return false;const mode=x.geometryInput==='Angles & lengths'?'Angle & length ratio':x.geometryInput;return mode==='Angles'?['diamondFrontAngle','diamondRearAngle'].includes(f.key):mode==='Length ratios'?['diamondFrontLength','diamondRearLength'].includes(f.key):['diamondFrontAngle','diamondFrontLength'].includes(f.key);}
   if(f.key==='upperSegments')return !flat&&angles&&x.airfoilShape!=='Diamond';
