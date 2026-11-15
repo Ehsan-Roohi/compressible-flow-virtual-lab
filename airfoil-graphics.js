@@ -1,3 +1,5 @@
+import {readableInk} from './scene-labels.js';
+import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js';
 import {airfoilRegionLabel,airfoilShockLabel} from './airfoil-region-labels.js';
 const airfoilPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function surfaceColor(t){
@@ -6,34 +8,36 @@ function surfaceColor(t){
  return '#'+a.map((v,k)=>Math.round(v+(b[k]-v)*f).toString(16).padStart(2,'0')).join('');
 }
 
-// Cp is a uniform surface-panel value, not a resolved exterior field.
-export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
+// Local analytical shock/expansion states; unresolved wave interactions remain unfilled.
+export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pressure'}){
  const available=s.models.includes('nonlinear')&&s.nonlinear.status==='ok';
  const model=available?'nonlinear':s.models.includes('linear')?'linear':null,z=model?s[model]:null;
  const trailing=available&&s.trailingEdge?.status==='ok'?s.trailingEdge:null;
  const L=350,leadingX=84,trailingX=leadingX+L,V=p=>[leadingX+p.x*L,150-p.y*L];
+ const contour=available?airfoilContour(s,quantity):null,sampler=airfoilFieldSampler(s);
  const cps=z?.panels.map(p=>p.Cp)??[],min=cps.length?Math.min(...cps):0,max=cps.length?Math.max(...cps):0;
  const color=v=>surfaceColor(max-min<1e-12?.5:(v-min)/(max-min));
  const ray=(origin,angle,r)=>[origin[0]+r*Math.cos(angle),origin[1]-r*Math.sin(angle)];
  const shockLabels=[];
  let inner='<rect width="640" height="300" fill="#fcfdfc"/>';
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
- inner+=txt(24,29,'SUPERSONIC AIRFOIL','#53616b',13)+txt(616,29,`${s.geometry.panels.length} surface regions`,'#263c4d',14,'end');
- if(s.geometry.diamond){const q=s.geometry.diamond;inner+=txt(24,46,`θf = ${fmt(q.diamondFrontAngle,4)}° · θr = ${fmt(q.diamondRearAngle,4)}° · Lf/c = ${fmt(q.diamondFrontLength,4)} · Lr/c = ${fmt(q.diamondRearLength,4)}`,'#263c4d',12);}
+
+ if(s.geometry.diamond){const q=s.geometry.diamond;inner+=txt(24,28,`θf = ${fmt(q.diamondFrontAngle,4)}° · θr = ${fmt(q.diamondRearAngle,4)}° · Lf/c = ${fmt(q.diamondFrontLength,4)} · Lr/c = ${fmt(q.diamondRearLength,4)}`,'#263c4d',12);}
+ if(contour){const paths=new Map(),valid=[];for(const c of contour.cells){const bucket=Math.round(255*(c.value-contour.min)/(contour.max-contour.min||1)),d=`M${c.px},${c.py}h4v4h-4Z`;paths.set(bucket,(paths.get(bucket)??'')+d);valid.push(d);}inner+='<defs><clipPath id="airfoil-resolved"><path d="'+valid.join('')+'"/></clipPath></defs><g data-airfoil-contour="'+contour.key+'" clip-path="url(#airfoil-wave-window)">';for(const [bucket,d]of paths)inner+=`<path d="${d}" fill="${surfaceColor(bucket/255)}" stroke="none"/>`;inner+='</g>';}
  inner+='<g clip-path="url(#airfoil-wave-window)" stroke-linecap="round" stroke-linejoin="round">';
  // Finite rays deliberately stop locally: downstream wave interactions are not solved.
  if(available)for(const w of [...s.nonlinear.waves,...(trailing?.waves??[])]){
   if(w.kind==='No wave')continue;
   const origin=V(w.origin),sign=w.side==='Upper'?1:-1;
   if(w.kind==='Oblique shock'){
-   const end=ray(origin,w.before.theta+sign*w.beta,130);
-   inner+=`<g data-wave="shock" data-region="${w.id}">${line(...origin,...end,'#000000',1.35)}</g>`;
+   const end=ray(origin,w.before.theta+sign*w.beta,contour?900:130);
+   inner+=`<g ${contour?'clip-path="url(#airfoil-resolved)"':''} data-wave="shock" data-region="${w.id}">${line(...origin,...end,'#000000',1.35)}</g>`;
    const angle=w.before.theta+sign*w.beta,pos=ray(origin,angle,102),offset=sign>0?28:40,label=airfoilShockLabel(s,w);shockLabels.push(`<g data-shock-angle="${w.id}">${txt(pos[0]-sign*offset*Math.sin(angle),Math.max(68,Math.min(218,pos[1]-sign*offset*Math.cos(angle))),`${label} = ${fmt(w.beta*180/Math.PI,4)}°`,'#17212b',13,'middle')}</g>`);
   }else{
    const a=w.before.theta+sign*Math.asin(1/w.before.M),b=w.after.theta+sign*Math.asin(1/w.after.M);
-   const count=Math.max(2,Math.min(9,Math.ceil(Math.abs(b-a)*180/Math.PI/2)+1)),radius=119;
+   const count=Math.max(2,Math.min(9,Math.ceil(Math.abs(b-a)*180/Math.PI/2)+1)),radius=contour?900:119;
    const arc=Array.from({length:25},(_,i)=>ray(origin,a+(b-a)*i/24,radius));
-   inner+=`<g data-wave="expansion" data-region="${w.id}">`+poly([origin,...arc],'#edf4fa');
+   inner+=`<g ${contour?'clip-path="url(#airfoil-resolved)"':''} data-wave="expansion" data-region="${w.id}">`+(contour?'':poly([origin,...arc],'#edf4fa'));
    for(let i=0;i<count;i++){
     const end=ray(origin,a+(b-a)*i/(count-1),radius),edge=i===0||i===count-1;
     inner+=line(...origin,...end,edge?'#477caa':'#8baec9',edge?.95:.6);
@@ -46,16 +50,16 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
  // Each actual surface edge is black until its accepted Cp is available.
  for(const p of s.geometry.panels){
   const value=z?.panels.find(v=>v.id===p.id)?.Cp,accepted=Number.isFinite(value);
-  inner+=`<g data-surface-region="${p.id}" data-surface-state="${accepted?'solved':'pending'}"><title>${p.id}${accepted?': Cp = '+fmt(value,6):''}</title>`+line(...V(p.a),...V(p.b),accepted?color(value):'#000000',2.2)+'</g>';
+  inner+=`<g data-surface-region="${p.id}" data-surface-state="${accepted?'solved':'pending'}"><title>${p.id}${accepted?': Cp = '+fmt(value,6):''}</title>`+line(...V(p.a),...V(p.b),contour?'#17212b':accepted?color(value):'#000000',2.2)+'</g>';
  }
  for(const p of s.geometry.panels){
   const sign=p.side==='Upper'?1:-1,nx=-Math.sin(p.theta)*sign,ny=-Math.cos(p.theta)*sign;
   const [ax,ay]=V(p.a),[bx,by]=V(p.b),mx=(ax+bx)/2,my=(ay+by)/2;
   // Direction arrows sit outside the surface; short panels omit the arrow.
   if(p.length*L>48){
-   const dx=Math.cos(p.theta),dy=-Math.sin(p.theta),cx=mx+nx*32,cy=my+ny*32;
-   inner+=line(cx-15*dx,cy-15*dy,cx+15*dx,cy+15*dy,'#647681',.9);
-   inner+=poly([[cx+15*dx,cy+15*dy],[cx+10*dx-2*dy,cy+10*dy+2*dx],[cx+10*dx+2*dy,cy+10*dy-2*dx]],'#647681');
+   const cx=mx+nx*32,cy=my+ny*32,local=sampler?.sample((cx-leadingX)/L,(150-cy)/L),theta=local?.theta??p.theta,dx=Math.cos(theta),dy=-Math.sin(theta),flowInk=contour&&local?readableInk(surfaceColor((contour.property.read(local,s)-contour.min)/(contour.max-contour.min||1))):'#647681';
+   inner+=line(cx-15*dx,cy-15*dy,cx+15*dx,cy+15*dy,flowInk,.9);
+   inner+=poly([[cx+15*dx,cy+15*dy],[cx+10*dx-2*dy,cy+10*dy+2*dx],[cx+10*dx+2*dy,cy+10*dy-2*dx]],flowInk);
   }
   inner+=`<g data-airfoil-region="${airfoilRegionLabel(s,p.id)}">${txt(mx+nx*19,my+ny*19+4,airfoilRegionLabel(s,p.id),'#253945',17,'middle')}</g>`;
  }
@@ -82,5 +86,6 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
  inner+=txt(leadingX,269,'LE · x/c = 0','#53616b',12)+txt(trailingX,269,'TE · x/c = 1','#53616b',12,'end');
  inner+=line(100,289,122,289,'#000000',1.35)+txt(129,293,'Shock','#53616b',12)+line(217,289,239,289,'#477caa',.95)+txt(246,293,'Expansion fan','#53616b',12);
  if(trailing)inner+=line(415,289,437,289,'#344652',1,'5 4')+txt(444,293,trailing.interfaceKind,'#53616b',12);
- return {inner,label:'Supersonic airfoil · analytical surface solution',meta:'Surface-edge color: panel Cp · local waves · trailing-edge pressure matching',field:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:model==='nonlinear'?'Shock–Expansion · uniform panel Cp · β measured from each shock’s local upstream flow':'Linearized · uniform Cp on each surface panel',palette:airfoilPalette}:null};
+ if(contour)inner=inner.replace(/<text\b([^>]*)>/g,(tag,a)=>{const px=Number(a.match(/\bx="([^"]+)"/)?.[1]),py=Number(a.match(/\by="([^"]+)"/)?.[1]);if(px<20||px>620||py<46||py>234)return tag;const z=sampler.sample((px-leadingX)/L,(150-py+6)/L);if(!z)return tag;const value=contour.property.read(z,s),ink=readableInk(surfaceColor((value-contour.min)/(contour.max-contour.min||1)));return tag.replace(/fill="[^"]*"/,`fill="${ink}"`);});
+ return {inner,label:'Analytical airfoil wave field',meta:'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
 }

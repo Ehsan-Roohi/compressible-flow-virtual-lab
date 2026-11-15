@@ -30,7 +30,7 @@ test('Custom geometries, method selection and unsupported surface states are exp
 });
 test('Airfoil scenes, charts and shock reports are finite for every geometry',()=>{
  for(const airfoilShape of ['Flat plate','Diamond','Asymmetric double wedge','Custom panels']){
-  const x={...defaults('airfoil'),airfoilShape,camber:.01},d=calculate('airfoil',x),view=sceneSVG(d.scene,x);assert.ok(!/NaN|Infinity|undefined/.test(view.svg));assert.equal(view.field.quantity,'cp');assert.ok(d.rows.every(r=>Number.isFinite(r.value)));for(const o of airfoilPlots(d.result))assert.ok(!/NaN|Infinity|undefined/.test(chartSVG(o.chart).svg));assert.ok(d.shockDetails.length);
+  const x={...defaults('airfoil'),airfoilShape,camber:.01},d=calculate('airfoil',x),view=sceneSVG(d.scene,x);assert.ok(!/NaN|Infinity|undefined/.test(view.svg));assert.equal(view.field.quantity,d.result.nonlinear.status==='ok'?'pressure':'cp');assert.ok(d.rows.every(r=>Number.isFinite(r.value)));for(const o of airfoilPlots(d.result))assert.ok(!/NaN|Infinity|undefined/.test(chartSVG(o.chart).svg));assert.ok(d.shockDetails.length);
  }
 });
 

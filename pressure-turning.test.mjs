@@ -12,7 +12,7 @@ const near=(a,b,t=1e-7)=>assert.ok(Math.abs(a-b)<t,`${a} != ${b}`);
 const run=(id,x={})=>calculate(id,{...defaults(id),...x});
 test('Pressure–deflection charts cover planar turns, interactions, airfoil, wedge, cone and selected channel events',()=>{
  const cases=[['oblique',{}],['oblique',{branch:'strong'}],['expansion',{}],['collision',{}],['wall',{}],['wall',{wallShape:'Expansion corner',wallSide:'Gas below wall'}],['wall',chapter6Example(4)],['wall',chapter6Example(5)],['wall',trackingPreset('reflection')],['airfoil',{}],['airfoil',{airfoilMethod:'Linearized theory'}],['cone',{}],['cone',{bodyGeometry:'Wedge'}],['cone',{bodyGeometry:'Compare both'}]];
- for(const [id,x]of cases){const d=run(id,x),p=pressureTurningPlot(d);assert.ok(p,id+JSON.stringify(x));assert.equal(plotOptions(d).filter(p=>p.key==='pressure-turning').length,1);assert.ok(p.chart.series.every(s=>s.points.every(p=>p.every(Number.isFinite))));}
+ for(const [id,x]of cases){const d=run(id,x),p=pressureTurningPlot(d);assert.ok(p,id+JSON.stringify(x));assert.equal(plotOptions(d).filter(p=>p.key==='pressure-turning').length,id==='airfoil'?0:1);assert.ok(p.chart.series.every(s=>s.points.every(p=>p.every(Number.isFinite))));}
 });
 test('Signed turn and endpoint pressure are correct for compression, expansion and mirrored corners',()=>{
  for(const id of ['oblique','expansion']){const d=run(id),s=pressureTurningPlot(d).chart.series[0];near(s.points.at(-1)[0],d.inputs.theta*(id==='expansion'?-1:1));near(s.points.at(-1)[1],d.result.p);}
