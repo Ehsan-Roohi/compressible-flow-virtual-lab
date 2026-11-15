@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';import vm from 'node:vm';
 import test from 'node:test';import assert from 'node:assert/strict';
-import {calculate,defaults,inputDefinitions} from './labs.js';import {airfoilGeometry,constrainedSurface,segmentSurface,surfaceSegments} from './airfoil.js';import {airfoilFieldSampler} from './airfoil-field.js';import {sceneSVG} from './graphics.js';import {plotOptions} from './plot-options.js';
+import {calculate,defaults,inputDefinitions} from './labs.js';import {airfoilGeometry,constrainedSurface,automaticSurface,segmentSurface,surfaceSegments} from './airfoil.js';import {airfoilFieldSampler} from './airfoil-field.js';import {sceneSVG} from './graphics.js';import {plotOptions} from './plot-options.js';
 const preset={...defaults('airfoil'),airfoilShape:'Bent flat plate',M:2.5,alpha:4.2,bendHeight:.12,bendPosition:.5,airfoilMethod:'Shock–Expansion'};
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9*Math.max(1,Math.abs(b)));
 test('Example 6–15 is a zero-thickness cambered two-panel plate closed at the trailing edge',()=>{
@@ -47,7 +47,7 @@ test('Multiple-panel plate shares one zero-thickness path and exposes one segmen
 test('Switching to multiple panels and adding a panel preserves the plate geometry',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),elements=new Map(),button={};
  const box={querySelector(s){if(s==='.segment-add')return button;if(!elements.has(s))elements.set(s,{});return elements.get(s);},querySelectorAll(){return [];}};
- const context=vm.createContext({$:()=>box,inputs:structuredClone(preset),airfoilGeometry,constrainedSurface,segmentSurface,surfaceSegments,fmt:String,renderInputs(){},schedule(){},request:0});
+ const context=vm.createContext({$:()=>box,inputs:structuredClone(preset),airfoilGeometry,constrainedSurface,automaticSurface,segmentSurface,surfaceSegments,fmt:String,renderInputs(){},schedule(){},request:0});
  const functions=source.slice(source.indexOf('function segmentEditor('),source.indexOf('function arrangeWallInputs('));
  vm.runInContext(functions,context);const before=airfoilGeometry(preset);
  context.changeAirfoilGeometry('plateDefinition','Multiple panels');

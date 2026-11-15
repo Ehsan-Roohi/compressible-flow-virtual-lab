@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {calculate,defaults} from './labs.js';import {airfoilDomain} from './airfoil-domain.js';import {airfoilContour,probeAirfoilField} from './airfoil-field.js';import {sceneSVG} from './graphics.js';
 const a=Math.atan(.24)*180/Math.PI;
-const preset={...defaults('airfoil'),airfoilShape:'Bent flat plate',plateDefinition:'Multiple panels',M:2.5,alpha:4.2,upperSegments:[{angle:a,length:Math.hypot(.25,.06)},{angle:0,length:.5},{angle:-a,length:.25}]};
+const preset={...defaults('airfoil'),airfoilShape:'Bent flat plate',plateDefinition:'Multiple panels',plateLengthMode:'Keep earlier lengths',M:2.5,alpha:4.2,upperSegments:[{angle:a,length:Math.hypot(.25,.06)},{angle:0,length:.5},{angle:-a,length:.25}]};
 test('Three-panel contour ends before the lower shock enters the earlier expansion fan',()=>{
  const d=calculate('airfoil',preset),domain=airfoilDomain(d.result);
  assert.deepEqual(domain.hit.waves,['L1','L2']);assert.ok(Math.abs(domain.hit.x-.6769162033)<1e-8);assert.ok(domain.limit<domain.hit.x&&domain.limit>.65);

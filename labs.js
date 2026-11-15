@@ -15,7 +15,7 @@ import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20
 import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261109-wedge-cone';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261109-wedge-cone';
-import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-before-interaction';
+import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-edit-lengths';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261110-fanno-layout';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -119,6 +119,7 @@ export const labs={
  {key:'upperSegments',label:'Upper surface segments',type:'segments',value:[{angle:4.573921259900861,length:0.5015974481593781}]},
  {key:'lowerSegments',label:'Lower surface segments',type:'segments',value:[{angle:-4.573921259900861,length:0.5015974481593781}]},
  input('M','Freestream Mach',3,1.1,20,.01,'M∞'),input('alpha','Angle of attack α',4,-30,30,.1,'°'),
+ {key:'plateLengthMode',label:'Length adjustment',value:'Adjust all lengths',options:['Adjust all lengths','Keep earlier lengths']},
  {key:'plateDefinition',label:'Plate geometry',value:'Two panels',options:['Two panels','Multiple panels']},
  input('bendHeight','Bend height / chord',.12,-.3,.3,.001,'h/c'),input('bendPosition','Bend location',.5,.05,.95,.01,'xᵦ/c'),
  input('diamondFrontAngle','Front-panel angle magnitude',4.573921259900861,.05,84,.05,'°'),input('diamondRearAngle','Rear-panel angle magnitude',4.573921259900861,.05,84,.05,'°'),input('diamondFrontLength','Front-panel length / chord',.5015974481593781,.001,2,.001,'Lf/c'),input('diamondRearLength','Rear-panel length / chord',.5015974481593781,.001,2,.001,'Lr/c'),
@@ -145,6 +146,7 @@ function experimentInputs(id,x={}){
  }
  if(id==='airfoil')return labs.airfoil.inputs.filter(f=>{
   const flat=['Flat plate','Bent flat plate'].includes(x.airfoilShape),custom=x.airfoilShape==='Custom panels',angles=x.geometryInput==='Angles & lengths';
+  if(f.key==='plateLengthMode')return x.airfoilShape==='Bent flat plate'&&x.plateDefinition==='Multiple panels';
   if(f.key==='plateDefinition')return x.airfoilShape==='Bent flat plate';
   if(['bendHeight','bendPosition'].includes(f.key))return x.airfoilShape==='Bent flat plate'&&x.plateDefinition!=='Multiple panels';
   if(f.key==='airfoilFieldMode')return x.airfoilMethod!=='Linearized theory';

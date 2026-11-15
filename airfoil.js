@@ -46,6 +46,24 @@ export function constrainedSurface(segments,label='Surface',max=20){
  points[points.length-1]=point(1,0);
  return {points,lengths,closing:null};
 }
+// Positive horizontal shares are adjusted with a common exponential tilt.
+// This preserves requested proportions when already closed and keeps every panel.
+export function automaticSurface(segments,label='Plate',max=20){
+ requireValue(Array.isArray(segments)&&segments.length<=max,`${label}: use at most ${max} panels.`);
+ if(!segments.length)return {points:[point(0,0),point(1,0)],lengths:[],closing:null};
+ requireValue(segments.every(p=>finite(p.angle,p.length)&&Math.abs(p.angle)<85&&p.length>0),`${label}: enter finite angles within ±85° and positive target lengths.`);
+ const slopes=segments.map(p=>Math.tan(rad(p.angle))),logs=segments.map(p=>Math.log(p.length*Math.cos(rad(p.angle))));
+ const loSlope=Math.min(...slopes),hiSlope=Math.max(...slopes);
+ requireValue(loSlope<-1e-12&&hiSlope>1e-12||Math.max(...slopes.map(Math.abs))<1e-12,`${label}: these angles cannot return to the trailing edge with positive lengths. Include upward and downward directions.`);
+ const fractions=t=>{const ex=logs.map((v,i)=>v-t*slopes[i]),peak=Math.max(...ex),w=ex.map(v=>Math.exp(v-peak)),sum=w.reduce((a,b)=>a+b,0);return w.map(v=>v/sum);};
+ const mean=t=>fractions(t).reduce((v,q,i)=>v+q*slopes[i],0);
+ let low=-1,high=1,t=0;
+ if(Math.max(...slopes.map(Math.abs))>=1e-12){while(mean(low)<0)low*=2;while(mean(high)>0)high*=2;for(let i=0;i<100;i++){t=(low+high)/2;if(mean(t)>0)low=t;else high=t;}}
+ const q=fractions(t),lengths=q.map((v,i)=>v/Math.cos(rad(segments[i].angle))),points=[point(0,0)];
+ for(let i=0;i<segments.length;i++){const a=points.at(-1);points.push(point(a.x+q[i],a.y+q[i]*slopes[i]));}
+ requireValue(lengths.every(v=>v>1e-8)&&points.every(p=>Math.abs(p.y)<=.3),`${label}: adjusted geometry needs a negligible panel or exceeds |y/c| = 0.3. Change target proportions or angles.`);
+ points[points.length-1]=point(1,0);return {points,lengths,closing:null};
+}
 export const surfaceSegments=(points,includeClosing=false)=>points.slice(0,includeClosing?-1:-2).map((p,i)=>{const b=points[i+1];return {angle:deg(Math.atan2(b.y-p.y,b.x-p.x)),length:Math.hypot(b.x-p.x,b.y-p.y)};});
 export function presetSegments(x){
  const camber=x.airfoilShape==='Diamond'?0:x.camber??0,t=x.thickness??.08,peak=x.peak??.5;
@@ -75,7 +93,7 @@ export function airfoilGeometry(x){
  let upper,lower;const angleMode=x.geometryInput==='Angles & lengths';
  if(x.airfoilShape==='Flat plate'){upper=[point(0,0),point(1,0)];lower=upper.map(p=>({...p}));}
  else if(x.airfoilShape==='Bent flat plate'){
-  if(x.plateDefinition==='Multiple panels')upper=constrainedSurface(x.upperSegments,'Plate',20).points;
+  if(x.plateDefinition==='Multiple panels')upper=(x.plateLengthMode==='Keep earlier lengths'?constrainedSurface:automaticSurface)(x.upperSegments,'Plate',20).points;
   else{
   const h=x.bendHeight??.12,peak=x.bendPosition??.5;
   requireValue(finite(h,peak)&&Math.abs(h)<=.3&&peak>=.05&&peak<=.95,'Bent plate: require |h/c| ≤ 0.3 and 0.05 ≤ bend x/c ≤ 0.95.');
