@@ -1,3 +1,4 @@
+import {airfoilRegionLabel,airfoilShockLabel} from './airfoil-region-labels.js';
 const airfoilPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function surfaceColor(t){
  const v=Math.max(0,Math.min(1,t))*(airfoilPalette.length-1),i=Math.min(airfoilPalette.length-2,Math.floor(v)),f=v-i;
@@ -14,6 +15,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
  const cps=z?.panels.map(p=>p.Cp)??[],min=cps.length?Math.min(...cps):0,max=cps.length?Math.max(...cps):0;
  const color=v=>surfaceColor(max-min<1e-12?.5:(v-min)/(max-min));
  const ray=(origin,angle,r)=>[origin[0]+r*Math.cos(angle),origin[1]-r*Math.sin(angle)];
+ const shockLabels=[];
  let inner='<rect width="640" height="300" fill="#fcfdfc"/>';
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
  inner+=txt(24,29,'SUPERSONIC AIRFOIL','#53616b',13)+txt(616,29,`${s.geometry.panels.length} surface regions`,'#263c4d',14,'end');
@@ -26,6 +28,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
   if(w.kind==='Oblique shock'){
    const end=ray(origin,w.before.theta+sign*w.beta,130);
    inner+=`<g data-wave="shock" data-region="${w.id}">${line(...origin,...end,'#000000',1.35)}</g>`;
+   const angle=w.before.theta+sign*w.beta,pos=ray(origin,angle,102),offset=sign>0?28:40,label=airfoilShockLabel(s,w);shockLabels.push(`<g data-shock-angle="${w.id}">${txt(pos[0]-sign*offset*Math.sin(angle),Math.max(68,Math.min(218,pos[1]-sign*offset*Math.cos(angle))),`${label} = ${fmt(w.beta*180/Math.PI,4)}°`,'#17212b',13,'middle')}</g>`);
   }else{
    const a=w.before.theta+sign*Math.asin(1/w.before.M),b=w.after.theta+sign*Math.asin(1/w.after.M);
    const count=Math.max(2,Math.min(9,Math.ceil(Math.abs(b-a)*180/Math.PI/2)+1)),radius=119;
@@ -54,8 +57,9 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
    inner+=line(cx-15*dx,cy-15*dy,cx+15*dx,cy+15*dy,'#647681',.9);
    inner+=poly([[cx+15*dx,cy+15*dy],[cx+10*dx-2*dy,cy+10*dy+2*dx],[cx+10*dx+2*dy,cy+10*dy-2*dx]],'#647681');
   }
-  inner+=txt(mx+nx*19,my+ny*19+4,p.id,'#253945',13,'middle');
+  inner+=`<g data-airfoil-region="${airfoilRegionLabel(s,p.id)}">${txt(mx+nx*19,my+ny*19+4,airfoilRegionLabel(s,p.id),'#253945',17,'middle')}</g>`;
  }
+ if(s.geometry.diamond)inner+=`<g data-airfoil-region="1">${txt(60,85,'1','#253945',17,'middle')}</g>`;
  if(trailing){
   const origin=V({x:1,y:0}),end=ray(origin,trailing.phi,173);
   inner+=`<g data-trailing-interface="${trailing.interfaceKind}">`+line(...origin,...end,'#344652',1,'5 4')+`<circle cx="${origin[0]}" cy="${origin[1]}" r="2.3" fill="#17212b"/>`+'</g>';
@@ -68,13 +72,15 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
   inner+=`<polyline points="${arc.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#263c4d" stroke-width="1.1"/>`+txt(start[0]+46,start[1]+(trailing.phi>=0?16:-12),`φ = ${fmt(trailing.slipAngle,5)}°`,'#17212b',14,'middle')+'</g>';
   for(const [w,label]of [[trailing.upper,'TE-U+'],[trailing.lower,'TE-L+']]){
    const edge=w.rays.at(-1).angle,angle=(edge+trailing.phi)/2,pos=ray(origin,angle,152);
-   inner+=txt(pos[0],pos[1]+4,label,'#253945',12,'middle');
+   if(!s.geometry.diamond)inner+=txt(pos[0],pos[1]+4,label,'#253945',12,'middle');
   }
  }
+ if(trailing&&s.geometry.diamond)inner+=`<g data-airfoil-region="6">${txt(608,165,'6','#253945',17,'middle')}</g>`;
+ inner+=shockLabels.join('');
  inner+=incidenceGlyph(s.alpha,24,148,42,'#536977')+'</g>';
  inner+=line(leadingX,249,trailingX,249,'#a5b1b7',.8)+line(leadingX,245,leadingX,253,'#a5b1b7',.8)+line(trailingX,245,trailingX,253,'#a5b1b7',.8);
  inner+=txt(leadingX,269,'LE · x/c = 0','#53616b',12)+txt(trailingX,269,'TE · x/c = 1','#53616b',12,'end');
  inner+=line(100,289,122,289,'#000000',1.35)+txt(129,293,'Shock','#53616b',12)+line(217,289,239,289,'#477caa',.95)+txt(246,293,'Expansion fan','#53616b',12);
  if(trailing)inner+=line(415,289,437,289,'#344652',1,'5 4')+txt(444,293,trailing.interfaceKind,'#53616b',12);
- return {inner,label:'Supersonic airfoil · analytical surface solution',meta:'Surface-edge color: panel Cp · local waves · trailing-edge pressure matching',field:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:model==='nonlinear'?'Shock–Expansion · uniform Cp on each surface panel':'Linearized · uniform Cp on each surface panel',palette:airfoilPalette}:null};
+ return {inner,label:'Supersonic airfoil · analytical surface solution',meta:'Surface-edge color: panel Cp · local waves · trailing-edge pressure matching',field:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:model==='nonlinear'?'Shock–Expansion · uniform panel Cp · β measured from each shock’s local upstream flow':'Linearized · uniform Cp on each surface panel',palette:airfoilPalette}:null};
 }

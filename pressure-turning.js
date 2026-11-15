@@ -1,3 +1,4 @@
+import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {obliqueShock,expansion,deg,rad} from './physics.js';
 import {mocProfilePlots} from './channel-moc.js';
 import {comparisonProfile} from './channel-comparison.js';
@@ -28,7 +29,7 @@ export function pressureTurningPlot(d){
   conePath(r,'Cone · shock to surface');
  }else if(id==='airfoil'){
   reference=r.freestream.p;
-  if(r.models?.includes('nonlinear')){for(const w of r.nonlinear?.waves??[])addWave(w,w.side+' · '+w.id);for(const w of r.trailingEdge?.waves??[])addWave(w,w.side+' · trailing edge');}
+  if(r.models?.includes('nonlinear')){for(const w of r.nonlinear?.waves??[])addWave(w,'Region '+airfoilRegionLabel(r,w.id));for(const w of r.trailingEdge?.waves??[])addWave(w,w.side+' · trailing edge');}
   if(r.models?.includes('linear'))for(const side of ['Upper','Lower']){const panels=r.linear?.panels.filter(p=>p.side===side)??[];series.push({name:side+' · linearized panel states',points:[[deg(r.freestream.theta),1],...panels.map(p=>[deg(p.theta),1+g*x.M*x.M*p.Cp/2])]});}
   note+=' Linearized curves connect panel states; they are not nonlinear shock polars.';
  }else if(r.comparison){

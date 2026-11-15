@@ -1,3 +1,4 @@
+import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261114-final-view';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
@@ -305,11 +306,11 @@ export function calculate(id,x){x=normalizeStateInputs(id,x);if(['rayleigh','fan
    checks={trailingPressure:t.pressureResidual,trailingDirection:t.directionResidual};
    for(const w of t.waves){
     for(const [label,z]of [['before',w.before],['after',w.after]])for(const [key,value,unit]of [['Mach',z.M,''],['Pressure',z.p/1000,'kPa'],['Temperature',z.T,'K'],['Density',z.rho,'kg/m³'],['Speed',z.u,'m/s'],['Flow angle',p.deg(z.theta),'°'],['Stagnation pressure',z.p0/1000,'kPa'],['Stagnation temperature',z.T0,'K']])rows.push({...row(`${w.id} · ${label} · ${key}`,value,unit),panel:'airfoil'});
-    if(w.kind==='Oblique shock')shockDetails.push(shockStateSection({kind:'oblique',title:`${w.id} · ${w.side.toLowerCase()} trailing-edge shock`,location:'x/c = 1 · local two-stream matching',before:w.before,after:w.after,gamma:g,R,extra:[{label:'Turn magnitude',value:Math.abs(w.turn),unit:'°'},{label:'Shock angle β',value:p.deg(w.beta),unit:'°'}]}));
+    if(w.kind==='Oblique shock')shockDetails.push(shockStateSection({kind:'oblique',title:`${airfoilRegionLabel(result,w.id+'+')} · ${w.side.toLowerCase()} trailing-edge shock`,location:'x/c = 1 · local two-stream matching',before:w.before,after:w.after,gamma:g,R,extra:[{label:'Turn magnitude',value:Math.abs(w.turn),unit:'°'},{label:'Shock angle β',value:p.deg(w.beta),unit:'°'}]}));
    }
   }
   scene={kind:'airfoil',...result};chart=airfoilPlots(result)[0]?.chart??{title:'No accepted surface solution',xlabel:'x/c',ylabel:'Cp',series:[]};
-  if(result.models.includes('nonlinear')&&result.nonlinear.status==='ok')for(const w of result.nonlinear.waves.filter(w=>w.kind==='Oblique shock'))shockDetails.push(shockStateSection({kind:'Oblique shock',title:`${w.id} · ${w.side.toLowerCase()} surface shock`,location:`x/c = ${w.origin.x}`,before:w.before,after:w.after,gamma:g,R,extra:[{label:'Turn magnitude',value:Math.abs(w.turn),unit:'°'},{label:'Shock angle β',value:p.deg(w.beta),unit:'°'}]}));
+  if(result.models.includes('nonlinear')&&result.nonlinear.status==='ok')for(const w of result.nonlinear.waves.filter(w=>w.kind==='Oblique shock'))shockDetails.push(shockStateSection({kind:'Oblique shock',title:`${airfoilRegionLabel(result,w.id)} · ${w.side.toLowerCase()} surface shock`,location:`x/c = ${w.origin.x}`,before:w.before,after:w.after,gamma:g,R,extra:[{label:'Turn magnitude',value:Math.abs(w.turn),unit:'°'},{label:'Shock angle β',value:p.deg(w.beta),unit:'°'}]}));
  }
  else if(id==='linear'){result=p.linearAirfoil(x);notice=result.warning;rows=[row('Lift coefficient',result.CL,'Cᴸ'),row('Wave-drag coefficient',result.CD,'Cᴰ,wave'),row('Upper front Cp',result.CpUF),row('Upper rear Cp',result.CpUR),row('Lower front Cp',result.CpLF),row('Lower rear Cp',result.CpLR)];scene={kind:'linear',...result,...x};chart={title:'Piecewise surface pressure',xlabel:'Chord position x/c',ylabel:'Pressure coefficient Cp',series:[{name:'Upper surface',points:[[0,result.CpUF],[.5,result.CpUF],[.5,result.CpUR],[1,result.CpUR]]},{name:'Lower surface',points:[[0,result.CpLF],[.5,result.CpLF],[.5,result.CpLR],[1,result.CpLR]]}]};}
 

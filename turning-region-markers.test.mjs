@@ -19,6 +19,6 @@ test('Book regions retain their own labels and coincident wall reflections show 
  const interaction=chart(run('collision'));const all=interaction.markers.map(m=>m.name).join(' / ');for(const n of ['1','2','3','4','4′'])assert.ok(all.includes(n));
 });
 test('Airfoil labels match panel and trailing-edge identifiers; continuous cone locations are named',()=>{
- const c=chart(run('airfoil')),all=c.markers.map(m=>m.name).join(' / ');for(const label of ['U1','U2','L1','L2','TE-U+','TE-L+'])assert.ok(all.includes(label));
+ const c=chart(run('airfoil')),all=c.markers.map(m=>m.name).join(' / ');for(const label of ['1','2','3','4','5','6 (upper)','6 (lower)'])assert.ok(all.includes(label));
  assert.deepEqual(chart(run('cone')).markers.map(m=>m.name),['Shock','Surface']);
 });

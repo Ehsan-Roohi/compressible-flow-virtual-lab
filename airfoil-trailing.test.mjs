@@ -39,7 +39,7 @@ test('Unsupported matching retains surface results; no fabricated wake is drawn'
 });
 test('Trailing states are shown in the table, exported and included in every shock report',()=>{
  const x={...defaults('airfoil'),alpha:4},d=calculate('airfoil',x),t=d.result.trailingEdge;
- const html=airfoilTables(d.result,v=>String(v));assert.ok(html.includes('TE-U+'));assert.ok(html.includes('TE-L−'));assert.ok(!/NaN|undefined/.test(html));
+ const html=airfoilTables(d.result,v=>String(v));assert.ok(html.includes('6 (upper)'));assert.ok(html.includes('6 (lower)'));assert.ok(!/NaN|undefined/.test(html));
  assert.equal(d.shockDetails.filter(s=>s.title.includes('trailing-edge shock')).length,t.waves.filter(w=>w.kind==='Oblique shock').length);
  assert.ok(d.rows.some(r=>r.label.includes('TE-U · after · Mach')));assert.ok(d.checks.trailingPressure<1e-9);
  const svg=sceneSVG(d.scene,x).svg;assert.ok(svg.includes('data-trailing-interface="Slip line"'));assert.ok(svg.includes('data-region="TE-U"'));

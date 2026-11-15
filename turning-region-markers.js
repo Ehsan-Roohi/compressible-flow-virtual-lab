@@ -1,3 +1,4 @@
+import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {deg} from './physics.js';
 export function annotateTurningRegions(d,plot){
  if(plot.key!=='pressure-turning'&&!/p-theta/.test(plot.key))return plot;
@@ -10,9 +11,9 @@ export function annotateTurningRegions(d,plot){
  else if(r.bodyLab){state('1',{theta:r.wedge.alpha,p:1});for(const f of r.wedge.faces)state(f.side==='Upper'?'2':'3',f.surface);cone(r.cone,'Cone · ');}
  else if(d.id==='cone')cone(r);
  else if(d.id==='airfoil'){
-  state('∞',r.freestream,r.freestream.p);
-  if(r.models.includes('nonlinear')){for(const p of r.nonlinear.panels)state(p.id,p,r.freestream.p);for(const w of r.trailingEdge?.waves??[])state(w.id+'+',w.after,r.freestream.p);}
-  if(r.models.includes('linear'))for(const p of r.linear.panels)add(p.id+' (linear)',p.theta,1+g*x.M*x.M*p.Cp/2);
+  state(r.geometry?.diamond?'1':'∞',r.freestream,r.freestream.p);
+  if(r.models.includes('nonlinear')){for(const p of r.nonlinear.panels)state(airfoilRegionLabel(r,p.id),p,r.freestream.p);for(const w of r.trailingEdge?.waves??[])state(airfoilRegionLabel(r,w.id+'+'),w.after,r.freestream.p);}
+  if(r.models.includes('linear'))for(const p of r.linear.panels)add(airfoilRegionLabel(r,p.id)+' (linear)',p.theta,1+g*x.M*x.M*p.Cp/2);
  }else if(r.moc||r.comparison){
   for(const s of plot.chart.series){const ps=s.points;if(!ps.length)continue;for(const [name,i]of [['Lower',0],['Centre',Math.floor((ps.length-1)/2)],['Upper',ps.length-1]])markers.push({name:(r.comparison?(s.name.startsWith('MOC')?'MOC · ':'SE · '):'')+name,x:ps[i][0],y:ps[i][1]});}
  }else if(r.regions){const ref=r.s1?.p??r.regions[1]?.p??1;for(const [n,z]of Object.entries(r.regions))state(r.regionLabels?.[n]??n.replace(/^Region\s+/,''),z,ref);}
