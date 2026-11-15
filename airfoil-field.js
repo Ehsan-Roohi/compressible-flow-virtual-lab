@@ -1,5 +1,5 @@
 import {state,prandtlMeyer} from './physics.js';
-import {airfoilRegionLabel} from './airfoil-region-labels.js';
+import {airfoilRegionLabel,isFlatPlate} from './airfoil-region-labels.js?v=20261115-plate-regions';
 const cache=new WeakMap();
 export const airfoilFieldProperties={cp:{label:'Pressure coefficient Cp',units:'Cp',read:(z,s)=>(z.p-s.freestream.p)/s.q},pressure:{label:'Static pressure',units:'kPa',read:z=>z.p/1000},mach:{label:'Mach number',units:'M',read:z=>z.M},temperature:{label:'Static temperature',units:'K',read:z=>z.T},density:{label:'Density',units:'kg/m³',read:z=>z.rho},speed:{label:'Flow speed',units:'m/s',read:z=>z.u}};
 const ordinate=(points,x)=>{let i=0;while(i<points.length-2&&points[i+1].x<x)i++;const a=points[i],b=points[i+1];return a.y+(b.y-a.y)*(x-a.x)/(b.x-a.x);};
@@ -10,11 +10,11 @@ export function airfoilFieldSampler(s){
  const prepare=w=>{const sign=w.side==='Upper'?1:-1;let fan=null;if(w.kind==='Expansion fan')fan=Array.from({length:65},(_,i)=>{const M=w.before.M+(w.after.M-w.before.M)*i/64,turn=prandtlMeyer(M,g)-prandtlMeyer(w.before.M,g),theta=w.before.theta-sign*turn;return {M,angle:sign*theta+Math.asin(1/M)};});return {w,sign,fan};};
  const waves=[...s.nonlinear.waves,...(s.trailingEdge?.status==='ok'?s.trailingEdge.waves:[])],sides={Upper:waves.filter(w=>w.side==='Upper').map(prepare),Lower:waves.filter(w=>w.side==='Lower').map(prepare)};
  const sample=(x,y)=>{
-  if(x<0)return {...s.freestream,region:s.geometry.diamond?'1':'∞'};
+  if(x<0)return {...s.freestream,region:s.geometry.diamond||isFlatPlate(s)?'1':'∞'};
   let side;
   if(x<=1){const up=ordinate(s.geometry.upper,x),lo=ordinate(s.geometry.lower,x);if(y<up-1e-10&&y>lo+1e-10)return null;side=y>=up?'Upper':'Lower';}
   else{if(s.trailingEdge?.status!=='ok')return null;side=y>=Math.tan(s.trailingEdge.phi)*(x-1)?'Upper':'Lower';}
-  let z=s.freestream,region=s.geometry.diamond?'1':'∞',ready=true;
+  let z=s.freestream,region=s.geometry.diamond||isFlatPlate(s)?'1':'∞',ready=true;
   for(const {w,sign,fan}of sides[side]){
    if(x<w.origin.x-1e-10||w.kind==='No wave')continue;
    const angle=sign*Math.atan2(y-w.origin.y,x-w.origin.x);

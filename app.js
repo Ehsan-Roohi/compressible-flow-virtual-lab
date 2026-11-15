@@ -1,4 +1,4 @@
-import {probeAirfoilField} from './airfoil-field.js';
+import {probeAirfoilField} from './airfoil-field.js?v=20261115-plate-regions';
 import {shockFanMode,shockFanPreset} from './shock-fan-example.js?v=20261114-final-view';
 import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
@@ -21,7 +21,7 @@ import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selec
 import {probeTracking} from './wave-tracker-graphics.js?v=20261115-event-no-numbers';
 import {chapter6Example} from './regular-channel.js?v=20261109-wedge-cone';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
-import {airfoilTables} from './airfoil-tables.js?v=20261115-airfoil-regions';
+import {airfoilTables} from './airfoil-tables.js?v=20261115-plate-regions';
 import {airfoilGeometry,diamondModes,diamondInputValues,segmentSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261115-airfoil-contours';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
@@ -30,7 +30,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261115-airfoil-contours';
-import {sceneSVG,chartSVG,fmt} from './graphics.js?v=20261115-contour-seams';
+import {sceneSVG,chartSVG,fmt} from './graphics.js?v=20261115-plate-regions';
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingWaveShape=null,pendingBookCase=null,pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};

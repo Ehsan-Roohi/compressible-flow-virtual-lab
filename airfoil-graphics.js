@@ -1,6 +1,6 @@
 import {readableInk} from './scene-labels.js';
-import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js';
-import {airfoilRegionLabel,airfoilShockLabel} from './airfoil-region-labels.js';
+import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js?v=20261115-plate-regions';
+import {airfoilRegionLabel,airfoilShockLabel,isFlatPlate} from './airfoil-region-labels.js?v=20261115-plate-regions';
 const airfoilPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function surfaceColor(t){
  const v=Math.max(0,Math.min(1,t))*(airfoilPalette.length-1),i=Math.min(airfoilPalette.length-2,Math.floor(v)),f=v-i;
@@ -69,7 +69,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
   }
   inner+=`<g data-airfoil-region="${airfoilRegionLabel(s,p.id)}">${txt(mx+nx*19,my+ny*19+4,airfoilRegionLabel(s,p.id),'#253945',17,'middle')}</g>`;
  }
- if(s.geometry.diamond)inner+=`<g data-airfoil-region="1">${txt(60,85,'1','#253945',17,'middle')}</g>`;
+ if(s.geometry.diamond||isFlatPlate(s))inner+=`<g data-airfoil-region="1">${txt(60,85,'1','#253945',17,'middle')}</g>`;
  if(trailing){
   const origin=V({x:1,y:0}),end=ray(origin,trailing.phi,173);
   inner+=`<g data-trailing-interface="${trailing.interfaceKind}">`+line(...origin,...end,'#344652',1,'5 4')+`<circle cx="${origin[0]}" cy="${origin[1]}" r="2.3" fill="#17212b"/>`+'</g>';
@@ -82,7 +82,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
   inner+=`<polyline points="${arc.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#263c4d" stroke-width="1.1"/>`+txt(start[0]+46,start[1]+(trailing.phi>=0?16:-12),`φ = ${fmt(trailing.slipAngle,5)}°`,'#17212b',14,'middle')+'</g>';
   for(const [w,label]of [[trailing.upper,'TE-U+'],[trailing.lower,'TE-L+']]){
    const edge=w.rays.at(-1).angle,angle=(edge+trailing.phi)/2,pos=ray(origin,angle,152);
-   if(!s.geometry.diamond)inner+=txt(pos[0],pos[1]+4,label,'#253945',12,'middle');
+   if(!s.geometry.diamond){const display=airfoilRegionLabel(s,label);inner+=`<g data-airfoil-region="${display}">${txt(pos[0],pos[1]+4,display,'#253945',isFlatPlate(s)?17:12,'middle')}</g>`;}
   }
  }
  if(trailing&&s.geometry.diamond)inner+=`<g data-airfoil-region="6">${txt(608,165,'6','#253945',17,'middle')}</g>`;

@@ -1,4 +1,4 @@
-import {airfoilRegionLabel} from './airfoil-region-labels.js';
+import {airfoilRegionLabel} from './airfoil-region-labels.js?v=20261115-plate-regions';
 // Present aerodynamic coefficients separately from local flow states.
 export function airfoilTables(r,fmt){
  const number=v=>Number.isFinite(v)?fmt(v,6):'—';
