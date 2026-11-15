@@ -15,7 +15,7 @@ import {sonicRelations} from './reference-relations.js?v=20261109-wedge-cone';
 import {linspace,deg,rad,isentropic,isentropicRelations,state,normalShock,obliqueShock,expansion,rayleighRatios,fannoRatios,linearAirfoil} from './physics.js';
 // Each selectable property has its own units and axis. Unavailable states are omitted.
 function basePlotOptions(d,time=.001){
- if(d.result.ramjet)return ramjetPlots(d.result);
+ if(d.result.ramjet)return ramjetPlots(d.result).filter(p=>p.key==='inlet-p-theta');
  if(d.result.ductSystem)return d.result.plots;
  const {id,inputs:x,result:r}=d,g=x.gamma??1.4,R=x.R??287,options=[];
  const add=(key,label,xlabel,ylabel,points,extra={})=>options.push({key,label,chart:{title:label,xlabel,ylabel,zeroBaseline:false,series:[{name:label,points:points.filter(p=>p.every(Number.isFinite))}],...extra}});
