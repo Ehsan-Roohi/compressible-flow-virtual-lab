@@ -31,7 +31,7 @@ export function airfoilFieldSampler(s){
    independentFan={...z,region,fanProgress:(M-w.before.M)/(w.after.M-w.before.M)};
   }
   // Schematic overlap rule: the latest active expansion fan remains visible.
-  if(schematic&&independentFan)return {...independentFan,approximate,schematic};
+  if(schematic&&approximate&&independentFan)return {...independentFan,approximate,schematic};
   return {...z,region,approximate,schematic};
  };
  const result={sample};cache.set(s,result);return result;
@@ -39,7 +39,7 @@ export function airfoilFieldSampler(s){
 export function airfoilContour(s,quantity='pressure'){
  const sampler=airfoilFieldSampler(s);if(!sampler)return null;
  const key=quantity in airfoilFieldProperties?quantity:'pressure',property=airfoilFieldProperties[key],cells=[];let min=Infinity,max=-Infinity;
- for(let py=46;py<234;py+=4)for(let px=20;px<620;px+=4){const z=sampler.sample((px+2-84)/350,(150-py-2)/350);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,...(z.schematic&&Number.isFinite(z.fanProgress)?{fanColor:1-z.fanProgress}:{})});}
- return {key,property,cells,min,max};
+ for(let py=46;py<234;py+=1)for(let px=20;px<620;px+=1){const z=sampler.sample((px+.5-84)/350,(150-py-.5)/350);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,...(z.schematic&&z.approximate&&Number.isFinite(z.fanProgress)?{fanColor:1-z.fanProgress}:{})});}
+ return {key,property,cells,min,max,step:1};
 }
 export function probeAirfoilField(s,px,py){if(px<20||px>620||py<46||py>234)return null;return airfoilFieldSampler(s)?.sample((px-84)/350,(150-py)/350)??null;}

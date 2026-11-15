@@ -25,19 +25,25 @@ test('Intersecting wave families are left unresolved rather than assigned a fabr
  const schematic={...r,airfoilFieldMode:'Schematic · independent waves'},filled=airfoilFieldSampler(schematic).sample(x,y);
  assert.ok(filled?.approximate&&filled.schematic);near(filled.p,b.after.p);near(filled.M,b.after.M);
  const d={...calculate('airfoil',defaults('airfoil')).result,airfoilFieldMode:'Schematic · independent waves'};assert.equal(airfoilFieldSampler(d).sample(.5,0),null);
- const view=sceneSVG({kind:'airfoil',...schematic},{});assert.match(view.field.note,/Approximate display; wave interactions are neglected/);
+ const view=sceneSVG({kind:'airfoil',...schematic},{});assert.match(view.field.note,/Approximate display in wave overlaps/);
  assert.ok(airfoilContour(schematic).cells.length>airfoilContour(r).cells.length);
 });
 
-test('Schematic fans retain rainbow variation on both sides and disclose the local color scale',()=>{
+test('Only unresolved overlaps use schematic colors; resolved fans retain their physical values',()=>{
  const x={...defaults('airfoil'),airfoilShape:'Custom panels',alpha:15,upperSegments:[{angle:5,length:.5},{angle:-4,length:.3}],lowerSegments:[{angle:0,length:.5}]};
- const d=calculate('airfoil',x),c=airfoilContour(d.result),fans=c.cells.filter(z=>Number.isFinite(z.fanColor));
- for(const upper of [true,false]){
-  const colors=fans.filter(z=>upper?z.py<150:z.py>150).map(z=>z.fanColor);
-  assert.ok(Math.min(...colors)<.1);assert.ok(Math.max(...colors)>.9);
+ const d=calculate('airfoil',x),local=calculate('airfoil',{...x,airfoilFieldMode:'Local analytical · resolved regions'});
+ const c=airfoilContour(d.result),sample=airfoilFieldSampler(d.result).sample,exact=airfoilFieldSampler(local.result).sample;
+ assert.equal(c.step,1);let colored=0,resolvedFan=0;
+ for(const cell of c.cells){
+  const px=(cell.px+.5-84)/350,py=(150-cell.py-.5)/350;
+  if(Number.isFinite(cell.fanColor)){colored++;assert.equal(exact(px,py),null);assert.equal(sample(px,py).approximate,true);}
  }
- const local=calculate('airfoil',{...x,airfoilFieldMode:'Local analytical · resolved regions'});
+ for(let px=.1;px<1.5;px+=.05)for(let py=-.22;py<.28;py+=.015){
+  const a=exact(px,py);if(!a)continue;const b=sample(px,py);near(a.M,b.M);near(a.p,b.p);assert.equal(b.approximate??false,false);
+  if(a.region==='Expansion fan')resolvedFan++;
+ }
+ assert.ok(colored>0&&resolvedFan>0);
  assert.ok(airfoilContour(local.result).cells.every(z=>z.fanColor===undefined));
- const view=sceneSVG(d.scene,d.inputs);assert.match(view.svg,/data-airfoil-approximation="true"/);assert.match(view.svg,/fan colors use local rainbow scales/);assert.match(view.field.note,/read values with cursor/);
+ const view=sceneSVG(d.scene,d.inputs);assert.match(view.svg,/Physical colors outside overlaps/);assert.match(view.field.note,/read values with cursor/);
  assert.deepEqual(d.result.nonlinear,local.result.nonlinear);
 });
