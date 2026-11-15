@@ -129,7 +129,7 @@ export function solveAirfoil(x){
  const trailingEdge=nonlinear.status==='ok'?solveTrailingEdge(nonlinear.panels.filter(p=>p.side==='Upper').at(-1),nonlinear.panels.filter(p=>p.side==='Lower').at(-1),g,R):{status:'unavailable',reason:'An accepted supersonic Shock–Expansion surface solution is required.'};
  const method=x.airfoilMethod??'Compare both',models=method==='Linearized theory'?['linear']:method==='Shock–Expansion'?['nonlinear']:['linear','nonlinear'];
  const warnings=[];if(models.includes('linear')&&(Math.max(...geometry.panels.map(p=>Math.abs(p.theta-a)))>rad(6)||M<1.4))warnings.push('Small-disturbance approximation is strained; compare the methods carefully.');if(models.includes('nonlinear')&&nonlinear.status!=='ok')warnings.push('Shock–Expansion unavailable: '+nonlinear.reason);
- return {airfoilFieldMode:x.airfoilFieldMode??'Schematic · independent waves',gamma:g,R,trailingEdge,status:models.length===1&&models[0]==='nonlinear'&&nonlinear.status!=='ok'?'unsupported':'ok',geometry,linear,nonlinear,models,freestream,q,alpha:a,warning:warnings.join(' ')||null};
+ return {airfoilFieldMode:x.airfoilFieldMode??'Before first wave interaction',gamma:g,R,trailingEdge,status:models.length===1&&models[0]==='nonlinear'&&nonlinear.status!=='ok'?'unsupported':'ok',geometry,linear,nonlinear,models,freestream,q,alpha:a,warning:warnings.join(' ')||null};
 }
 export function airfoilPlots(r){
  const plots=[],step=(panels,value)=>panels.flatMap(p=>Array.from({length:41},(_,i)=>[p.a.x+p.dx*i/40,value(p)]));

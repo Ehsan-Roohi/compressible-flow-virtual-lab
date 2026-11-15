@@ -30,7 +30,7 @@ test('Intersecting wave families are left unresolved rather than assigned a fabr
 });
 
 test('Only unresolved overlaps use schematic colors; resolved fans retain their physical values',()=>{
- const x={...defaults('airfoil'),airfoilShape:'Custom panels',alpha:15,upperSegments:[{angle:5,length:.5},{angle:-4,length:.3}],lowerSegments:[{angle:0,length:.5}]};
+ const x={...defaults('airfoil'),airfoilFieldMode:'Schematic · independent waves',airfoilShape:'Custom panels',alpha:15,upperSegments:[{angle:5,length:.5},{angle:-4,length:.3}],lowerSegments:[{angle:0,length:.5}]};
  const d=calculate('airfoil',x),local=calculate('airfoil',{...x,airfoilFieldMode:'Local analytical · resolved regions'});
  const c=airfoilContour(d.result),sample=airfoilFieldSampler(d.result).sample,exact=airfoilFieldSampler(local.result).sample;
  assert.equal(c.step,1);let overlap=0,resolvedFan=0;
@@ -47,7 +47,7 @@ test('Only unresolved overlaps use schematic colors; resolved fans retain their 
 
 
 test('Non-interacting schematic extends green and red uniform streams through overlapping fans',()=>{
- const a=Math.atan(.24)*180/Math.PI,x={...defaults('airfoil'),airfoilShape:'Bent flat plate',plateDefinition:'Multiple panels',M:2.5,alpha:4.2,upperSegments:[{angle:a,length:Math.hypot(.25,.06)},{angle:0,length:.5},{angle:-a,length:.25}]};
+ const a=Math.atan(.24)*180/Math.PI,x={...defaults('airfoil'),airfoilFieldMode:'Schematic · independent waves',airfoilShape:'Bent flat plate',plateDefinition:'Multiple panels',M:2.5,alpha:4.2,upperSegments:[{angle:a,length:Math.hypot(.25,.06)},{angle:0,length:.5},{angle:-a,length:.25}]};
  const r=calculate('airfoil',x).result,sample=airfoilFieldSampler(r).sample,local=airfoilFieldSampler({...r,airfoilFieldMode:'Local analytical · resolved regions'}).sample;
  const found=new Set();
  for(let px=.7;px<1.5;px+=.025)for(let py=-.4;py<0;py+=.01){

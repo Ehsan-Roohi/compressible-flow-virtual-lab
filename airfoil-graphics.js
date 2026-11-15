@@ -1,5 +1,6 @@
+import {airfoilDomain,limitedAirfoil} from './airfoil-domain.js';
 import {readableInk} from './scene-labels.js';
-import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js?v=20261115-uniform-streams';
+import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js?v=20261115-before-interaction';
 import {airfoilRegionLabel,airfoilShockLabel,isFlatPlate} from './airfoil-region-labels.js?v=20261115-plate-regions';
 const airfoilPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function surfaceColor(t){
@@ -16,13 +17,16 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  const L=350,leadingX=84,trailingX=leadingX+L,V=p=>[leadingX+p.x*L,150-p.y*L];
  const schematic=s.airfoilFieldMode==='Schematic · independent waves';
  const contour=available?airfoilContour(s,quantity):null,sampler=airfoilFieldSampler(s);
+ const domain=available&&limitedAirfoil(s)?airfoilDomain(s):null,flowRight=domain?leadingX+domain.limit*L:620;
  const cps=z?.panels.map(p=>p.Cp)??[],min=cps.length?Math.min(...cps):0,max=cps.length?Math.max(...cps):0;
  const color=v=>surfaceColor(max-min<1e-12?.5:(v-min)/(max-min));
  const ray=(origin,angle,r)=>[origin[0]+r*Math.cos(angle),origin[1]-r*Math.sin(angle)];
  const shockLabels=[];
  let inner='<rect width="640" height="300" fill="#fcfdfc"/>';
+ inner+=`<defs><clipPath id="airfoil-flow-domain"><rect x="20" y="46" width="${Math.max(0,flowRight-20)}" height="188"/></clipPath></defs>`;
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
 
+ if(domain&&contour)inner+=txt(24,s.geometry.diamond?43:28,domain.clipped?`Contours stop before ${domain.hit.kind.toLowerCase()} · x/c = ${fmt(domain.limit,4)}`:'No wave interaction in the displayed domain','#263c4d',12);
  if(schematic&&contour)inner+=`<g data-airfoil-approximation="true">${txt(24,s.geometry.diamond?43:28,'Schematic · waves do not interact; uniform-region colors continue','#263c4d',12)}</g>`;
  if(s.geometry.bentPlate){const b=s.geometry.bentPlate,p=s.geometry.panels.filter(p=>p.side==='Upper');inner+=txt(24,43,b.multiple?`Zero-thickness plate · ${p.length} panels · closed at trailing edge`:`h/c = ${fmt(b.height,4)} · xᵦ/c = ${fmt(b.position,4)} · θ₁ = ${fmt(p[0].theta*180/Math.PI,4)}° · θ₂ = ${fmt(p[1].theta*180/Math.PI,4)}°`,'#263c4d',12);}
  if(s.geometry.diamond){const q=s.geometry.diamond;inner+=txt(24,28,`θf = ${fmt(q.diamondFrontAngle,4)}° · θr = ${fmt(q.diamondRearAngle,4)}° · Lf/c = ${fmt(q.diamondFrontLength,4)} · Lr/c = ${fmt(q.diamondRearLength,4)}`,'#263c4d',12);}
@@ -45,7 +49,9 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
   inner+='</g>';
  }
 
+ if(domain?.clipped)inner+=`<rect x="${flowRight}" y="46" width="${620-flowRight}" height="188" fill="#edf0f0"/>`;
  inner+='<g clip-path="url(#airfoil-wave-window)" stroke-linecap="round" stroke-linejoin="round">';
+ inner+='<g clip-path="url(#airfoil-flow-domain)">';
  // Finite rays deliberately stop locally: downstream wave interactions are not solved.
  if(available)for(const w of [...s.nonlinear.waves,...(trailing?.waves??[])]){
   if(w.kind==='No wave')continue;
@@ -53,7 +59,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
   if(w.kind==='Oblique shock'){
    const end=ray(origin,w.before.theta+sign*w.beta,contour?900:130);
    inner+=`<g ${contour?'clip-path="url(#airfoil-resolved)"':''} data-wave="shock" data-region="${w.id}">${line(...origin,...end,'#000000',1.35)}</g>`;
-   const angle=w.before.theta+sign*w.beta,pos=ray(origin,angle,102),offset=sign>0?28:40,label=airfoilShockLabel(s,w);shockLabels.push(`<g data-shock-angle="${w.id}">${txt(pos[0]-sign*offset*Math.sin(angle),Math.max(68,Math.min(218,pos[1]-sign*offset*Math.cos(angle))),`${label} = ${fmt(w.beta*180/Math.PI,4)}°`,'#17212b',13,'middle')}</g>`);
+   const angle=w.before.theta+sign*w.beta,pos=ray(origin,angle,102),offset=sign>0?28:40,label=airfoilShockLabel(s,w);if(pos[0]<flowRight-12)shockLabels.push(`<g data-shock-angle="${w.id}">${txt(pos[0]-sign*offset*Math.sin(angle),Math.max(68,Math.min(218,pos[1]-sign*offset*Math.cos(angle))),`${label} = ${fmt(w.beta*180/Math.PI,4)}°`,'#17212b',13,'middle')}</g>`);
   }else{
    const a=w.before.theta+sign*Math.asin(1/w.before.M),b=w.after.theta+sign*Math.asin(1/w.after.M);
    const count=Math.max(2,Math.min(9,Math.ceil(Math.abs(b-a)*180/Math.PI/2)+1)),radius=contour?900:119;
@@ -66,6 +72,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
    inner+='</g>';
   }
  }
+ inner+='</g>';
  const body=[...s.geometry.upper,...s.geometry.lower.slice().reverse()].map(V);
  inner+=poly(body,'#f2f4f5');
  // Each actual surface edge is black until its accepted Cp is available.
@@ -81,6 +88,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
    let placement=null;const region=airfoilRegionLabel(s,p.id),same=(px,py)=>sampler?.sample((px-leadingX)/L,(150-py)/L)?.region===region;
    for(const fraction of [.72,.62,.82,.5]){for(const offset of [16,12,20,8,24,28]){
     const cx=ax+(bx-ax)*fraction+nx*offset,cy=ay+(by-ay)*fraction+ny*offset,local=sampler?.sample((cx-leadingX)/L,(150-cy)/L),theta=local?.theta??p.theta,dx=Math.cos(theta),dy=-Math.sin(theta);
+    if(cx+15*Math.abs(dx)>flowRight-3)continue;
     if(sampler&&(!same(cx,cy)||!same(cx-15*dx,cy-15*dy)||!same(cx+15*dx,cy+15*dy)||!same(cx+nx*5,cy+ny*5)||!same(cx-nx*5,cy-ny*5)))continue;
     placement={cx,cy,dx,dy,local};break;
    }if(placement)break;}
@@ -88,10 +96,10 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
     inner+=`<g data-flow-region="${region}" data-flow-x="${cx}" data-flow-y="${cy}" data-flow-dx="${dx}" data-flow-dy="${dy}">`+line(cx-15*dx,cy-15*dy,cx+15*dx,cy+15*dy,flowInk,.9)+poly([[cx+15*dx,cy+15*dy],[cx+10*dx-2*dy,cy+10*dy+2*dx],[cx+10*dx+2*dy,cy+10*dy-2*dx]],flowInk)+'</g>';
    }
   }
-  inner+=`<g data-airfoil-region="${airfoilRegionLabel(s,p.id)}">${txt(mx+nx*19,my+ny*19+4,airfoilRegionLabel(s,p.id),'#253945',17,'middle')}</g>`;
+  if(mx+nx*19<flowRight-5)inner+=`<g data-airfoil-region="${airfoilRegionLabel(s,p.id)}">${txt(mx+nx*19,my+ny*19+4,airfoilRegionLabel(s,p.id),'#253945',17,'middle')}</g>`;
  }
  if(s.geometry.diamond||isFlatPlate(s))inner+=`<g data-airfoil-region="1">${txt(60,85,'1','#253945',17,'middle')}</g>`;
- if(trailing){
+ if(trailing&&flowRight>trailingX+45){
   const origin=V({x:1,y:0}),end=ray(origin,trailing.phi,173);
   inner+=`<g data-trailing-interface="${trailing.interfaceKind}">`+line(...origin,...end,'#344652',1,'5 4')+`<circle cx="${origin[0]}" cy="${origin[1]}" r="2.3" fill="#17212b"/>`+'</g>';
   // The arrow lies on the matched downstream streamline. Its horizontal
@@ -106,7 +114,8 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
    if(!s.geometry.diamond){const display=airfoilRegionLabel(s,label);inner+=`<g data-airfoil-region="${display}">${txt(pos[0],pos[1]+4,display,'#253945',isFlatPlate(s)?17:12,'middle')}</g>`;}
   }
  }
- if(trailing&&s.geometry.diamond)inner+=`<g data-airfoil-region="6">${txt(608,165,'6','#253945',17,'middle')}</g>`;
+ if(trailing&&s.geometry.diamond&&flowRight>=615)inner+=`<g data-airfoil-region="6">${txt(608,165,'6','#253945',17,'middle')}</g>`;
+ if(domain?.clipped){inner+=line(flowRight,46,flowRight,234,'#52616b',1,'4 3');if(flowRight<520)inner+=txt((flowRight+620)/2,224,'Geometry only · flow not shown','#52616b',11,'middle');}
  inner+=shockLabels.join('');
  inner+=incidenceGlyph(s.alpha,24,148,42,'#536977')+'</g>';
  inner+=line(leadingX,249,trailingX,249,'#a5b1b7',.8)+line(leadingX,245,leadingX,253,'#a5b1b7',.8)+line(trailingX,245,trailingX,253,'#a5b1b7',.8);
@@ -114,5 +123,5 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  inner+=line(100,289,122,289,'#000000',1.35)+txt(129,293,'Shock','#53616b',12)+line(217,289,239,289,'#477caa',.95)+txt(246,293,'Expansion fan','#53616b',12);
  if(trailing)inner+=line(415,289,437,289,'#344652',1,'5 4')+txt(444,293,trailing.interfaceKind,'#53616b',12);
  if(contour)inner=inner.replace(/<text\b([^>]*)>/g,(tag,a)=>{const px=Number(a.match(/\bx="([^"]+)"/)?.[1]),py=Number(a.match(/\by="([^"]+)"/)?.[1]);if(px<20||px>620||py<46||py>234)return tag;const z=sampler.sample((px-leadingX)/L,(150-py+6)/L);if(!z)return tag;const value=contour.property.read(z,s),ink=readableInk(surfaceColor((value-contour.min)/(contour.max-contour.min||1)));return tag.replace(/fill="[^"]*"/,`fill="${ink}"`);});
- return {inner,label:schematic?'Airfoil contours · schematic overlaps':'Analytical airfoil wave field',meta:schematic?'Physical contours in resolved regions; schematic continuation in wave overlaps.':'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:schematic?'Schematic continuation in wave overlaps: waves do not interact; uniform-region colors continue unchanged. All colors use the selected-variable scale; read values with cursor. · β relative to local upstream flow':'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
+ return {inner,label:schematic?'Airfoil contours · schematic overlaps':'Analytical airfoil wave field',meta:schematic?'Physical contours in resolved regions; schematic continuation in wave overlaps.':'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:domain?(domain.clipped?`Physical contours stop at x/c = ${fmt(domain.limit,5)}, before the first wave interaction or surface encounter. Grey area: geometry only.`:'Physical contours; no wave interaction in the displayed domain.'):schematic?'Schematic continuation in wave overlaps: waves do not interact; uniform-region colors continue unchanged. All colors use the selected-variable scale; read values with cursor. · β relative to local upstream flow':'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
 }
