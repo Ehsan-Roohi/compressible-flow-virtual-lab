@@ -125,6 +125,12 @@ export function airfoilGeometry(x){
  }
  return {upper,lower,panels,...(connected?{connectedPlate:connected}:{}),...(x.airfoilShape==='Bent flat plate'?{bentPlate:{multiple:x.plateDefinition==='Multiple panels',height:x.bendHeight??.12,position:x.bendPosition??.5}}:{}),...(x.airfoilShape==='Diamond'?{diamond:diamondInputValues({upper})}:{})};
 }
+// Preserve saved Bent geometries when removing that interface option.
+export function migrateAirfoilGeometry(x){
+ if(x.airfoilShape!=='Bent flat plate')return x;
+ try{const old=airfoilGeometry(x);return {...x,airfoilShape:'Connected flat plates',upperSegments:surfaceSegments(old.upper,true)};}
+ catch{return {...x,airfoilShape:'Connected flat plates'};}
+}
 export function airfoilForces(panels,cps,alpha=0,linear=false){
  let Cx=0,Cy=0,CM=0;panels.forEach((p,i)=>{const sign=p.side==='Upper'?1:-1,fx=sign*cps[i]*p.dy,fy=-sign*cps[i]*p.dx;Cx+=fx;Cy+=fy;CM+=(linear?0:(p.a.y+p.b.y)/2*fx)-((p.a.x+p.b.x)/2-.25)*fy;});
  return {Cx,Cy,CL:linear?Cy:-Cx*Math.sin(alpha)+Cy*Math.cos(alpha),CD:linear?Cx+alpha*Cy:Cx*Math.cos(alpha)+Cy*Math.sin(alpha),CM};

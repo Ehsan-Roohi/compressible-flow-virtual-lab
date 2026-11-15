@@ -10,7 +10,7 @@ test('Example 6–15 is a zero-thickness cambered two-panel plate closed at the 
  assert.equal(d.result.nonlinear.status,'ok');assert.equal(d.result.trailingEdge.status,'ok');assert.ok(Number.isFinite(d.result.nonlinear.CL)&&d.result.nonlinear.CD>0);
  const kinds=d.result.nonlinear.waves.map(w=>w.kind);assert.deepEqual(kinds,['Oblique shock','Expansion fan','Expansion fan','Oblique shock']);
  const sample=airfoilFieldSampler(d.result).sample;assert.equal(sample(.25,.061).region,'U1');assert.equal(sample(.25,.059).region,'L1');
- const fields=inputDefinitions('airfoil',preset).map(f=>f.key);assert.ok(fields.includes('bendHeight')&&fields.includes('bendPosition'));for(const k of ['upperSegments','lowerSegments','thickness','upperProfile','geometryInput'])assert.ok(!fields.includes(k));
+ const fields=inputDefinitions('airfoil',preset).map(f=>f.key);assert.ok(!fields.includes('bendHeight')&&!fields.includes('bendPosition'));for(const k of ['upperSegments','lowerSegments','thickness','upperProfile','geometryInput'])assert.ok(!fields.includes(k));
  assert.deepEqual(plotOptions(d),[]);const v=sceneSVG(d.scene,d.inputs);assert.ok(v.svg.includes('h/c = 0.12'));assert.equal(v.field.options.length,6);
 });
 test('Bent geometry allows an off-center bend and rejects invalid height or position',()=>{
@@ -20,14 +20,14 @@ test('Bent geometry allows an off-center bend and rejects invalid height or posi
 });
 
 
-test('Example dropdown loads the bent plate with the textbook input values',()=>{
+test('Example dropdown loads connected plates with the textbook input values',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),start=source.indexOf('function renderExamples(){'),end=source.indexOf('\nfunction knownRayleighData',start),elements=new Map();
  const $=id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);};let solves=0;
  const context=vm.createContext({$,id:'airfoil',inputs:defaults('airfoil'),defaults,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0});
  vm.runInContext(source.slice(start,end),context);context.renderExamples();assert.match($('examplesPanel').innerHTML,/Example 6–15/);
  $('exampleSelect').onchange({target:{value:'6–15'}});assert.equal(solves,1);
- for(const [k,v]of Object.entries({airfoilShape:'Bent flat plate',M:2.5,alpha:4.2,bendHeight:.12,bendPosition:.5,bookExample:'6–15'}))assert.equal(context.inputs[k],v);
- context.renderExamples();assert.match($('examplesPanel').innerHTML,/Zero thickness/);
+ for(const [k,v]of Object.entries({airfoilShape:'Connected flat plates',M:2.5,alpha:4.2,bookExample:'6–15'}))assert.equal(context.inputs[k],v);
+ context.renderExamples();assert.match($('examplesPanel').innerHTML,/zero[- ]thickness/i);
 });
 
 test('Reversing bend height and incidence swaps sides and reverses lift',()=>{

@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync}from'node:fs';import vm from'node:vm';
-import {calculate,defaults,inputDefinitions}from'./labs.js';import {connectedSurface,automaticSurface,constrainedSurface,segmentSurface}from'./airfoil.js';import{airfoilView}from'./airfoil-view.js';import{probeAirfoilField}from'./airfoil-field.js';import{sceneSVG}from'./graphics.js';
+import {calculate,defaults,inputDefinitions}from'./labs.js';import {connectedSurface,automaticSurface,constrainedSurface,segmentSurface,migrateAirfoilGeometry,airfoilGeometry}from'./airfoil.js';import{airfoilView}from'./airfoil-view.js';import{probeAirfoilField}from'./airfoil-field.js';import{sceneSVG}from'./graphics.js';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`${a} != ${b}`);
 const preset={...defaults('airfoil'),airfoilShape:'Connected flat plates',M:3,alpha:4.2,upperSegments:[{angle:8,length:.6},{angle:-5,length:.4},{angle:3,length:.7}]};
 test('Independent panel angles and metre lengths form an exact chain with a free endpoint',()=>{
@@ -18,9 +18,21 @@ test('View fits elevated or descending chains and invalid panel data is rejected
 test('Chain editor has editable length fields and appends rather than rescaling panels',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),elements=new Map(),button={},input={dataset:{index:'1',property:'length'},value:'1.2',readOnly:false};
  const box={querySelector(s){if(s==='.segment-add')return button;if(!elements.has(s))elements.set(s,{});return elements.get(s);},querySelectorAll(s){return s==='input'?[input]:[];}};
- const context=vm.createContext({inputs:structuredClone(preset),$:()=>box,fmt:String,connectedSurface,automaticSurface,constrainedSurface,segmentSurface,request:0,schedule(){},renderInputs(){}});
+ const context=vm.createContext({inputs:structuredClone(preset),$:()=>box,fmt:String,connectedSurface,automaticSurface,constrainedSurface,segmentSurface,migrateAirfoilGeometry,airfoilGeometry,request:0,schedule(){},renderInputs(){}});
  vm.runInContext(source.slice(source.indexOf('function segmentEditor('),source.indexOf('function changeAirfoilGeometry(')),context);
  const html=context.segmentEditor({key:'upperSegments'});assert.ok(!html.includes('readonly'));assert.match(html,/Length \(m\)/);assert.ok(!html.includes('Target L/c'));
  context.bindSegmentEditor({key:'upperSegments'});input.oninput();assert.equal(context.inputs.upperSegments[1].length,1.2);assert.match(elements.get('[data-closure-message]').textContent,/No automatic closure/);
  button.onclick();assert.equal(context.inputs.upperSegments.length,4);assert.equal(context.inputs.upperSegments[1].length,1.2);assert.equal(context.inputs.upperSegments[3].length,.7);
+});
+
+
+test('Bent is absent from the menu and saved Bent geometries migrate without changing their path',()=>{
+ const fields=inputDefinitions('airfoil',defaults('airfoil')),shape=fields.find(f=>f.key==='airfoilShape');assert.ok(!shape.options.includes('Bent flat plate'));
+ for(const old of [
+  {...defaults('airfoil'),airfoilShape:'Bent flat plate',bendHeight:.16,bendPosition:.4},
+  {...defaults('airfoil'),airfoilShape:'Bent flat plate',plateDefinition:'Multiple panels',upperSegments:[{angle:8,length:.3},{angle:0,length:.4},{angle:-8,length:.3}]}
+ ]){
+  const before=airfoilGeometry(old),migrated=migrateAirfoilGeometry(old),after=airfoilGeometry(migrated);assert.equal(migrated.airfoilShape,'Connected flat plates');assert.equal(before.upper.length,after.upper.length);
+  before.upper.forEach((p,i)=>{near(p.x,after.upper[i].x);near(p.y,after.upper[i].y);});
+ }
 });
