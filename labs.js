@@ -14,7 +14,7 @@ import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20
 import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261109-wedge-cone';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261109-wedge-cone';
-import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261109-wedge-cone';
+import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-diamond-inputs';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261110-fanno-layout';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -117,6 +117,7 @@ export const labs={
  {key:'upperSegments',label:'Upper surface segments',type:'segments',value:[{angle:4.573921259900861,length:0.5015974481593781}]},
  {key:'lowerSegments',label:'Lower surface segments',type:'segments',value:[{angle:-4.573921259900861,length:0.5015974481593781}]},
  input('M','Freestream Mach',3,1.1,20,.01,'M∞'),input('alpha','Angle of attack α',4,-10,10,.1,'°'),
+ input('diamondFrontAngle','Front-panel angle magnitude',4.573921259900861,.05,84,.05,'°'),input('diamondRearAngle','Rear-panel angle magnitude',4.573921259900861,.05,84,.05,'°'),input('diamondFrontLength','Front-panel length / chord',.5015974481593781,.001,2,.001,'Lf/c'),input('diamondRearLength','Rear-panel length / chord',.5015974481593781,.001,2,.001,'Lr/c'),
  input('thickness','Maximum thickness',.08,0,.2,.001,'t/c'),input('peak','Peak location',.5,.15,.85,.01,'x/c'),input('camber','Peak camber',0,-.08,.08,.001,'y/c'),
  {key:'upperProfile',label:'Upper vertices · x/c,y/c',type:'textarea',value:'0,0; 0.3,0.04; 0.7,0.03; 1,0'},
  {key:'lowerProfile',label:'Lower vertices · x/c,y/c',type:'textarea',value:'0,0; 0.3,-0.04; 0.7,-0.03; 1,0'},T,P,g
@@ -140,14 +141,15 @@ function experimentInputs(id,x={}){
  }
  if(id==='airfoil')return labs.airfoil.inputs.filter(f=>{
   const flat=x.airfoilShape==='Flat plate',custom=x.airfoilShape==='Custom panels',angles=x.geometryInput==='Angles & lengths';
-  if(f.key==='geometryInput')return custom;
-  if(f.key==='upperSegments')return !flat&&angles;
+  if(f.key==='geometryInput')return custom||x.airfoilShape==='Diamond';
+  if(f.key.startsWith('diamond')){if(x.airfoilShape!=='Diamond')return false;const mode=x.geometryInput==='Angles & lengths'?'Angle & length ratio':x.geometryInput;return mode==='Angles'?['diamondFrontAngle','diamondRearAngle'].includes(f.key):mode==='Length ratios'?['diamondFrontLength','diamondRearLength'].includes(f.key):['diamondFrontAngle','diamondFrontLength'].includes(f.key);}
+  if(f.key==='upperSegments')return !flat&&angles&&x.airfoilShape!=='Diamond';
   if(f.key==='lowerSegments')return !flat&&angles&&x.airfoilShape!=='Diamond';
   if(['thickness','peak'].includes(f.key))return false;
   if(f.key==='camber')return false;
   if(['upperProfile','lowerProfile'].includes(f.key))return custom&&!angles;
   return true;
- }).map(f=>f.key==='upperSegments'&&x.airfoilShape==='Diamond'?{...f,label:'Upper segments · lower mirrored'}:f.key==='geometryInput'?{...f,options:x.airfoilShape==='Custom panels'?['Angles & lengths','Coordinates']:['Angles & lengths','Dimensions']}:f.key==='T1'?{...f,label:'Freestream temperature'}:f.key==='p1'?{...f,label:'Freestream pressure'}:f);
+ }).map(f=>f.key==='upperSegments'&&x.airfoilShape==='Diamond'?{...f,label:'Upper segments · lower mirrored'}:f.key==='geometryInput'?{...f,options:x.airfoilShape==='Diamond'?['Angles','Length ratios','Angle & length ratio']:x.airfoilShape==='Custom panels'?['Angles & lengths','Coordinates']:['Angles & lengths','Dimensions']}:f.key==='T1'?{...f,label:'Freestream temperature'}:f.key==='p1'?{...f,label:'Freestream pressure'}:f);
 
  if(id==='collision')return labs.collision.inputs.filter(f=>f.key!=='geometryMode').map(f=>f.key==='thetaUpper'?{...f,label:x.interactionType==='Same-direction shocks'?'First wall angle θ₁':'Lower-wall angle θₗ'}:f.key==='thetaLower'?(x.interactionType==='Same-direction shocks'?{...f,label:'Second-wall angle θ₂',min:(x.thetaUpper??10)+f.min,max:(x.thetaUpper??10)+f.max,displayOffset:x.thetaUpper??10,help:'Absolute wall angle measured from the horizontal.'}:{...f,label:'Upper-wall angle θᵤ',min:-f.max,max:-f.min,displayScale:-1,help:'Signed wall angle measured from the horizontal; clockwise is negative.'}):f.key==='cornerSpacing'?{...f,help:x.interactionType==='Same-direction shocks'?'Axial distance between the two lower-wall corners.':'Upper corner x minus lower corner x. The lower corner is at x = 0.'}:f);
  if(id==='balances')return labs.balances.inputs.filter(f=>f.key!=='M2'||x.balanceMode!=='Solve outlet speed').map(f=>f.key==='T2'&&x.balanceMode==='Solve outlet speed'?{...f,section:'Outlet state'}:f);

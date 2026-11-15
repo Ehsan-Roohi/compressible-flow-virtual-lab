@@ -17,6 +17,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph}){
  let inner='<rect width="640" height="300" fill="#fcfdfc"/>';
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
  inner+=txt(24,29,'SUPERSONIC AIRFOIL','#53616b',13)+txt(616,29,`${s.geometry.panels.length} surface regions`,'#263c4d',14,'end');
+ if(s.geometry.diamond){const q=s.geometry.diamond;inner+=txt(24,46,`θf = ${fmt(q.diamondFrontAngle,4)}° · θr = ${fmt(q.diamondRearAngle,4)}° · Lf/c = ${fmt(q.diamondFrontLength,4)} · Lr/c = ${fmt(q.diamondRearLength,4)}`,'#263c4d',12);}
  inner+='<g clip-path="url(#airfoil-wave-window)" stroke-linecap="round" stroke-linejoin="round">';
  // Finite rays deliberately stop locally: downstream wave interactions are not solved.
  if(available)for(const w of [...s.nonlinear.waves,...(trailing?.waves??[])]){

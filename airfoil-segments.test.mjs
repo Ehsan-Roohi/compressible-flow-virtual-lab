@@ -19,5 +19,5 @@ test('Angle/length and coordinate entry produce identical states, forces and pot
 test('Invalid segment lengths, overrun, crossings and preset segment count are rejected',()=>{
  for(const segments of [[{angle:0,length:0}],[{angle:90,length:.2}],[{angle:0,length:1}],[{angle:0,length:NaN}]])assert.throws(()=>segmentSurface(segments));
  const x=defaults('airfoil');assert.throws(()=>airfoilGeometry({...x,upperSegments:[{angle:-10,length:.4}]}),/cross/);assert.throws(()=>airfoilGeometry({...x,upperSegments:[{angle:1,length:.2},{angle:1,length:.2}]}),/at most/);
- assert.equal(segmentSurface([]).closing.length,1);assert.ok(!inputDefinitions('airfoil',x).some(f=>f.key==='camber'||f.key==='thickness'));assert.ok(inputDefinitions('airfoil',x).some(f=>f.key==='upperSegments'));
+ assert.equal(segmentSurface([]).closing.length,1);assert.ok(!inputDefinitions('airfoil',x).some(f=>f.key==='camber'||f.key==='thickness'));assert.ok(inputDefinitions('airfoil',x).some(f=>f.key==='diamondFrontAngle'));assert.ok(inputDefinitions('airfoil',x).some(f=>f.key==='geometryInput'));
 });

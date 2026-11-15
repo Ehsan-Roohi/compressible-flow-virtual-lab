@@ -23,11 +23,30 @@ export function presetSegments(x){
  const camber=x.airfoilShape==='Diamond'?0:x.camber??0,t=x.thickness??.08,peak=x.peak??.5;
  return {upper:[{angle:deg(Math.atan2(camber+t/2,peak)),length:Math.hypot(peak,camber+t/2)}],lower:[{angle:deg(Math.atan2(camber-t/2,peak)),length:Math.hypot(peak,camber-t/2)}]};
 }
+export const diamondModes=['Angles','Length ratios','Angle & length ratio'];
+export function diamondInputValues(geometry){
+ const p=geometry.upper[1];return {diamondFrontAngle:deg(Math.atan2(p.y,p.x)),diamondRearAngle:deg(Math.atan2(p.y,1-p.x)),diamondFrontLength:Math.hypot(p.x,p.y),diamondRearLength:Math.hypot(1-p.x,p.y)};
+}
+function diamondPoints(x){
+ let px,py;const a=x.diamondFrontAngle??4.573921259900861,b=x.diamondRearAngle??4.573921259900861,l=x.diamondFrontLength??.5015974481593781,r=x.diamondRearLength??.5015974481593781;
+ if(x.geometryInput==='Angles'){
+  requireValue(finite(a,b)&&a>0&&b>0&&a<85&&b<85,'Front and rear panel angle magnitudes must be between 0° and 85°.');
+  const f=Math.tan(rad(a)),q=Math.tan(rad(b));px=q/(f+q);py=px*f;
+ }else if(x.geometryInput==='Length ratios'){
+  requireValue(finite(l,r)&&l>0&&r>0&&l+r>1&&Math.abs(l-r)<1,'Panel lengths and the unit chord must form a nondegenerate triangle: Lf/c + Lr/c > 1 and |Lf/c − Lr/c| < 1.');
+  px=(1+l*l-r*r)/2;py=Math.sqrt(Math.max(0,l*l-px*px));
+ }else{
+  requireValue(finite(a,l)&&a>0&&a<85&&l>0,'Require a positive front-panel length and an angle between 0° and 85°.');px=l*Math.cos(rad(a));py=l*Math.sin(rad(a));
+ }
+ requireValue(finite(px,py)&&px>1e-6&&px<1-1e-6&&py>0&&py<=.3,'The peak must lie between leading and trailing edges and satisfy 0 < t/c ≤ 0.6.');
+ return [point(0,0),point(px,py),point(1,0)];
+}
 const ordinate=(points,x)=>{let i=0;while(i<points.length-2&&points[i+1].x<x)i++;const a=points[i],b=points[i+1];return a.y+(b.y-a.y)*(x-a.x)/(b.x-a.x);};
 export function airfoilGeometry(x){
  requireValue(['Flat plate','Diamond','Asymmetric double wedge','Custom panels'].includes(x.airfoilShape),'Choose a supported sharp airfoil geometry.');
  let upper,lower;const angleMode=x.geometryInput==='Angles & lengths';
  if(x.airfoilShape==='Flat plate'){upper=[point(0,0),point(1,0)];lower=upper.map(p=>({...p}));}
+ else if(x.airfoilShape==='Diamond'&&diamondModes.includes(x.geometryInput)){upper=diamondPoints(x);lower=upper.map(p=>point(p.x,-p.y));}
  else if(angleMode){const max=x.airfoilShape==='Custom panels'?19:1;upper=segmentSurface(x.upperSegments,'Upper surface',max).points;lower=x.airfoilShape==='Diamond'?upper.map(p=>point(p.x,-p.y)):segmentSurface(x.lowerSegments,'Lower surface',max).points;}
  else if(x.airfoilShape==='Custom panels'){upper=coordinates(x.upperProfile,'Upper surface');lower=coordinates(x.lowerProfile,'Lower surface');}
  else{
@@ -39,7 +58,7 @@ export function airfoilGeometry(x){
  const panels=[];for(const [side,points]of [['Upper',upper],['Lower',lower]])for(let i=0;i<points.length-1;i++){
   const a=points[i],b=points[i+1],dx=b.x-a.x,dy=b.y-a.y;panels.push({id:`${side[0]}${i+1}`,side,index:i,a,b,dx,dy,slope:dy/dx,theta:Math.atan2(dy,dx),length:Math.hypot(dx,dy),automatic:angleMode&&i===points.length-2});
  }
- return {upper,lower,panels};
+ return {upper,lower,panels,...(x.airfoilShape==='Diamond'?{diamond:diamondInputValues({upper})}:{})};
 }
 export function airfoilForces(panels,cps,alpha=0,linear=false){
  let Cx=0,Cy=0,CM=0;panels.forEach((p,i)=>{const sign=p.side==='Upper'?1:-1,fx=sign*cps[i]*p.dy,fy=-sign*cps[i]*p.dx;Cx+=fx;Cy+=fy;CM+=(linear?0:(p.a.y+p.b.y)/2*fx)-((p.a.x+p.b.x)/2-.25)*fy;});
