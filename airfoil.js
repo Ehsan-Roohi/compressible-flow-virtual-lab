@@ -6,7 +6,7 @@ function coordinates(text,label){
  const rows=String(text).trim().split(/[;\n]+/).filter(s=>s.trim()).map(s=>s.trim().split(/[,\s]+/).map(Number));
  requireValue(rows.length>=2&&rows.length<=21&&rows.every(r=>r.length===2&&r.every(Number.isFinite)),`${label}: enter 2–21 x,y pairs, separated by semicolons or newlines.`);
  const points=rows.map(([x,y])=>point(x,y));requireValue(Math.abs(points[0].x)<1e-10&&Math.abs(points[0].y)<1e-10&&Math.abs(points.at(-1).x-1)<1e-10&&Math.abs(points.at(-1).y)<1e-10,`${label} must start at 0,0 and end at 1,0.`);
- requireValue(points.every((p,i)=>Math.abs(p.y)<=.3&&(!i||p.x>points[i-1].x)),`${label}: x must increase strictly and |y/c| must not exceed 0.3.`);return points;
+ requireValue(points.every((p,i)=>Math.abs(p.y)<=.3&&(!i||p.x>points[i-1].x)),`${label}: x must increase strictly and |y/c| must not exceed 0.3.`);points[0]=point(0,0);points[points.length-1]=point(1,0);return points;
 }
 export function segmentSurface(segments,label='Surface',max=19){
  requireValue(Array.isArray(segments)&&segments.length<=max,`${label}: use at most ${max} entered segments.`);
@@ -16,9 +16,37 @@ export function segmentSurface(segments,label='Surface',max=19){
   const a=points.at(-1),b=point(a.x+s.length*Math.cos(rad(s.angle)),a.y+s.length*Math.sin(rad(s.angle)));
   requireValue(b.x<1-1e-6&&Math.abs(b.y)<=.3,`${label} segment ${i+1}: leave space before x/c = 1 for the automatic closing segment and keep |y/c| ≤ 0.3.`);points.push(b);
  }
- const last=points.at(-1),closing={angle:deg(Math.atan2(-last.y,1-last.x)),length:Math.hypot(1-last.x,last.y)};points.push(point(1,0));return {points,closing};
+ const last=points.at(-1);
+ if(Math.abs(last.y)<1e-12&&last.x>0){const scale=1/last.x;for(const p of points){p.x*=scale;p.y*=scale;}points[points.length-1]=point(1,0);return {points,lengths:segments.map(s=>s.length*scale),closing:null};}
+ const closing={angle:deg(Math.atan2(-last.y,1-last.x)),length:Math.hypot(1-last.x,last.y)};points.push(point(1,0));return {points,closing};
 }
-export const surfaceSegments=points=>points.slice(0,-2).map((p,i)=>{const b=points[i+1];return {angle:deg(Math.atan2(b.y-p.y,b.x-p.x)),length:Math.hypot(b.x-p.x,b.y-p.y)};});
+// With two or more prescribed panel angles, the final two lengths are dependent.
+export function constrainedSurface(segments,label='Surface',max=20){
+ requireValue(Array.isArray(segments)&&segments.length<=max,`${label}: use at most ${max} segments.`);
+ if(segments.length<2)return segmentSurface(segments,label,max);
+ const points=[point(0,0)],lengths=segments.map(p=>p.length);
+ for(const [i,s]of segments.entries()){
+  requireValue(finite(s.angle)&&Math.abs(s.angle)<85,`${label} segment ${i+1}: require |angle| < 85°.`);
+  if(i>=segments.length-2)continue;
+  requireValue(finite(s.length)&&s.length>0&&s.length<=2,`${label} segment ${i+1}: require 0 < L/c ≤ 2.`);
+  const a=points.at(-1);points.push(point(a.x+s.length*Math.cos(rad(s.angle)),a.y+s.length*Math.sin(rad(s.angle))));
+ }
+ const n=segments.length,a=rad(segments[n-2].angle),b=rad(segments[n-1].angle),p=points.at(-1),dx=1-p.x,dy=-p.y,det=Math.sin(b-a);
+ if(Math.abs(det)<1e-10){
+  requireValue(Math.abs(dx*Math.sin(a)-dy*Math.cos(a))<1e-10,`${label}: the final two angles cannot reach the trailing edge. Choose different angles.`);
+  const total=dx*Math.cos(a)+dy*Math.sin(a),weights=segments.slice(-2).map(z=>Number.isFinite(z.length)&&z.length>0?z.length:1),sum=weights[0]+weights[1];
+  lengths[n-2]=total*weights[0]/sum;lengths[n-1]=total*weights[1]/sum;
+ }else{
+  lengths[n-2]=(dx*Math.sin(b)-dy*Math.cos(b))/det;
+  lengths[n-1]=(Math.cos(a)*dy-Math.sin(a)*dx)/det;
+ }
+ requireValue(lengths.slice(-2).every(v=>Number.isFinite(v)&&v>1e-8&&v<=2),`${label}: these angles and preceding lengths cannot close at the trailing edge with positive panel lengths.`);
+ for(let i=n-2;i<n;i++){const p=points.at(-1),a=rad(segments[i].angle);points.push(point(p.x+lengths[i]*Math.cos(a),p.y+lengths[i]*Math.sin(a)));}
+ requireValue(points.every((p,i)=>Math.abs(p.y)<=.3&&(!i||p.x>points[i-1].x&&p.x<=1+1e-10)),`${label}: require downstream panels and |y/c| ≤ 0.3.`);
+ points[points.length-1]=point(1,0);
+ return {points,lengths,closing:null};
+}
+export const surfaceSegments=(points,includeClosing=false)=>points.slice(0,includeClosing?-1:-2).map((p,i)=>{const b=points[i+1];return {angle:deg(Math.atan2(b.y-p.y,b.x-p.x)),length:Math.hypot(b.x-p.x,b.y-p.y)};});
 export function presetSegments(x){
  const camber=x.airfoilShape==='Diamond'?0:x.camber??0,t=x.thickness??.08,peak=x.peak??.5;
  return {upper:[{angle:deg(Math.atan2(camber+t/2,peak)),length:Math.hypot(peak,camber+t/2)}],lower:[{angle:deg(Math.atan2(camber-t/2,peak)),length:Math.hypot(peak,camber-t/2)}]};
@@ -47,7 +75,7 @@ export function airfoilGeometry(x){
  let upper,lower;const angleMode=x.geometryInput==='Angles & lengths';
  if(x.airfoilShape==='Flat plate'){upper=[point(0,0),point(1,0)];lower=upper.map(p=>({...p}));}
  else if(x.airfoilShape==='Diamond'&&diamondModes.includes(x.geometryInput)){upper=diamondPoints(x);lower=upper.map(p=>point(p.x,-p.y));}
- else if(angleMode){const max=x.airfoilShape==='Custom panels'?19:1;upper=segmentSurface(x.upperSegments,'Upper surface',max).points;lower=x.airfoilShape==='Diamond'?upper.map(p=>point(p.x,-p.y)):segmentSurface(x.lowerSegments,'Lower surface',max).points;}
+ else if(angleMode){const custom=x.airfoilShape==='Custom panels',max=custom?20:1,build=custom?constrainedSurface:segmentSurface;upper=build(x.upperSegments,'Upper surface',max).points;lower=x.airfoilShape==='Diamond'?upper.map(p=>point(p.x,-p.y)):build(x.lowerSegments,'Lower surface',max).points;}
  else if(x.airfoilShape==='Custom panels'){upper=coordinates(x.upperProfile,'Upper surface');lower=coordinates(x.lowerProfile,'Lower surface');}
  else{
   requireValue(finite(x.thickness,x.peak,x.camber)&&x.thickness>=0&&x.thickness<=.2&&x.peak>=.15&&x.peak<=.85&&Math.abs(x.camber)<=.08,'Require 0 ≤ t/c ≤ 0.2, 0.15 ≤ peak x/c ≤ 0.85 and |camber/c| ≤ 0.08.');
@@ -56,7 +84,7 @@ export function airfoilGeometry(x){
  }
  const stations=[...new Set([...upper,...lower].map(p=>p.x))];requireValue(stations.every(z=>ordinate(upper,z)>=ordinate(lower,z)-1e-10),'Upper and lower surfaces must not cross.');
  const panels=[];for(const [side,points]of [['Upper',upper],['Lower',lower]])for(let i=0;i<points.length-1;i++){
-  const a=points[i],b=points[i+1],dx=b.x-a.x,dy=b.y-a.y;panels.push({id:`${side[0]}${i+1}`,side,index:i,a,b,dx,dy,slope:dy/dx,theta:Math.atan2(dy,dx),length:Math.hypot(dx,dy),automatic:angleMode&&i===points.length-2});
+  const a=points[i],b=points[i+1],dx=b.x-a.x,dy=b.y-a.y;panels.push({id:`${side[0]}${i+1}`,side,index:i,a,b,dx,dy,slope:dy/dx,theta:Math.atan2(dy,dx),length:Math.hypot(dx,dy),automatic:angleMode&&!(x.airfoilShape==='Custom panels'&&(side==='Upper'?x.upperSegments:x.lowerSegments).length>=2)&&i===points.length-2,automaticLength:angleMode&&x.airfoilShape==='Custom panels'&&(side==='Upper'?x.upperSegments:x.lowerSegments).length>=2&&i>=points.length-3});
  }
  return {upper,lower,panels,...(x.airfoilShape==='Diamond'?{diamond:diamondInputValues({upper})}:{})};
 }

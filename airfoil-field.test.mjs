@@ -19,7 +19,7 @@ test('Linearized-only model does not invent dimensional exterior states',()=>{
  const d=calculate('airfoil',{...defaults('airfoil'),airfoilMethod:'Linearized theory'});assert.equal(airfoilFieldSampler(d.result),null);assert.equal(airfoilContour(d.result),null);assert.deepEqual(sceneSVG(d.scene,d.inputs).field.options,['cp']);
 });
 test('Intersecting wave families are left unresolved rather than assigned a fabricated contour',()=>{
- const r=calculate('airfoil',{...defaults('airfoil'),airfoilShape:'Custom panels',airfoilFieldMode:'Local analytical · resolved regions',alpha:0,upperSegments:[{angle:5,length:.2},{angle:10,length:.25}],lowerSegments:[{angle:-5,length:.2},{angle:-10,length:.25}]}).result;
+ const r=calculate('airfoil',{...defaults('airfoil'),airfoilShape:'Custom panels',airfoilFieldMode:'Local analytical · resolved regions',alpha:0,upperSegments:[{angle:5,length:.2},{angle:10,length:.25},{angle:-8,length:.5}],lowerSegments:[{angle:-5,length:.2},{angle:-10,length:.25},{angle:8,length:.5}]}).result;
  const [a,b]=r.nonlinear.waves.filter(w=>w.side==='Upper'),ma=Math.tan(a.before.theta+a.beta),mb=Math.tan(b.before.theta+b.beta),ix=(b.origin.y-a.origin.y+ma*a.origin.x-mb*b.origin.x)/(ma-mb),x=ix+.15,y=(a.origin.y+ma*(x-a.origin.x)+b.origin.y+mb*(x-b.origin.x))/2;
  assert.equal(airfoilFieldSampler(r).sample(x,y),null);
  const schematic={...r,airfoilFieldMode:'Schematic · independent waves'},filled=airfoilFieldSampler(schematic).sample(x,y);
