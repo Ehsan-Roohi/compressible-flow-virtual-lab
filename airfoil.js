@@ -75,9 +75,12 @@ export function airfoilGeometry(x){
  let upper,lower;const angleMode=x.geometryInput==='Angles & lengths';
  if(x.airfoilShape==='Flat plate'){upper=[point(0,0),point(1,0)];lower=upper.map(p=>({...p}));}
  else if(x.airfoilShape==='Bent flat plate'){
+  if(x.plateDefinition==='Multiple panels')upper=constrainedSurface(x.upperSegments,'Plate',20).points;
+  else{
   const h=x.bendHeight??.12,peak=x.bendPosition??.5;
   requireValue(finite(h,peak)&&Math.abs(h)<=.3&&peak>=.05&&peak<=.95,'Bent plate: require |h/c| ≤ 0.3 and 0.05 ≤ bend x/c ≤ 0.95.');
-  upper=[point(0,0),point(peak,h),point(1,0)];lower=upper.map(p=>({...p}));
+  upper=[point(0,0),point(peak,h),point(1,0)];
+  }lower=upper.map(p=>({...p}));
  }
  else if(x.airfoilShape==='Diamond'&&diamondModes.includes(x.geometryInput)){upper=diamondPoints(x);lower=upper.map(p=>point(p.x,-p.y));}
  else if(angleMode){const custom=x.airfoilShape==='Custom panels',max=custom?20:1,build=custom?constrainedSurface:segmentSurface;upper=build(x.upperSegments,'Upper surface',max).points;lower=x.airfoilShape==='Diamond'?upper.map(p=>point(p.x,-p.y)):build(x.lowerSegments,'Lower surface',max).points;}
@@ -91,7 +94,7 @@ export function airfoilGeometry(x){
  const panels=[];for(const [side,points]of [['Upper',upper],['Lower',lower]])for(let i=0;i<points.length-1;i++){
   const a=points[i],b=points[i+1],dx=b.x-a.x,dy=b.y-a.y;panels.push({id:`${side[0]}${i+1}`,side,index:i,a,b,dx,dy,slope:dy/dx,theta:Math.atan2(dy,dx),length:Math.hypot(dx,dy),automatic:angleMode&&!(x.airfoilShape==='Custom panels'&&(side==='Upper'?x.upperSegments:x.lowerSegments).length>=2)&&i===points.length-2,automaticLength:angleMode&&x.airfoilShape==='Custom panels'&&(side==='Upper'?x.upperSegments:x.lowerSegments).length>=2&&i>=points.length-3});
  }
- return {upper,lower,panels,...(x.airfoilShape==='Bent flat plate'?{bentPlate:{height:x.bendHeight??.12,position:x.bendPosition??.5}}:{}),...(x.airfoilShape==='Diamond'?{diamond:diamondInputValues({upper})}:{})};
+ return {upper,lower,panels,...(x.airfoilShape==='Bent flat plate'?{bentPlate:{multiple:x.plateDefinition==='Multiple panels',height:x.bendHeight??.12,position:x.bendPosition??.5}}:{}),...(x.airfoilShape==='Diamond'?{diamond:diamondInputValues({upper})}:{})};
 }
 export function airfoilForces(panels,cps,alpha=0,linear=false){
  let Cx=0,Cy=0,CM=0;panels.forEach((p,i)=>{const sign=p.side==='Upper'?1:-1,fx=sign*cps[i]*p.dy,fy=-sign*cps[i]*p.dx;Cx+=fx;Cy+=fy;CM+=(linear?0:(p.a.y+p.b.y)/2*fx)-((p.a.x+p.b.x)/2-.25)*fy;});

@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';import vm from 'node:vm';
 import test from 'node:test';import assert from 'node:assert/strict';
-import {calculate,defaults,inputDefinitions} from './labs.js';import {airfoilGeometry} from './airfoil.js';import {airfoilFieldSampler} from './airfoil-field.js';import {sceneSVG} from './graphics.js';import {plotOptions} from './plot-options.js';
+import {calculate,defaults,inputDefinitions} from './labs.js';import {airfoilGeometry,constrainedSurface,segmentSurface,surfaceSegments} from './airfoil.js';import {airfoilFieldSampler} from './airfoil-field.js';import {sceneSVG} from './graphics.js';import {plotOptions} from './plot-options.js';
 const preset={...defaults('airfoil'),airfoilShape:'Bent flat plate',M:2.5,alpha:4.2,bendHeight:.12,bendPosition:.5,airfoilMethod:'Shock–Expansion'};
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9*Math.max(1,Math.abs(b)));
 test('Example 6–15 is a zero-thickness cambered two-panel plate closed at the trailing edge',()=>{
@@ -34,4 +34,24 @@ test('Reversing bend height and incidence swaps sides and reverses lift',()=>{
  const a=calculate('airfoil',preset).result,b=calculate('airfoil',{...preset,bendHeight:-.12,alpha:-4.2}).result;
  near(a.nonlinear.CL,-b.nonlinear.CL);near(a.nonlinear.CD,b.nonlinear.CD);
  for(let i=0;i<2;i++){near(a.nonlinear.panels[i].p,b.nonlinear.panels[i+2].p);near(a.nonlinear.panels[i].M,b.nonlinear.panels[i+2].M);}
+});
+
+test('Multiple-panel plate shares one zero-thickness path and exposes one segment editor',()=>{
+ const x={...preset,plateDefinition:'Multiple panels',upperSegments:[{angle:8,length:.25},{angle:0,length:.2},{angle:-8,length:.3}]},d=calculate('airfoil',x),g=d.result.geometry;
+ assert.deepEqual(g.upper,g.lower);assert.equal(g.upper.length,4);assert.deepEqual(g.upper.at(-1),{x:1,y:0});assert.equal(g.panels.length,6);
+ assert.equal(d.result.nonlinear.status,'ok');
+ const fields=inputDefinitions('airfoil',x);assert.equal(fields.find(f=>f.key==='upperSegments').label,'Plate segments');assert.ok(!fields.some(f=>['lowerSegments','bendHeight','bendPosition'].includes(f.key)));
+ assert.match(sceneSVG(d.scene,d.inputs).svg,/3 panels/);
+});
+
+test('Switching to multiple panels and adding a panel preserves the plate geometry',()=>{
+ const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),elements=new Map(),button={};
+ const box={querySelector(s){if(s==='.segment-add')return button;if(!elements.has(s))elements.set(s,{});return elements.get(s);},querySelectorAll(){return [];}};
+ const context=vm.createContext({$:()=>box,inputs:structuredClone(preset),airfoilGeometry,constrainedSurface,segmentSurface,surfaceSegments,fmt:String,renderInputs(){},schedule(){},request:0});
+ const functions=source.slice(source.indexOf('function segmentEditor('),source.indexOf('function arrangeWallInputs('));
+ vm.runInContext(functions,context);const before=airfoilGeometry(preset);
+ context.changeAirfoilGeometry('plateDefinition','Multiple panels');
+ airfoilGeometry(context.inputs).upper.forEach((p,i)=>{near(p.x,before.upper[i].x);near(p.y,before.upper[i].y);});
+ context.bindSegmentEditor({key:'upperSegments'});button.onclick();assert.equal(context.inputs.upperSegments.length,3);
+ const after=airfoilGeometry(context.inputs);assert.deepEqual(after.upper.at(-1),{x:1,y:0});near(after.upper[1].y/after.upper[1].x,.24);near(after.upper[2].x,before.upper[1].x);near(after.upper[2].y,before.upper[1].y);
 });
