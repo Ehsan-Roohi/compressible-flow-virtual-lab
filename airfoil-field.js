@@ -15,7 +15,7 @@ export function airfoilFieldSampler(s){
   let side;
   if(x<=1){const up=ordinate(s.geometry.upper,x),lo=ordinate(s.geometry.lower,x);if(y<up-1e-10&&y>lo+1e-10)return null;side=y>=up?'Upper':'Lower';}
   else{if(s.trailingEdge?.status!=='ok')return null;side=y>=Math.tan(s.trailingEdge.phi)*(x-1)?'Upper':'Lower';}
-  let z=s.freestream,region=s.geometry.diamond||isFlatPlate(s)?'1':'∞',ready=true,approximate=false,independentFan=null;
+  let z=s.freestream,region=s.geometry.diamond||isFlatPlate(s)?'1':'∞',ready=true,approximate=false,lastUniform=null;
   for(const {w,sign,fan}of sides[side]){
    if(x<w.origin.x-1e-10||w.kind==='No wave')continue;
    const angle=sign*Math.atan2(y-w.origin.y,x-w.origin.x);
@@ -23,15 +23,16 @@ export function airfoilFieldSampler(s){
    if(angle>head+1e-10){ready=false;continue;}
    // The schematic continues each precomputed wave independently; it does not solve their interaction.
    if(!ready){if(!schematic)return null;approximate=true;}
+   // In the non-interacting schematic, a fan cannot recolor an existing uniform stream in an overlap.
+   if(schematic&&!ready&&fan&&lastUniform)continue;
    const id=w.id.startsWith('TE-')?w.id+'+':w.id;
-   if(!fan||angle<=fan.at(-1).angle){z=w.after;region=airfoilRegionLabel(s,id);continue;}
+   if(!fan||angle<=fan.at(-1).angle){z=w.after;region=airfoilRegionLabel(s,id);lastUniform={...z,region};continue;}
    let i=0;while(i<fan.length-2&&fan[i+1].angle>angle)i++;
    const a=fan[i],b=fan[i+1],t=(a.angle-angle)/(a.angle-b.angle),M=a.M+t*(b.M-a.M),tr=(1+k*w.before.M*w.before.M)/(1+k*M*M),theta=w.before.theta-sign*(prandtlMeyer(M,g)-prandtlMeyer(w.before.M,g));
    z={...state(M,w.before.T*tr,w.before.p*tr**(g/(g-1)),g,R),theta};region='Expansion fan';ready=false;
-   independentFan={...z,region,fanProgress:(M-w.before.M)/(w.after.M-w.before.M)};
   }
-  // Schematic overlap rule: the latest active expansion fan remains visible.
-  if(schematic&&approximate&&independentFan)return {...independentFan,approximate,schematic};
+  // Continue the accepted uniform-region color through unresolved overlaps.
+  if(schematic&&approximate&&lastUniform)return {...lastUniform,approximate,schematic};
   return {...z,region,approximate,schematic};
  };
  const result={sample};cache.set(s,result);return result;
@@ -39,7 +40,7 @@ export function airfoilFieldSampler(s){
 export function airfoilContour(s,quantity='pressure'){
  const sampler=airfoilFieldSampler(s);if(!sampler)return null;
  const key=quantity in airfoilFieldProperties?quantity:'pressure',property=airfoilFieldProperties[key],cells=[];let min=Infinity,max=-Infinity;
- for(let py=46;py<234;py+=1)for(let px=20;px<620;px+=1){const z=sampler.sample((px+.5-84)/350,(150-py-.5)/350);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,...(z.schematic&&z.approximate&&Number.isFinite(z.fanProgress)?{fanColor:1-z.fanProgress}:{})});}
+ for(let py=46;py<234;py+=1)for(let px=20;px<620;px+=1){const z=sampler.sample((px+.5-84)/350,(150-py-.5)/350);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,fan:z.region==='Expansion fan'});}
  return {key,property,cells,min,max,step:1};
 }
 export function probeAirfoilField(s,px,py){if(px<20||px>620||py<46||py>234)return null;return airfoilFieldSampler(s)?.sample((px-84)/350,(150-py)/350)??null;}

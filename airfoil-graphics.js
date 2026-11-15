@@ -1,5 +1,5 @@
 import {readableInk} from './scene-labels.js';
-import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js?v=20261115-smooth-overlaps';
+import {airfoilContour,airfoilFieldSampler,airfoilFieldProperties} from './airfoil-field.js?v=20261115-uniform-streams';
 import {airfoilRegionLabel,airfoilShockLabel,isFlatPlate} from './airfoil-region-labels.js?v=20261115-plate-regions';
 const airfoilPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function surfaceColor(t){
@@ -23,22 +23,24 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  let inner='<rect width="640" height="300" fill="#fcfdfc"/>';
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
 
- if(schematic&&contour)inner+=`<g data-airfoil-approximation="true">${txt(24,s.geometry.diamond?43:28,'Physical colors outside overlaps · schematic colors in overlaps','#263c4d',12)}</g>`;
+ if(schematic&&contour)inner+=`<g data-airfoil-approximation="true">${txt(24,s.geometry.diamond?43:28,'Schematic · waves do not interact; uniform-region colors continue','#263c4d',12)}</g>`;
  if(s.geometry.bentPlate){const b=s.geometry.bentPlate,p=s.geometry.panels.filter(p=>p.side==='Upper');inner+=txt(24,43,b.multiple?`Zero-thickness plate · ${p.length} panels · closed at trailing edge`:`h/c = ${fmt(b.height,4)} · xᵦ/c = ${fmt(b.position,4)} · θ₁ = ${fmt(p[0].theta*180/Math.PI,4)}° · θ₂ = ${fmt(p[1].theta*180/Math.PI,4)}°`,'#263c4d',12);}
  if(s.geometry.diamond){const q=s.geometry.diamond;inner+=txt(24,28,`θf = ${fmt(q.diamondFrontAngle,4)}° · θr = ${fmt(q.diamondRearAngle,4)}° · Lf/c = ${fmt(q.diamondFrontLength,4)} · Lr/c = ${fmt(q.diamondRearLength,4)}`,'#263c4d',12);}
  if(contour){
-  const paths=new Map(),valid=[],size=contour.step;let run=null,colorRun=null;
+  const paths=new Map(),valid=[],fanPaths=[],size=contour.step;let run=null,colorRun=null,fanRun=null;
   const finish=()=>{if(run)valid.push(`M${run.x},${run.y}h${run.end-run.x}v${size}H${run.x}Z`);};
   const finishColor=()=>{if(colorRun){const {x,y,end,bucket}=colorRun;paths.set(bucket,(paths.get(bucket)??'')+`M${x},${y}h${end-x}v${size}H${x}Z`);}};
+  const finishFan=()=>{if(fanRun)fanPaths.push(`M${fanRun.x},${fanRun.y}h${fanRun.end-fanRun.x}v${size}H${fanRun.x}Z`);fanRun=null;};
   for(const c of contour.cells){
-   const bucket=Math.round(255*(c.fanColor??(c.value-contour.min)/(contour.max-contour.min||1)));
+   if(c.fan){if(fanRun&&fanRun.y===c.py&&fanRun.end===c.px)fanRun.end+=size;else{finishFan();fanRun={x:c.px,y:c.py,end:c.px+size};}}else finishFan();
+   const bucket=Math.round(255*((c.value-contour.min)/(contour.max-contour.min||1)));
    if(colorRun&&colorRun.y===c.py&&colorRun.end===c.px&&colorRun.bucket===bucket)colorRun.end+=size;
    else{finishColor();colorRun={x:c.px,y:c.py,end:c.px+size,bucket};}
    if(run&&run.y===c.py&&run.end===c.px)run.end+=size;
    else{finish();run={x:c.px,y:c.py,end:c.px+size};}
   }
-  finish();finishColor();
-  inner+='<defs><clipPath id="airfoil-resolved"><path d="'+valid.join('')+'" shape-rendering="crispEdges"/></clipPath></defs><g data-airfoil-contour="'+contour.key+'" clip-path="url(#airfoil-wave-window)" shape-rendering="crispEdges">';
+  finish();finishColor();finishFan();
+  inner+='<defs><clipPath id="airfoil-resolved"><path d="'+valid.join('')+'" shape-rendering="crispEdges"/></clipPath><clipPath id="airfoil-fans"><path d="'+fanPaths.join('')+'" shape-rendering="crispEdges"/></clipPath></defs><g data-airfoil-contour="'+contour.key+'" clip-path="url(#airfoil-wave-window)" shape-rendering="crispEdges">';
   for(const [bucket,d]of paths)inner+=`<path d="${d}" fill="${surfaceColor(bucket/255)}" stroke="none"/>`;
   inner+='</g>';
  }
@@ -56,7 +58,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
    const a=w.before.theta+sign*Math.asin(1/w.before.M),b=w.after.theta+sign*Math.asin(1/w.after.M);
    const count=Math.max(2,Math.min(9,Math.ceil(Math.abs(b-a)*180/Math.PI/2)+1)),radius=contour?900:119;
    const arc=Array.from({length:25},(_,i)=>ray(origin,a+(b-a)*i/24,radius));
-   inner+=`<g ${contour?'clip-path="url(#airfoil-resolved)"':''} data-wave="expansion" data-region="${w.id}">`+(contour?'':poly([origin,...arc],'#edf4fa'));
+   inner+=`<g ${contour?`clip-path="url(#${schematic?'airfoil-fans':'airfoil-resolved'})"`:''} data-wave="expansion" data-region="${w.id}">`+(contour?'':poly([origin,...arc],'#edf4fa'));
    for(let i=0;i<count;i++){
     const end=ray(origin,a+(b-a)*i/(count-1),radius),edge=i===0||i===count-1;
     inner+=line(...origin,...end,edge?'#477caa':'#8baec9',edge?.95:.6);
@@ -82,7 +84,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
     if(sampler&&(!same(cx,cy)||!same(cx-15*dx,cy-15*dy)||!same(cx+15*dx,cy+15*dy)||!same(cx+nx*5,cy+ny*5)||!same(cx-nx*5,cy-ny*5)))continue;
     placement={cx,cy,dx,dy,local};break;
    }if(placement)break;}
-   if(placement){const {cx,cy,dx,dy,local}=placement,flowInk=contour&&local?readableInk(surfaceColor(schematic&&local.approximate&&Number.isFinite(local.fanProgress)?1-local.fanProgress:(contour.property.read(local,s)-contour.min)/(contour.max-contour.min||1))):'#647681';
+   if(placement){const {cx,cy,dx,dy,local}=placement,flowInk=contour&&local?readableInk(surfaceColor((contour.property.read(local,s)-contour.min)/(contour.max-contour.min||1))):'#647681';
     inner+=`<g data-flow-region="${region}" data-flow-x="${cx}" data-flow-y="${cy}" data-flow-dx="${dx}" data-flow-dy="${dy}">`+line(cx-15*dx,cy-15*dy,cx+15*dx,cy+15*dy,flowInk,.9)+poly([[cx+15*dx,cy+15*dy],[cx+10*dx-2*dy,cy+10*dy+2*dx],[cx+10*dx+2*dy,cy+10*dy-2*dx]],flowInk)+'</g>';
    }
   }
@@ -111,6 +113,6 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  inner+=txt(leadingX,269,'LE · x/c = 0','#53616b',12)+txt(trailingX,269,'TE · x/c = 1','#53616b',12,'end');
  inner+=line(100,289,122,289,'#000000',1.35)+txt(129,293,'Shock','#53616b',12)+line(217,289,239,289,'#477caa',.95)+txt(246,293,'Expansion fan','#53616b',12);
  if(trailing)inner+=line(415,289,437,289,'#344652',1,'5 4')+txt(444,293,trailing.interfaceKind,'#53616b',12);
- if(contour)inner=inner.replace(/<text\b([^>]*)>/g,(tag,a)=>{const px=Number(a.match(/\bx="([^"]+)"/)?.[1]),py=Number(a.match(/\by="([^"]+)"/)?.[1]);if(px<20||px>620||py<46||py>234)return tag;const z=sampler.sample((px-leadingX)/L,(150-py+6)/L);if(!z)return tag;const value=contour.property.read(z,s),ink=readableInk(surfaceColor(schematic&&z.approximate&&Number.isFinite(z.fanProgress)?1-z.fanProgress:(value-contour.min)/(contour.max-contour.min||1)));return tag.replace(/fill="[^"]*"/,`fill="${ink}"`);});
- return {inner,label:schematic?'Airfoil contours · schematic overlaps':'Analytical airfoil wave field',meta:schematic?'Physical contours in resolved regions; schematic continuation in wave overlaps.':'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:schematic?'Physical colors outside overlaps. Approximate display in wave overlaps; interactions are neglected. Overlap fans use a local rainbow scale; read values with cursor. · β relative to local upstream flow':'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
+ if(contour)inner=inner.replace(/<text\b([^>]*)>/g,(tag,a)=>{const px=Number(a.match(/\bx="([^"]+)"/)?.[1]),py=Number(a.match(/\by="([^"]+)"/)?.[1]);if(px<20||px>620||py<46||py>234)return tag;const z=sampler.sample((px-leadingX)/L,(150-py+6)/L);if(!z)return tag;const value=contour.property.read(z,s),ink=readableInk(surfaceColor((value-contour.min)/(contour.max-contour.min||1)));return tag.replace(/fill="[^"]*"/,`fill="${ink}"`);});
+ return {inner,label:schematic?'Airfoil contours · schematic overlaps':'Analytical airfoil wave field',meta:schematic?'Physical contours in resolved regions; schematic continuation in wave overlaps.':'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:schematic?'Schematic continuation in wave overlaps: waves do not interact; uniform-region colors continue unchanged. All colors use the selected-variable scale; read values with cursor. · β relative to local upstream flow':'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
 }
