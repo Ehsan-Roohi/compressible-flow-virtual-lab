@@ -23,7 +23,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
 
  if(s.geometry.diamond){const q=s.geometry.diamond;inner+=txt(24,28,`θf = ${fmt(q.diamondFrontAngle,4)}° · θr = ${fmt(q.diamondRearAngle,4)}° · Lf/c = ${fmt(q.diamondFrontLength,4)} · Lr/c = ${fmt(q.diamondRearLength,4)}`,'#263c4d',12);}
- if(contour){const paths=new Map(),valid=[];for(const c of contour.cells){const bucket=Math.round(255*(c.value-contour.min)/(contour.max-contour.min||1)),d=`M${c.px},${c.py}h4v4h-4Z`;paths.set(bucket,(paths.get(bucket)??'')+d);valid.push(d);}inner+='<defs><clipPath id="airfoil-resolved"><path d="'+valid.join('')+'"/></clipPath></defs><g data-airfoil-contour="'+contour.key+'" clip-path="url(#airfoil-wave-window)">';for(const [bucket,d]of paths)inner+=`<path d="${d}" fill="${surfaceColor(bucket/255)}" stroke="none"/>`;inner+='</g>';}
+ if(contour){const paths=new Map(),valid=[];let run=null;const finish=()=>{if(run)valid.push(`M${run.x},${run.y}h${run.end-run.x}v4H${run.x}Z`);};for(const c of contour.cells){const bucket=Math.round(255*(c.value-contour.min)/(contour.max-contour.min||1)),d=`M${c.px},${c.py}h4v4h-4Z`;paths.set(bucket,(paths.get(bucket)??'')+d);if(run&&run.y===c.py&&run.end===c.px)run.end+=4;else{finish();run={x:c.px,y:c.py,end:c.px+4};}}finish();inner+='<defs><clipPath id="airfoil-resolved"><path d="'+valid.join('')+'" shape-rendering="crispEdges"/></clipPath></defs><g data-airfoil-contour="'+contour.key+'" clip-path="url(#airfoil-wave-window)" shape-rendering="crispEdges">';for(const [bucket,d]of paths)inner+=`<path d="${d}" fill="${surfaceColor(bucket/255)}" stroke="none"/>`;inner+='</g>';}
  inner+='<g clip-path="url(#airfoil-wave-window)" stroke-linecap="round" stroke-linejoin="round">';
  // Finite rays deliberately stop locally: downstream wave interactions are not solved.
  if(available)for(const w of [...s.nonlinear.waves,...(trailing?.waves??[])]){
@@ -57,9 +57,15 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
   const [ax,ay]=V(p.a),[bx,by]=V(p.b),mx=(ax+bx)/2,my=(ay+by)/2;
   // Direction arrows sit outside the surface; short panels omit the arrow.
   if(p.length*L>48){
-   const cx=mx+nx*32,cy=my+ny*32,local=sampler?.sample((cx-leadingX)/L,(150-cy)/L),theta=local?.theta??p.theta,dx=Math.cos(theta),dy=-Math.sin(theta),flowInk=contour&&local?readableInk(surfaceColor((contour.property.read(local,s)-contour.min)/(contour.max-contour.min||1))):'#647681';
-   inner+=line(cx-15*dx,cy-15*dy,cx+15*dx,cy+15*dy,flowInk,.9);
-   inner+=poly([[cx+15*dx,cy+15*dy],[cx+10*dx-2*dy,cy+10*dy+2*dx],[cx+10*dx+2*dy,cy+10*dy-2*dx]],flowInk);
+   let placement=null;const region=airfoilRegionLabel(s,p.id),same=(px,py)=>sampler?.sample((px-leadingX)/L,(150-py)/L)?.region===region;
+   for(const fraction of [.72,.62,.82,.5]){for(const offset of [16,12,20,8,24,28]){
+    const cx=ax+(bx-ax)*fraction+nx*offset,cy=ay+(by-ay)*fraction+ny*offset,local=sampler?.sample((cx-leadingX)/L,(150-cy)/L),theta=local?.theta??p.theta,dx=Math.cos(theta),dy=-Math.sin(theta);
+    if(sampler&&(!same(cx,cy)||!same(cx-15*dx,cy-15*dy)||!same(cx+15*dx,cy+15*dy)||!same(cx+nx*5,cy+ny*5)||!same(cx-nx*5,cy-ny*5)))continue;
+    placement={cx,cy,dx,dy,local};break;
+   }if(placement)break;}
+   if(placement){const {cx,cy,dx,dy,local}=placement,flowInk=contour&&local?readableInk(surfaceColor((contour.property.read(local,s)-contour.min)/(contour.max-contour.min||1))):'#647681';
+    inner+=`<g data-flow-region="${region}" data-flow-x="${cx}" data-flow-y="${cy}" data-flow-dx="${dx}" data-flow-dy="${dy}">`+line(cx-15*dx,cy-15*dy,cx+15*dx,cy+15*dy,flowInk,.9)+poly([[cx+15*dx,cy+15*dy],[cx+10*dx-2*dy,cy+10*dy+2*dx],[cx+10*dx+2*dy,cy+10*dy-2*dx]],flowInk)+'</g>';
+   }
   }
   inner+=`<g data-airfoil-region="${airfoilRegionLabel(s,p.id)}">${txt(mx+nx*19,my+ny*19+4,airfoilRegionLabel(s,p.id),'#253945',17,'middle')}</g>`;
  }

@@ -8,3 +8,17 @@ test('Diamond figure and state table retain textbook region numbers without char
  const shocks=[...d.result.nonlinear.waves,...d.result.trailingEdge.waves].filter(w=>w.kind==='Oblique shock');
  for(const w of shocks){assert.ok(svg.includes(`data-shock-angle="${w.id}"`));const value=Number((w.beta*180/Math.PI).toPrecision(4));assert.ok(svg.includes(`= ${value}°`));}
 });
+
+test('Front-panel flow arrows stay wholly inside regions 2 and 4',async()=>{
+ const {airfoilFieldSampler}=await import('./airfoil-field.js');
+ for(const alpha of [-4,0,4]){
+  const d=calculate('airfoil',{...defaults('airfoil'),alpha,geometryInput:'Angles',diamondFrontAngle:10,diamondRearAngle:10});
+  const sample=airfoilFieldSampler(d.result).sample,svg=sceneSVG(d.scene,d.inputs,0,'pressure').svg;
+  const arrows=[...svg.matchAll(/data-flow-region="([24])" data-flow-x="([^"]+)" data-flow-y="([^"]+)" data-flow-dx="([^"]+)" data-flow-dy="([^"]+)"/g)];
+  assert.equal(arrows.length,2);
+  for(const [,region,x,y,dx,dy]of arrows)for(const t of [-15,0,15]){
+   const state=sample((Number(x)+t*Number(dx)-84)/350,(150-Number(y)-t*Number(dy))/350);
+   assert.equal(state?.region,region,`alpha=${alpha}, region=${region}, arrow offset=${t}`);
+  }
+ }
+});
