@@ -1,4 +1,4 @@
-import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-upper-wall-start';
+import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-full-wall-reflections';
 import {state,normalShock,obliqueShock,expansion,shockLimit,rad,deg} from './physics.js';
 import {requireValue} from './numerics.js';
 import {clipPolygon} from './wave-interaction.js';
@@ -72,9 +72,9 @@ export function multiRampDrawing(r,x,quantity='pressure'){
  // Horizontal walls are independent of the compression surface mounted on the lower wall.
  let walls=`<g data-solid="upper-horizontal-wall">${poly([g.upperWall.a,g.upperWall.b,[g.upperWall.b[0],g.H+pad],[g.upperWall.a[0],g.H+pad]],'#a8adb3')}${line(g.upperWall.a,g.upperWall.b,'#56616a',3)}</g>`;
 
- walls+=`<g data-solid="segmented-wedge">${poly([[0,0],...g.lower.map(p=>p.b),[g.end,g.tip[1]],[g.end,0]],'#d5b488')}`;
+ walls+=`<g data-solid="segmented-wedge">${poly(r.wallReflections?[[0,0],...g.lower.map(p=>p.b),[g.tip[0],0]]:[[0,0],...g.lower.map(p=>p.b),[g.end,g.tip[1]],[g.end,0]],'#d5b488')}`;
  for(const p of g.lower)walls+=line(p.a,p.b,'#4c5964',3);
- walls+=line(g.tip,[g.end,g.tip[1]],'#4c5964',2)+`<text x="${V([g.tip[0]*.7,g.tip[1]*.3])[0]}" y="${V([g.tip[0]*.7,g.tip[1]*.3])[1]}" fill="#24313c" font-size="17" text-anchor="middle">Wedge</text></g>`;
+ walls+=(r.wallReflections?line(g.tip,[g.tip[0],0],'#4c5964',1):line(g.tip,[g.end,g.tip[1]],'#4c5964',2))+`<text x="${V([g.tip[0]*.7,g.tip[1]*.3])[0]}" y="${V([g.tip[0]*.7,g.tip[1]*.3])[1]}" fill="#24313c" font-size="17" text-anchor="middle">Wedge</text></g>`;
 
  for(const [i,p] of g.lower.entries()){const q=[(p.a[0]+p.b[0])/2,(p.a[1]+p.b[1])/2+.04*g.wedgeLength];walls+=text(q,`θ${i+1} = ${deg(p.theta).toFixed(1)}°`);}
 

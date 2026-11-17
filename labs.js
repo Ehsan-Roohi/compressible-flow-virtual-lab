@@ -2,7 +2,7 @@ import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedP
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
-import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot} from './multi-ramp-inlet.js?v=20261117-upper-wall-start';
+import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot} from './multi-ramp-inlet.js?v=20261117-full-wall-reflections';
 import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261114-final-view';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
@@ -268,6 +268,7 @@ export function calculate(id,x){
   result=solveMultiRamp({...x,gamma:g,R});scene={kind:'multiRampInlet',...result};chart=multiRampPlot(result);checks=result.checks;
   rows=[row(!result.normal?'Last-wave downstream Mach number':'Diffuser-entry Mach number',result.final.M),row(!result.normal?'Last-wave downstream static pressure':'Diffuser-entry static pressure',result.final.p/1000,'kPa'),row(!result.normal?'Last-wave downstream static temperature':'Diffuser-entry static temperature',result.final.T,'K'),row('Total-pressure recovery',result.final.p0/result.s1.p0,'p₀,out/p₀,1'),row('Final flow direction · to horizontal',p.deg(result.final.theta),'°')];
   for(const w of result.waves)if(w.kind==='Oblique shock')shockDetails.push(shockStateSection({kind:'oblique',title:`Wave shock · ${w.parentId??Number(w.id)-1} → ${w.id}`,location:result.wallReflections?'Computed wall-wave event · β relative to upstream flow':'Sequential wall state · β relative to local upstream flow',before:w.before,after:w.after,gamma:g,R,extra:[{label:'Shock angle β',value:p.deg(w.beta),unit:'°'},{label:'Flow turn',value:p.deg(w.turn),unit:'°'}]}));
+  if(result.wallReflections)rows.push(row('Computed upper-wall reflections',result.reflections.length),...(result.reflections.length?[row('First upper-wall reflection x',result.reflections[0].x,'m'),row('Last upper-wall reflection x',result.reflections.at(-1).x,'m')]:[]));
   if(result.normal)shockDetails.push(shockStateSection({kind:'normal',title:`Terminal normal shock · ${result.terminalRegion-1} → ${result.terminalRegion}`,location:'Normal to the final upstream stream · diffuser entry',before:result.pre,after:result.final,gamma:g,R}));
   return {id,inputs:x,gas:workingGas,model:result.wallReflections?'Computed supersonic wall waves and regular reflections':'Sequential wall shocks/expansions + optional terminal normal shock',result,rows,shockDetails,chart,scene,checks,notice:result.wallReflections?result.note:'Independent-wave inlet estimate. '+(result.overlap?'Ramp waves intersect before the cowl; interactions are not solved. ':'')+'The field is schematic. Horizontal wall lengths control the drawing, not subsonic diffuser pressure; downstream colour denotes the entry state only.'};
  }
