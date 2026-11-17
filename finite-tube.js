@@ -27,7 +27,7 @@ export function expansionRaySpeeds({head,tail}){
  return Array.from({length:6},(_,i)=>head+(tail-head)*(i+1)/7);
 }
 
-export function expansionContourMarks(waves,time,X,top,bottom){
+export function expansionContourMarks(waves,time,X,top,bottom,opacity=1){
  if(!(time>0)||!(waves.tail>waves.head))return '';
  const head=X(waves.head*time),tail=X(waves.tail*time),width=tail-head;
  if(width<2)return '';
@@ -37,7 +37,7 @@ export function expansionContourMarks(waves,time,X,top,bottom){
   return `M${x} ${top}V${bottom}`;
  }).join(' ');
  const center=(head+tail)/2;
- return `<g data-expansion-characteristics="${count}" aria-label="Positions of C− characteristics at the displayed time">
+ return `<g data-expansion-characteristics="${count}" opacity="${opacity.toFixed(3)}" aria-label="Positions of C− characteristics at the displayed time">
  <path d="${marks}" fill="none" stroke="#fff" stroke-opacity=".94" stroke-width="1" />
  <text x="${center}" y="${top-5}" text-anchor="middle" font-size="10" fill="#18304a" stroke="#fff" stroke-width="2.5" paint-order="stroke">C−</text></g>`;
 }
@@ -340,10 +340,14 @@ export function finiteTubeDrawing(r,time){
  const X=x=>40+(x-r.left)/(r.right-r.left)*560;
  const stops=frame.pressure.map((p,i)=>`<stop offset="${(i+.5)/frame.pressure.length}" stop-color="rgb(${contourColor(normalize(p)).join(',')})"/>`).join('');
  const gasX=r.movingPiston?X(frame.left):40;
+ const fanTimeLeft=r.referenceEnd-frame.time;
+ const fanFadeDuration=Math.min(.4*r.referenceEnd,.08*r.end);
+ const overlay=r.movingPiston?pistonShockMarks(r,frame.time,X):fanTimeLeft>0
+  ?expansionContourMarks(r.incident,frame.time,X,105,193,Math.min(1,fanTimeLeft/fanFadeDuration)):'';
  const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
- ${cells}${r.movingPiston?pistonShockMarks(r,frame.time,X):frame.time<r.referenceEnd?expansionContourMarks(r.incident,frame.time,X,105,193):''}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
+ ${cells}${overlay}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
  <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};

@@ -1,4 +1,4 @@
-import {finiteTubeMode,finiteTubeDrawing,finiteTubeFrame,closedPistonMode} from './finite-tube.js?v=20261117-white-fan';
+import {finiteTubeMode,finiteTubeDrawing,finiteTubeFrame,closedPistonMode} from './finite-tube.js?v=20261117-fade-fan';
 import {valveExperiment} from './valve-closure.js';
 import {multiRampMode,multiRampPreset,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261117-upper-wall-start';
 import {probeAirfoilField} from './airfoil-field.js?v=20261117-multi-inlet';
@@ -28,12 +28,12 @@ import {airfoilTables} from './airfoil-tables.js?v=20261117-multi-inlet';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261117-white-fan';
+import {plotOptions} from './plot-options.js?v=20261117-fade-fan';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261117-upper-wall-start';
-import {sceneSVG,chartSVG,fmt} from './graphics.js?v=20261117-white-fan';
+import {sceneSVG,chartSVG,fmt} from './graphics.js?v=20261117-fade-fan';
 function defaults(id){
  const inputs=experimentDefaults(id);
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001}:inputs;

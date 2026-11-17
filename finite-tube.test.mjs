@@ -140,6 +140,8 @@ test('expansion characteristics are shown in the flow visualization of each tube
   assert.ok(fan&&Number(fan[1])>6);
   assert.match(fan[0],/stroke="#fff" stroke-opacity=/);
   assert.doesNotMatch(fan[0],/stroke="#18304a"/);
+  const fading=finiteTubeDrawing(finite.result,finite.result.referenceEnd-.00075).svg.match(/data-expansion-characteristics="\d+" opacity="([\d.]+)"/);
+  assert.ok(fading&&Number(fading[1])>0&&Number(fading[1])<.75);
   assert.doesNotMatch(finiteTubeDrawing(finite.result,.03).svg,/data-expansion-characteristics/);
   assert.match(sceneSVG(analytical.scene,analytical.inputs,.001,'pressure').svg,/data-expansion-characteristics="\d+"/);
  }

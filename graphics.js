@@ -1,4 +1,4 @@
-import {expansionContourMarks} from './finite-tube.js?v=20261117-white-fan';
+import {expansionContourMarks} from './finite-tube.js?v=20261117-fade-fan';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
