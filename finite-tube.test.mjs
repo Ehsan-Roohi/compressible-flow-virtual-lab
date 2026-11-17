@@ -68,6 +68,9 @@ test('contours interpolate the full grid and render one high-resolution raster w
  assert.deepEqual([...data.slice(-4)],[...contourColor(0),255]);
  const middle=[...data.slice(16,19)];
  contourColor(.5).forEach((value,i)=>assert.ok(Math.abs(value-middle[i])<=1));
+ const moving=new Uint8ClampedArray(4*2*4);
+ contourPixels([[0,0],[1,1]],4,2,moving,[0,.5]);
+ assert.deepEqual([moving[3],moving[7],moving[11],moving[15]],[0,0,255,255]);
  const d=calculate('tube',{...base,finiteEndTime:2});
  const options=plotOptions(d,.001),chart=options.find(p=>p.key==='finite-map-pressure').chart;
  assert.equal(chart.heatmap.rows[0].length,base.finiteCells);
@@ -90,4 +93,32 @@ test('contours interpolate the full grid and render one high-resolution raster w
  }finally{
   if(original===undefined)delete globalThis.document;else globalThis.document=original;
  }
+});
+
+test('closed two-stage piston tracks its moving boundary and reflects waves from both ends',()=>{
+ const inputs={...defaults('tube'),unsteadyExperiment:'Two-stage piston',pistonDomain:'Finite tube · closed far end',
+  pistonTubeLength:6,pistonDelay:.001,p1:100,T1:300,finiteEndTime:60,finiteCells:300};
+ const d=calculate('tube',inputs),r=d.result;
+ assert.ok(r.finiteTube&&r.movingPiston);
+ assert.equal(finiteTubeFrame(r,0).left,0);
+ near(r.frames.at(-1).left,2.975,1e-10);
+ assert.ok(r.pistonWork>0&&r.checks.energy<1e-10&&r.checks.mass<1e-10);
+ near(finiteTubeFrame(r,.014).pressure.at(-1),100000,500);
+ assert.ok(finiteTubeFrame(r,.026).pressure.at(-1)>140000);
+ assert.ok(finiteTubeFrame(r,.04).pressure[0]>160000);
+ assert.ok(r.frames.at(-1).pressure.at(-1)>250000);
+ const options=plotOptions(d,.06);
+ assert.ok(options.some(o=>o.key==='piston-wall-pressure'));
+ assert.ok(options.find(o=>o.key==='tube-profile-p').chart.series[0].points[0][0]>2.975);
+ const map=options.find(o=>o.key==='finite-map-pressure').chart;
+ near(map.heatmap.leftFractions.at(-1),2.975/6,1e-10);
+ assert.match(finiteTubeDrawing(r,.06).svg,/Fixed wall/);
+ const fields=inputDefinitions('tube',inputs).map(f=>f.key);
+ assert.ok(fields.includes('pistonTubeLength')&&fields.includes('finiteEndTime')&&!fields.includes('p4'));
+ assert.ok(!inputDefinitions('tube',{...inputs,pistonDomain:'Before shock catch-up'}).some(f=>f.key==='pistonTubeLength'));
+ const early=calculate('tube',{...inputs,pistonTubeLength:.5,pistonDelay:1}).result;
+ assert.ok(early.stoppedAtGap);
+ near(early.frames.at(-1).left,.45,1e-10);
+ near(early.end,.018,1e-12);
+ assert.throws(()=>calculate('tube',{...inputs,pistonTubeLength:0}),/length/);
 });

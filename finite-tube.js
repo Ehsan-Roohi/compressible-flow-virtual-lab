@@ -1,6 +1,7 @@
-import {contourColor} from './contour-raster.js?v=20261117-rainbow-tube';
+import {contourColor} from './contour-raster.js?v=20261117-closed-piston';
 import {gas, positive, requireValue} from './numerics.js';
 import {normalShock} from './physics.js';
+import {solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {solveTube} from './tube-input.js?v=20261117-moving-tube';
 
 export const finiteTubeMode = 'Finite tube · closed ends';
@@ -14,6 +15,12 @@ export const finiteTubeFields = [
  {key:'finiteCells',label:'Computational cells',value:600,min:160,max:1200,step:20,unit:'cells'}
 ];
 
+export const closedPistonMode='Finite tube · closed far end';
+export const closedPistonFields=[
+ {key:'pistonDomain',label:'Piston tube model',value:'Before shock catch-up',options:['Before shock catch-up',closedPistonMode]},
+ {key:'pistonTubeLength',label:'Initial tube length',value:6,min:.1,max:100000,sliderMax:30,step:.1,unit:'m'}
+];
+
 function wallReflection(incident,gamma,R){
  const a2=Math.sqrt(gamma*R*incident.T2);
  const q=(gamma+1)*incident.u/(4*a2);
@@ -21,10 +28,11 @@ function wallReflection(incident,gamma,R){
  return {mach,speed:mach*a2-incident.u,p:incident.p*jump.p,T:incident.T2*jump.T,pressureRatio:jump.p};
 }
 
-// Conservative Godunov update with an HLLC interface flux. A mirrored
-// velocity in each wall ghost state enforces zero normal mass/energy flux.
-function simulate(x,left,right,end,gamma,R){
- const n=x.finiteCells, dx=(right-left)/n, size=3*n, gm=gamma-1;
+// Conservative finite-volume update. The HLLC flux is evaluated in each
+// face's frame. A piston moves the left wall and deforms the mesh uniformly.
+function simulate(x,left,right,end,gamma,R,motion){
+ const n=x.finiteCells, size=3*n, gm=gamma-1;
+ let dx=(right-left)/n, pistonWork=0;
  let U=new Float64Array(size), next=new Float64Array(size);
  const flux=new Float64Array(size+3), rho=new Float64Array(n), u=new Float64Array(n);
  const p=new Float64Array(n), a=new Float64Array(n);
@@ -46,16 +54,22 @@ function simulate(x,left,right,end,gamma,R){
   const target=end*(frame/120);
   while(t<target){
    requireValue(++steps<=40000,'Simulation exceeds the step budget. Reduce the end time or grid resolution.');
+   const wallSpeed=motion?(t<motion.delay?motion.speed1:motion.speed2):0;
+   const switchTime=motion&&t<motion.delay?motion.delay:Infinity;
+   const stepEnd=Math.min(target,switchTime);
    let maxSpeed=0;
    for(let i=0;i<n;i++){
     rho[i]=U[3*i];u[i]=U[3*i+1]/rho[i];p[i]=gm*(U[3*i+2]-.5*rho[i]*u[i]**2);
     a[i]=Math.sqrt(gamma*p[i]/rho[i]);
-    maxSpeed=Math.max(maxSpeed,Math.abs(u[i])+a[i]);
+    maxSpeed=Math.max(maxSpeed,Math.abs(u[i]-wallSpeed*(1-i/n))+a[i]);
    }
    for(let j=0;j<=n;j++){
     const l=Math.max(0,j-1), r=Math.min(n-1,j), k=3*j;
-    const dL=rho[l],dR=rho[r],vL=j===0?-u[l]:u[l],vR=j===n?-u[r]:u[r];
-    const pL=p[l],pR=p[r],eL=U[3*l+2],eR=U[3*r+2];
+    const w=wallSpeed*(1-j/n),dL=rho[l],dR=rho[r];
+    const vL=j===0?w-u[l]:u[l]-w,vR=j===n?-u[r]:u[r]-w;
+    const pL=p[l],pR=p[r];
+    const eL=w===0?U[3*l+2]:pL/gm+.5*dL*vL**2;
+    const eR=w===0?U[3*r+2]:pR/gm+.5*dR*vR**2;
     const sL=Math.min(vL-a[l],vR-a[r]),sR=Math.max(vL+a[l],vR+a[r]);
     const fL0=dL*vL,fL1=fL0*vL+pL,fL2=vL*(eL+pL);
     const fR0=dR*vR,fR1=fR0*vR+pR,fR2=vR*(eR+pR);
@@ -76,12 +90,21 @@ function simulate(x,left,right,end,gamma,R){
      flux[k+1]=(L?fL1:fR1)+speed*(dStar*star-density*v);
      flux[k+2]=(L?fL2:fR2)+speed*(eStar-energy);
     }
-    if(j===0||j===n){flux[k]=0;flux[k+2]=0;}
    }
-   let dt=Math.min(.45*dx/maxSpeed,target-t),valid=false;
+   flux[0]=flux[size]=0;
+   flux[2]=wallSpeed*flux[1];flux[size+2]=0;
+   if(wallSpeed!==0){
+    for(let j=1;j<n;j++){
+     const k=3*j,w=wallSpeed*(1-j/n);
+     flux[k+2]+=w*flux[k+1]+.5*w*w*flux[k];
+     flux[k+1]+=w*flux[k];
+    }
+   }
+   let dt=Math.min(.45*dx/maxSpeed,stepEnd-t),valid=false,nextDx=dx;
    for(let attempt=0;attempt<12;attempt++){
-    const scale=dt/dx;
-    for(let i=0;i<size;i++)next[i]=U[i]-scale*(flux[i+3]-flux[i]);
+    nextDx=dx-wallSpeed*dt/n;
+    const scale=dt/dx,volumeRatio=dx/nextDx;
+    for(let i=0;i<size;i++)next[i]=(U[i]-scale*(flux[i+3]-flux[i]))*volumeRatio;
     valid=true;
     for(let i=0;i<size;i+=3){
      if(!(next[i]>0&&next[i+2]>.5*next[i+1]**2/next[i]&&Number.isFinite(next[i+2]))){valid=false;break;}
@@ -90,7 +113,8 @@ function simulate(x,left,right,end,gamma,R){
     dt/=2;
    }
    requireValue(valid&&dt>0,'Numerical step could not preserve a physical gas state.');
-   t=dt===target-t?target:t+dt;
+   pistonWork+=dt*flux[2];dx=nextDx;
+   t=dt===stepEnd-t?stepEnd:t+dt;
    [U,next]=[next,U];
   }
   const pressure=[],density=[],velocity=[];
@@ -98,10 +122,10 @@ function simulate(x,left,right,end,gamma,R){
    const d=U[i],v=U[i+1]/d;
    density.push(d);velocity.push(v);pressure.push(gm*(U[i+2]-.5*d*v*v));
   }
-  frames.push({time:target,pressure,density,velocity});
+  frames.push({time:target,left:motion?Math.max(left,right-n*dx):left,pressure,density,velocity});
  }
  const final=totals(U);
- return {frames,centers,steps,massPerArea:initial.mass,checks:{mass:Math.abs(final.mass/initial.mass-1),energy:Math.abs(final.energy/initial.energy-1)}};
+ return {frames,centers,steps,pistonWork,massPerArea:initial.mass,checks:{mass:Math.abs(final.mass/initial.mass-1),energy:Math.abs(final.energy-initial.energy-pistonWork)/(initial.energy+pistonWork)}};
 }
 
 export function solveFiniteTube(raw){
@@ -164,6 +188,49 @@ export function solveFiniteTube(raw){
   sample,sampleValid,wallTime,driverWallTime,contactTime,chart,...domain},rows};
 }
 
+export function solveClosedPiston(x){
+ const free=solvePistonShocks(x),{gamma,R,cp}=free;
+ const length=x.pistonTubeLength;
+ positive(length,'Initial piston tube length');positive(x.finiteEndTime,'End time');
+ requireValue(x.finiteEndTime<=10000,'Set the piston simulation end time to 10000 ms or less.');
+ requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use an integer grid size from 160 to 1200 cells.');
+ const motion={delay:x.pistonDelay,speed1:x.pistonSpeed1,speed2:x.pistonSpeed2};
+ const pistonAt=t=>motion.speed1*Math.min(t,motion.delay)+motion.speed2*Math.max(0,t-motion.delay);
+ // A nonzero gas gap is needed to avoid the singularity at full closure.
+ const travel=.9*length;
+ const gapLimit=travel<=free.launchX?travel/motion.speed1:motion.delay+(travel-free.launchX)/motion.speed2;
+ const end=Math.min(x.finiteEndTime/1000,gapLimit);
+ const domain=simulate({...x,p4:x.p1,T4:x.T1},0,length,end,gamma,R,motion);
+ const firstHit=length/free.first.speed,secondHit=motion.delay+(length-free.launchX)/free.second.speed;
+ const isolatedEnd=Math.min(end,firstHit,secondHit,free.catchTime);
+ const series=[
+  {name:'Domain',hideLegend:true,width:0,points:[[0,0],[length,end*1000]]},
+  {name:'Moving piston',color:'#192737',points:[...new Set([0,Math.min(end,motion.delay),end])].map(t=>[pistonAt(t),1000*t])},
+  {name:'Fixed wall',color:'#192737',points:[[length,0],[length,end*1000]]},
+  {name:'First shock · analytical',color:'#fff',legendColor:'#627586',points:[[0,0],[free.first.speed*isolatedEnd,isolatedEnd*1000]]}
+ ];
+ if(isolatedEnd>motion.delay)series.push({name:'Second shock · analytical',color:'#fff',legendColor:'#627586',dash:'5 2',
+  points:[[free.launchX,motion.delay*1000],[free.launchX+free.second.speed*(isolatedEnd-motion.delay),isolatedEnd*1000]]});
+ const chart={title:'Piston and wave reflections in the x–t plane',xlabel:'Position from initial piston face x (m)',ylabel:'Time t (ms)',series};
+ const last=domain.frames.at(-1);
+ const rows=[
+  ['First shock launch speed',free.first.speed,'m/s'],
+  ['Second piston speed begins',motion.delay*1000,'ms'],
+  ['Final piston position',pistonAt(end),'m'],['Final gas gap',length-pistonAt(end),'m'],
+  ['Final pressure at piston',last.pressure[0]/1000,'kPa'],['Final pressure at fixed wall',last.pressure.at(-1)/1000,'kPa'],
+  ['Piston work per tube area',domain.pistonWork/1000,'kJ/m²'],
+  ['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
+ ];
+ if(firstHit<=isolatedEnd)rows.splice(1,0,['First shock reaches fixed wall · analytical',firstHit*1000,'ms']);
+ const h0=s=>(cp*s.T+.5*s.u*s.u)/1000;
+ for(const [name,shock] of [['First launch shock',free.first],...(isolatedEnd>motion.delay?[['Second launch shock',free.second]]:[])]){
+  rows.push([`${name} · h₀ ahead`,h0(shock.before),'kJ/kg'],[`${name} · h₀ behind`,h0(shock.after),'kJ/kg'],
+   [`${name} · Δh₀`,h0(shock.after)-h0(shock.before),'kJ/kg']);
+ }
+ return {inputs:x,result:{status:'ok',finiteTube:true,movingPiston:true,left:0,right:length,end,gamma,R,cp,chart,
+  motion,stoppedAtGap:end===gapLimit,...domain},rows};
+}
+
 export function finiteTubeFrame(r,time){
  return r.frames[Math.round(Math.max(0,Math.min(1,time/r.end))*(r.frames.length-1))];
 }
@@ -184,12 +251,13 @@ export function finiteTubeDrawing(r,time){
  const frame=finiteTubeFrame(r,time),{normalize}=finiteTubeScale(r.frames,'pressure');
  const X=x=>40+(x-r.left)/(r.right-r.left)*560;
  const stops=frame.pressure.map((p,i)=>`<stop offset="${(i+.5)/frame.pressure.length}" stop-color="rgb(${contourColor(normalize(p)).join(',')})"/>`).join('');
- const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="40" y="92" width="560" height="105" fill="url(#finitePressure)"/>`;
+ const gasX=r.movingPiston?X(frame.left):40;
+ const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
  ${cells}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
- <path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>
+ ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
  ${r.sample>0?`<path d="M${X(r.sample)} 195V209" stroke="#b36536" stroke-width="3"/><text x="${X(r.sample)}" y="226" text-anchor="middle" fill="#7f4728">Sample</text>`:''}
- <text x="40" y="226">Driver wall</text><text x="600" y="226" text-anchor="end">Driven wall</text>
+ <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};
 }

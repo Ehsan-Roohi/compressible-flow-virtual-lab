@@ -1,4 +1,4 @@
-import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-tube-playback';
+import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-closed-piston';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
@@ -23,8 +23,8 @@ function finiteMapOptions(r){
   const {normalize,min,max}=finiteTubeScale(r.frames,property);
   const rows=r.frames.map(frame=>Float32Array.from(frame[property],normalize));
   const title=`${label} map · wave reflections in the x–t plane`;
-  return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows}},
-   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted line marks the leading edge of the expansion fan, and the dash-dot line marks its trailing edge. A vertical amber line marks the fixed sample position when present. These analytical paths cover the first waves; later reflections appear in the colored numerical field. The horizontal cursor shows the selected time.`};
+  return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows,leftFractions:r.movingPiston?r.frames.map(frame=>frame.left/r.right):undefined}},
+   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted line marks the leading edge of the expansion fan, and the dash-dot line marks its trailing edge. A vertical amber line marks the fixed sample position when present. These analytical paths cover the first waves; later reflections appear in the colored numerical field. '} The horizontal cursor shows the selected time.`};
  });
  finiteMaps.set(r,options);
  return options;
@@ -107,12 +107,20 @@ function basePlotOptions(d,time=.001){
     add('finite-sample-p','Pressure history at sample','Time t (ms)','p (kPa)',r.frames.map(frame=>[frame.time*1000,frame.pressure[cell]/1000]));
     options.at(-1).note=`Numerical history at the cell containing x = ${r.sample} m. Sharp fronts span several cells.`;
    }
+   if(r.movingPiston){
+    const title='Pressure history at the piston and fixed wall';
+    options.push({key:'piston-wall-pressure',label:title,chart:{title,xlabel:'Time t (ms)',ylabel:'p (kPa)',series:[
+     {name:'Cell next to piston',points:r.frames.map(frame=>[frame.time*1000,frame.pressure[0]/1000])},
+     {name:'Cell next to fixed wall',points:r.frames.map(frame=>[frame.time*1000,frame.pressure.at(-1)/1000])}
+    ]},note:'Numerical pressure adjacent to each reflecting boundary.'});
+   }
    const frame=finiteTubeFrame(r,time);
    samples=r.centers.map((x,i)=>{
+    if(r.movingPiston)x=frame.left+(i+.5)*(r.right-frame.left)/r.centers.length;
     const p=frame.pressure[i],rho=frame.density[i],u=frame.velocity[i],T=p/(rho*R);
     return [x,{p,rho,u,T,M:Math.abs(u)/Math.sqrt(g*R*T)}];
    });
-   profileNote=`Numerical cell averages at t = ${(frame.time*1000).toFixed(2)} ms. The diaphragm was at x = 0.`;
+   profileNote=`Numerical cell averages at t = ${(frame.time*1000).toFixed(2)} ms. ${r.movingPiston?'The profile starts at the current piston face.':'The diaphragm was at x = 0.'}`;
   }else if(r.valveClosure){
    const t=Math.min(1,Math.max(1e-6,time)), shock=-r.speed*t;
    samples=[[shock*1.2,r.upstream],[shock,r.upstream],[shock,r.downstream],[0,r.downstream]];

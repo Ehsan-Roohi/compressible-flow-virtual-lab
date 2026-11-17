@@ -7,7 +7,7 @@ export function contourColor(value){
  return palette[i].map((channel,j)=>Math.round(channel+f*(palette[i+1][j]-channel)));
 }
 
-export function contourPixels(rows,width,height,pixels){
+export function contourPixels(rows,width,height,pixels,leftFractions){
  const lastRow=rows.length-1,lastCol=rows[0].length-1;
  const columns=Array.from({length:width},(_,x)=>{
   const col=Math.min(lastCol,Math.max(0,(x+.5)/width*(lastCol+1)-.5));
@@ -18,7 +18,15 @@ export function contourPixels(rows,width,height,pixels){
   // Image rows start at the top, while the x–t diagram starts at t = 0 at the bottom.
   const time=height===1?0:(1-y/(height-1))*lastRow;
   const lo=rows[Math.floor(time)],hi=rows[Math.min(lastRow,Math.floor(time)+1)],ft=time%1;
-  for(const [i,j,fx] of columns){
+  const left=leftFractions?leftFractions[Math.floor(time)]*(1-ft)+leftFractions[Math.min(lastRow,Math.floor(time)+1)]*ft:0;
+  for(let x=0;x<width;x++){
+   let [i,j,fx]=columns[x];
+   if(leftFractions){
+    const fraction=(x+.5)/width;
+    if(fraction<left){k+=4;continue;}
+    const col=Math.min(lastCol,Math.max(0,(fraction-left)/(1-left)*(lastCol+1)-.5));
+    i=Math.floor(col);j=Math.min(lastCol,i+1);fx=col%1;
+   }
    const a=lo[i]+fx*(lo[j]-lo[i]),b=hi[i]+fx*(hi[j]-hi[i]);
    const rgb=colors[Math.round(2047*Math.max(0,Math.min(1,a+ft*(b-a))))];
    pixels[k++]=rgb[0];pixels[k++]=rgb[1];pixels[k++]=rgb[2];pixels[k++]=255;
@@ -37,7 +45,7 @@ export function contourRasterURL(map){
  const ctx=canvas.getContext('2d');
  if(!ctx)return null;
  const image=ctx.createImageData(canvas.width,canvas.height);
- contourPixels(map.rows,canvas.width,canvas.height,image.data);
+ contourPixels(map.rows,canvas.width,canvas.height,image.data,map.leftFractions);
  ctx.putImageData(image,0,0);
  const url=canvas.toDataURL('image/png');
  rasterURLs.set(map,url);

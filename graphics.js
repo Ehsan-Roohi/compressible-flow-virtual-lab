@@ -1,4 +1,4 @@
-import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-rainbow-tube';
+import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
 import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-inlet-solutions';
@@ -244,7 +244,8 @@ function chartHeatmap(map,X,Y){
    const color=rasterColor(row[Math.floor(fraction*row.length)]);
    return `<stop offset="${fraction}" stop-color="rgb(${color.join(',')})"/>`;
   }).join('');
-  return `<defs><linearGradient id="contourRow${i}">${stops}</linearGradient></defs><rect x="${x}" y="${Y(0)-(i+1)*height/bands}" width="${width}" height="${height/bands+.03}" fill="url(#contourRow${i})"/>`;
+  const offset=(map.leftFractions?.[i]??0)*width;
+  return `<defs><linearGradient id="contourRow${i}">${stops}</linearGradient></defs><rect x="${x+offset}" y="${Y(0)-(i+1)*height/bands}" width="${width-offset}" height="${height/bands+.03}" fill="url(#contourRow${i})"/>`;
  }).join('');
 }
 function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=49;let all=[...c.series.flatMap(s=>s.points),...(c.regionMarkers?(c.markers??[]).map(m=>[m.x,m.y]):[])].filter(s=>s.every(Number.isFinite));if(!all.length)return{svg:'',legend:''};let xmin=Math.min(...all.map(p=>p[0])),xmax=Math.max(...all.map(p=>p[0])),ymin=c.zeroBaseline===false?Math.min(...all.map(p=>p[1])):Math.min(0,...all.map(p=>p[1])),ymax=Math.max(...all.map(p=>p[1]));if(xmax===xmin)xmax=xmin+1;if(ymax===ymin)ymax=ymin+1;let pad=c.heatmap?0:(ymax-ymin)*.08;ymax+=pad;if(ymin<0||c.zeroBaseline===false)ymin-=pad*.3;if(all.every(p=>p[1]>=0))ymin=Math.max(0,ymin);const X=x=>L+(x-xmin)/(xmax-xmin)*(W-L-R),Y=y=>H-B-(y-ymin)/(ymax-ymin)*(H-B-T);let inner=chartHeatmap(c.heatmap,X,Y);for(let i=0;i<=4;i++){let y=ymin+(ymax-ymin)*i/4;inner+=(c.heatmap?'':line(L,Y(y),W-R,Y(y),'#e8eee5'))+txt(L-10,Y(y)+3,fmt(y,3),'#4b5563',9,'end');}for(let i=0;i<=5;i++){let x=xmin+(xmax-xmin)*i/5;inner+=txt(X(x),H-B+18,fmt(x,3),'#4b5563',9,'middle');}inner+=line(L,T,L,H-B,'#c8d4c5')+line(L,H-B,W-R,H-B,'#c8d4c5');c.series.forEach((s,i)=>{if(c.scatter){for(const [x,y] of s.points.filter(p=>p.every(Number.isFinite)))inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${colors[i%colors.length]}"/>`;return;}inner+=`<polyline points="${s.points.filter(p=>p.every(Number.isFinite)).map(([x,y])=>[X(x),Y(y)].join(',')).join(' ')}" fill="none" stroke="${s.color??colors[i%colors.length]}" stroke-width="${s.width??2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round"/>`;});if(c.regionMarkers){

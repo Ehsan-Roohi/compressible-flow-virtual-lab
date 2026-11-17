@@ -1,4 +1,4 @@
-import {finiteTubeMode,finiteTubeFields,solveFiniteTube} from './finite-tube.js?v=20261117-tube-playback';
+import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston} from './finite-tube.js?v=20261117-closed-piston';
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
@@ -110,7 +110,7 @@ export const labs={
  M('M1',3),T,{...P,value:100},input('thetaUpper','First corner turn',10,.1,30,.1,'°'),input('thetaLower','Second corner turn',10,.1,30,.1,'°'),
  input('channelHeight','Channel height / upper clearance',2,.01,100,.01,'m'),input('cornerSpacing','Axial corner separation',1,0,100,.01,'m'),g
  ],model:'Steady planar perfect-gas flow · weak attached shocks and centered expansions · pressure and direction matching',equation:'p₄ = p₅ · θ₄ = θ₅ = φ',limitations:'Angles are positive upward. In opposing mode, the first corner is on the lower wall and the second on the upper wall. In same-direction mode both turns are additional upward turns on the lower wall. The view ends before the first downstream wall encounter; later reflections, Mach reflection, detached shocks and mixing are not solved. Dimensions are in metres. If a wall encounter precedes the direct interaction, use Custom wall / Channel / Shock–Expansion in Supersonic Wave Lab.'},
- tube:{chapter:7,title:'Shock tube',tag:'MOVING-WAVE SYSTEM',description:'Enter chamber pressures, the initial pressure ratio p₄/p₁, the incident-shock pressure ratio p₂/p₁, or the induced gas speed. Explore the shock, contact surface and expansion fan.',inputs:[...pistonFields,input('valveInletSpeed','Initial gas speed',60,.001,10000,1,'m/s'),...tubeFields,...finiteTubeFields,input('p1','Driven pressure',5,.1,200,1,'kPa'),input('p4','Driver pressure',200,1,2000,1,'kPa'),input('T1','Driven temperature',298.15,100,1500,1,'K'),input('T4','Driver temperature',293.15,100,1500,1,'K'),g],model:'Selected ideal gas and common initial velocity on both sides · before any end-wall reflection',equation:'p₂ = p₃   ·   u₂ = u₃',limitations:'Time animation shows the infinite-tube similarity solution. End walls and reflected waves are not included. The selected gas applies to both sides; different driver and driven gases are outside this interface.'},
+ tube:{chapter:7,title:'Shock tube',tag:'MOVING-WAVE SYSTEM',description:'Enter chamber pressures, the initial pressure ratio p₄/p₁, the incident-shock pressure ratio p₂/p₁, or the induced gas speed. Explore the shock, contact surface and expansion fan.',inputs:[...pistonFields,...closedPistonFields,input('valveInletSpeed','Initial gas speed',60,.001,10000,1,'m/s'),...tubeFields,...finiteTubeFields,input('p1','Driven pressure',5,.1,200,1,'kPa'),input('p4','Driver pressure',200,1,2000,1,'kPa'),input('T1','Driven temperature',298.15,100,1500,1,'K'),input('T4','Driver temperature',293.15,100,1500,1,'K'),g],model:'Selected ideal gas and common initial velocity on both sides · before any end-wall reflection',equation:'p₂ = p₃   ·   u₂ = u₃',limitations:'Time animation shows the infinite-tube similarity solution. End walls and reflected waves are not included. The selected gas applies to both sides; different driver and driven gases are outside this interface.'},
  nozzle:{chapter:8,title:'Nozzle flow laboratory',tag:'QUASI-1D FLOW',description:'Choose a converging, diverging or converging–diverging passage and inspect its flow regime.',inputs:[
   {key:'nozzleView',label:'Nozzle view',value:'Internal flow',options:['Nozzle + external waves','Internal flow','External waves']},
   {key:'nozzleType',label:'Nozzle geometry',value:'Converging–diverging',options:['Converging–diverging','Converging','Diverging']},
@@ -146,10 +146,16 @@ export const labs={
 };
 function experimentInputs(id,x={}){
  if(id==='tube'&&x.unsteadyExperiment===valveExperiment)return labs.tube.inputs.filter(f=>['unsteadyExperiment','valveInletSpeed','p1','T1'].includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:f);
- if(id==='tube'&&x.unsteadyExperiment===pistonExperiment)return labs.tube.inputs.filter(f=>['unsteadyExperiment','pistonSpeed1','pistonSpeed2','pistonDelay','p1','T1'].includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:f);
+ if(id==='tube'&&x.unsteadyExperiment===pistonExperiment){
+  const closed=x.pistonDomain===closedPistonMode;
+  const keys=['unsteadyExperiment','pistonDomain','pistonSpeed1','pistonSpeed2','pistonDelay','p1','T1'];
+  if(closed)keys.push('pistonTubeLength','finiteEndTime','finiteCells');
+  return labs.tube.inputs.filter(f=>keys.includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:
+   f.key==='finiteEndTime'?{...f,max:10000,sliderMax:100}:f.key==='pistonDelay'&&closed?{...f,step:.001,sliderMax:1}:f);
+ }
  if(id==='tube'){
   const finite=x.tubeDomain===finiteTubeMode;
-  return labs.tube.inputs.filter(f=>!['pistonSpeed1','pistonSpeed2','pistonDelay','valveInletSpeed'].includes(f.key))
+  return labs.tube.inputs.filter(f=>!['pistonSpeed1','pistonSpeed2','pistonDelay','valveInletSpeed','pistonDomain','pistonTubeLength'].includes(f.key))
    .filter(f=>finite?f.key!=='tubeInitialVelocity':!f.key.startsWith('finite')).filter(f=>f.key==='p4'?(x.tubeInput??tubeModes[0])===tubeModes[0]:f.key==='driverRatio'?x.tubeInput===tubeModes[1]:f.key==='shockRatio'?x.tubeInput===tubeModes[2]:f.key==='inducedSpeed'?x.tubeInput===tubeModes[3]:true);
  }
  if(['rayleigh','fanno'].includes(id)&&(x.ductProblem??'Single duct')!=='Single duct')return systemFields(id,x); 
@@ -217,12 +223,15 @@ export function defaults(id){return {...(id==='wall'?{customInteraction:'',inlet
 export function calculate(id,x){
  const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,valveExperiment].includes(x.unsteadyExperiment);
  x=normalizeStateInputs(id,finite?{...x,tubeInitialVelocity:0}:x);
- if(finite){
-  const solved=solveFiniteTube(x),result=solved.result;
-  const notice='First-wave values use the analytical incident and reflected shocks. The numerical profiles and x–t maps include later interactions at both closed walls.'+
+ const closed=id==='tube'&&x.unsteadyExperiment===pistonExperiment&&x.pistonDomain===closedPistonMode;
+ if(finite||closed){
+  const solved=closed?solveClosedPiston(x):solveFiniteTube(x),result=solved.result;
+  const notice=closed?'Reflections are computed at the fixed wall and the moving piston.'+
+   (result.stoppedAtGap?' The solve stops at 10% of the initial gas gap to avoid full closure.':'')+
+   (result.end<result.motion.delay?' The second speed change is after the simulated interval.':''):'First-wave values use the analytical incident and reflected shocks. The numerical profiles and x–t maps include later interactions at both closed walls.'+
    (!result.sampleValid&&result.sample>0?' The sample meets a reflected wave before an undisturbed contact passage can be assumed.':'');
   return {id,inputs:solved.inputs,gas:gasInfo(x),result,rows:solved.rows.map(([label,value,unit])=>row(label,value,unit)),
-   chart:result.chart,scene:{kind:'finiteTube'},model:'One-dimensional Euler equations · two reflecting walls',notice,
+   chart:result.chart,scene:{kind:'finiteTube'},model:closed?'One-dimensional Euler equations · moving piston and reflecting wall':'One-dimensional Euler equations · two reflecting walls',notice,
    checks:result.checks,shockDetails:[],version:'0.1.0'};
  }
  if(id==='tube'&&x.unsteadyExperiment===valveExperiment){
