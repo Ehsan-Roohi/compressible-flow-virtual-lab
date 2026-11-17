@@ -1,4 +1,4 @@
-import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-smooth-contours';
+import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-rainbow-tube';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';

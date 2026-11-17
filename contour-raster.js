@@ -1,5 +1,5 @@
-// A continuous color scale for logarithmically normalized pressure and density.
-const palette = [[24,48,129],[22,101,176],[26,157,157],[108,179,85],[236,191,65],[179,40,40]];
+export const contourRamp = ['#1834b8','#007fff','#00c9e8','#20c75a','#e6e529','#ff961f','#db2525'];
+const palette = contourRamp.map(color=>[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)));
 
 export function contourColor(value){
  const scaled=Math.min(1,Math.max(0,value))*(palette.length-1);

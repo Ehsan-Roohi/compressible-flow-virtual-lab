@@ -1,4 +1,4 @@
-import {contourColor} from './contour-raster.js';
+import {contourColor} from './contour-raster.js?v=20261117-rainbow-tube';
 import {gas, positive, requireValue} from './numerics.js';
 import {normalShock} from './physics.js';
 import {solveTube} from './tube-input.js?v=20261117-moving-tube';

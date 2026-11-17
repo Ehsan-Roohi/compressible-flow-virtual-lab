@@ -1,4 +1,4 @@
-import {contourColor as rasterColor,contourRasterURL} from './contour-raster.js';
+import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-rainbow-tube';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
 import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-inlet-solutions';
@@ -37,10 +37,9 @@ const incidenceGlyph=(alpha,x=32,y=115,length=68,color='#344e61')=>{
 };
 const rayEnd=(x,y,a)=>{const dx=Math.cos(a),dy=-Math.sin(a),hits=[];if(dx>1e-12)hits.push((635-x)/dx);if(dx< -1e-12)hits.push((5-x)/dx);if(dy>1e-12)hits.push((295-y)/dy);if(dy< -1e-12)hits.push((45-y)/dy);const t=Math.min(...hits.filter(t=>t>0));return [x+t*dx,y+t*dy];};
 const dot=(x,y,i=0)=>`<circle class="flow-particle" cx="${x}" cy="${y}" r="2" fill="#427b63" style="animation-delay:${i*.25}s"/>`;
-const ramp=['#1834b8','#007fff','#00c9e8','#20c75a','#e6e529','#ff961f','#db2525'];
 const clamp=x=>Math.min(1,Math.max(0,x));
 const fieldColor=t=>contourColor(t);
-const contourColor=t=>{let v=clamp(t)*(ramp.length-1),i=Math.min(ramp.length-2,Math.floor(v)),f=v-i,a=ramp[i].match(/[\da-f]{2}/gi).map(x=>parseInt(x,16)),b=ramp[i+1].match(/[\da-f]{2}/gi).map(x=>parseInt(x,16));return '#'+a.map((x,j)=>Math.round(x+(b[j]-x)*f).toString(16).padStart(2,'0')).join('');};
+const contourColor=t=>'#'+rasterColor(t).map(channel=>channel.toString(16).padStart(2,'0')).join('');
 const fieldValues=(s,kind,key)=>{
  if(kind==='nozzle')return s.points.map(z=>key==='mach'?z.M:key==='temperature'?z.T/s.T0:key==='density'?z.rho/(s.p0/(s.R*s.T0)):z.p);
  return s.history.map(z=>key==='mach'?z.M:key==='temperature'?z.T:key==='density'?z.rho:key==='speed'?z.u:z.p);
