@@ -2,7 +2,7 @@ import {finiteTubeDrawing,finiteTubeFrame} from './finite-tube.js?v=20261117-ori
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
-import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-inlet-both-sides';
+import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-inlet-contour-fit';
 import {shockFanDrawing} from './shock-fan-example.js?v=20261117-example-numbers';
 import {wedgeWallDrawing} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetInletDrawing} from './ramjet-inlet-graphics.js?v=20261114-region-markers';
@@ -273,3 +273,4 @@ export function finiteTubeFlowView(result,inputs,time){
  }
  return finiteTubeDrawing(result,time);
 }
+

@@ -62,3 +62,34 @@ test('below-side solution is a physical mirror: pressures and Mach agree, signed
 test('both sides share the scale and use unique region numbers in the diagram, table and chart',()=>{const x={...multiRampPreset,inletFlowSide:'Both sides'},r=solveMultiRamp(x);assert.deepEqual(Object.keys(r.regions),['U1','U2','U3','L1','L2','L3']);near(r.regions.U3.M,r.regions.L3.M);const d=calculate('wall',{...defaults('wall'),...x}),chart=plotOptions(d)[0].chart;assert.equal(d.shockDetails.length,4);assert.equal(new Set(chart.markers.map(m=>m.name)).size,6);const svg=multiRampDrawing(r,x).svg;for(const n of Object.keys(r.regions))assert.ok(svg.includes('>'+n+'</text>'));assert.match(svg,/id="UmultiInletGas"/);assert.match(svg,/id="LmultiInletGas"/);assert.match(svg,/data-solid="lower-horizontal-wall"/);assert.doesNotMatch(svg,/NaN|undefined|Infinity/);});
 test('independent lower inputs change only the lower solution and expose editable lower geometry',()=>{const x={...defaults('wall'),...multiRampPreset,inletFlowSide:'Both sides',inletLowerDefinition:'Independent lower side',inletBottomSegments:[{angle:-5,length:1}],inletLowerHeightRatio:.3,inletLowerWallLengthRatio:1.5,inletLowerStartRatio:.1},r=solveMultiRamp(x),upper=solveMultiRamp(multiRampPreset);near(r.regions.U3.M,upper.regions[3].M);assert.ok(Math.abs(r.regions.L3.M-r.regions.U3.M)>.01);assert.ok(r.regions.L2.theta<0);const f=inputDefinitions('wall',x);for(const k of ['inletBottomSegments','inletLowerHeightRatio','inletLowerWallLengthRatio','inletLowerStartRatio'])assert.ok(f.some(f=>f.key===k));const below=solveMultiRamp({...x,inletFlowSide:'Flow below wedge',inletHeightRatio:0});assert.ok(below.regions.L3);assert.ok(!inputDefinitions('wall',{...x,inletFlowSide:'Flow below wedge'}).some(f=>f.key==='inletLowerSegments'));});
 test('both-side normal-shock estimates retain the exercise pressure and physical signed angles',()=>{const x={...defaults('wall'),...multiRampProblemPreset,inletFlowSide:'Both sides'},d=calculate('wall',x);near(d.result.regions.U4.p/1000,117.0143912669);near(d.result.regions.L4.p,d.result.regions.U4.p);near(d.result.regions.L4.theta,-d.result.regions.U4.theta);assert.equal(d.shockDetails.length,6);assert.ok(d.shockDetails.every(s=>!s.title.includes('NaN')));assert.doesNotMatch(multiRampDrawing(d.result,x).svg,/NaN|undefined|Infinity/);});
+
+
+test('upper and lower geometry fields have identical definitions, limits and order',()=>{
+ const fields=inputDefinitions('wall',{...defaults('wall'),...multiRampProblemPreset,inletFlowSide:'Both sides',inletLowerDefinition:'Independent lower side'});
+ for(const [upper,lower] of [['inletHeightRatio','inletLowerHeightRatio'],['inletUpperWallRatio','inletLowerWallLengthRatio'],['inletUpperStartRatio','inletLowerStartRatio'],['inletCowlRatio','inletLowerCowlRatio']]){
+  const a=fields.find(f=>f.key===upper),b=fields.find(f=>f.key===lower);assert.equal(a.label.replace('Upper','Side'),b.label.replace('Lower','Side'));for(const k of ['min','max','step','unit','value'])assert.equal(a[k],b[k]);
+ }
+});
+test('short, long and tall inlet frames fill the available width and crop at the solved exit',()=>{
+ for(const patch of [{inletUpperWallRatio:.5},{inletUpperWallRatio:8},{inletHeightRatio:10}]){
+  const x={...multiRampPreset,...patch},r=solveMultiRamp(x),v=multiRampDrawing(r,x),f=v.display;
+  near((f.end-f.start)*f.scaleX,730);near(f.end,r.reflectionField.end);assert.ok(f.height>=280&&f.height<=620);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);assert.match(v.field.note,/axes fitted independently/);
+ }
+});
+test('partial inlet pictures end at accepted flow without extrapolated downstream colour',()=>{
+ const x={...multiRampPreset},r=solveMultiRamp(x),stop=r.reflectionField.end*.6;
+ const clipped={...r,reflectionField:{...r.reflectionField,end:stop,partial:true,reason:'Physical limit'}};
+ const v=multiRampDrawing(clipped,x);near(v.display.end,stop);assert.ok(v.display.lower.every(p=>p.b[0]<=stop+1e-10));assert.match(v.field.note,/no downstream state is invented/);assert.doesNotMatch(v.svg,/#edf0f2/);
+});
+test('sequential expansion fan keeps distinct isentropic bands above its uniform downstream fill',()=>{
+ const x={...multiRampPreset,M1:3,inletTerminal:'Compression only',inletLowerSegments:[{angle:8,length:.5},{angle:2,length:.5}]},r=solveMultiRamp(x),v=multiRampDrawing(r,x),bands=[...v.svg.matchAll(/data-expansion-band="\d+"><path d="([^"]*)" fill="([^"]*)"/g)].filter(m=>m[1]);
+ assert.ok(bands.length>30);assert.ok(new Set(bands.map(m=>m[2])).size>20);const last=v.svg.lastIndexOf('data-expansion-band');assert.ok(v.svg.indexOf('fill="none"',last)>last);
+});
+test('wall exit arbitrarily close after a corner does not invent an unnormalizable tiny panel',()=>{
+ const first=Math.cos(2*Math.PI/180)*.5;
+ for(const delta of [1e-7,1e-5,.001]){const x={...multiRampPreset,M1:3,inletReference:1,inletHeightRatio:.3,inletLowerSegments:[{angle:2,length:.5},{angle:4,length:.5}],inletUpperWallRatio:first+delta},r=solveMultiRamp(x);near(r.reflectionField.end,x.inletUpperWallRatio);assert.equal(r.reflectionField.partial,false);}
+});
+test('fan budget retry reaches the wall exit and reports its approximate front width',()=>{
+ const x={...multiRampPreset,M1:3,inletReference:1,inletHeightRatio:.3,inletLowerSegments:[{angle:8,length:.5},{angle:4,length:.5}]},r=solveMultiRamp(x);
+ assert.equal(r.reflectionField.partial,false);near(r.reflectionField.end,1);assert.ok(r.reflectionField.fanStep>.5&&r.reflectionField.fanStep<=2);assert.match(r.note,/automatically coarsened/);const v=multiRampDrawing(r,x);assert.ok(v.svg.length>10000);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);
+});

@@ -2,7 +2,7 @@ import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedP
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
-import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot,inletFlowSides,inletLowerDefinitions} from './multi-ramp-inlet.js?v=20261117-inlet-both-sides';
+import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot,inletFlowSides,inletLowerDefinitions} from './multi-ramp-inlet.js?v=20261117-inlet-contour-fit';
 import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261117-example-numbers';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
@@ -172,10 +172,10 @@ function experimentInputs(id,x={}){
 
  if(id==='wall'&&x.wallShape==='Custom wall'&&x.customInteraction===multiRampMode){
   const flow=x.inletFlowSide??inletFlowSides[0],lower=flow!==inletFlowSides[0],independent=lower&&x.inletLowerDefinition===inletLowerDefinitions[1],reference=flow!=='Flow below wedge'||!independent;
-  const fields=[{key:'inletFlowSide',label:'Flow side',value:inletFlowSides[0],options:inletFlowSides},input('inletReference','Reference wedge length Lref',1,.001,100,.01,'m'),{key:'inletTerminal',label:'Inlet solution',value:'Wall reflections',options:['Wall reflections','Compression only','Normal shock']},...(lower?[{key:'inletLowerDefinition',label:'Lower-side geometry',value:inletLowerDefinitions[0],options:inletLowerDefinitions}]:[])];
-  if(reference)fields.push(input('inletHeightRatio','Upper-wall height / Lref',.3,.01,100,.01,''),input('inletUpperWallRatio','Upper wall / wedge length',1,.05,10,.05,''),input('inletUpperStartRatio','Upper-wall start x / wedge length',0,0,10,.05,''),...(x.inletTerminal==='Normal shock'?[input('inletCowlRatio','Upper terminal-shock station x / Lref',1,.01,100,.01,'')]:[]),{key:'inletLowerSegments',label:'Upper wedge segments · angles to horizontal',type:'wall-segments'});
-  if(independent)fields.push(input('inletLowerHeightRatio','Lower-wall distance / Lref',.5,.01,100,.01,''),input('inletLowerWallLengthRatio','Lower wall / lower wedge length',1,.05,10,.05,''),input('inletLowerStartRatio','Lower-wall start x / lower wedge length',0,0,10,.05,''),...(x.inletTerminal==='Normal shock'?[input('inletLowerCowlRatio','Lower terminal-shock station x / Lref',1,.01,100,.01,'')]:[]),{key:'inletBottomSegments',label:'Lower wedge segments · signed angles to horizontal',type:'wall-segments'});
-  if(flow==='Flow below wedge'&&!independent)for(const f of fields){if(f.key==='inletLowerSegments')f.label='Reference wedge segments · mirrored below';else if(['inletHeightRatio','inletUpperWallRatio','inletUpperStartRatio','inletCowlRatio'].includes(f.key))f.label=f.label.replace('Upper','Reference').replace('upper','reference');}
+  const fields=[{key:'inletFlowSide',label:'Flow side',value:inletFlowSides[0],options:inletFlowSides},input('inletReference','Reference length Lref',1,.001,100,.01,'m'),{key:'inletTerminal',label:'Inlet solution',value:'Wall reflections',options:['Wall reflections','Compression only','Normal shock']},...(lower?[{key:'inletLowerDefinition',label:'Lower-side geometry',value:inletLowerDefinitions[0],options:inletLowerDefinitions}]:[])];
+  if(reference)fields.push(input('inletHeightRatio','Upper wall distance / Lref',.5,.01,100,.01,''),input('inletUpperWallRatio','Upper wall length / Lw',1,.05,10,.05,''),input('inletUpperStartRatio','Upper wall start x / Lw',0,0,10,.05,''),...(x.inletTerminal==='Normal shock'?[input('inletCowlRatio','Upper terminal shock x / Lref',1,.01,100,.01,'')]:[]),{key:'inletLowerSegments',label:'Upper wedge segments · signed angles to horizontal',type:'wall-segments'});
+  if(independent)fields.push(input('inletLowerHeightRatio','Lower wall distance / Lref',.5,.01,100,.01,''),input('inletLowerWallLengthRatio','Lower wall length / Lw',1,.05,10,.05,''),input('inletLowerStartRatio','Lower wall start x / Lw',0,0,10,.05,''),...(x.inletTerminal==='Normal shock'?[input('inletLowerCowlRatio','Lower terminal shock x / Lref',1,.01,100,.01,'')]:[]),{key:'inletBottomSegments',label:'Lower wedge segments · signed angles to horizontal',type:'wall-segments'});
+  if(flow==='Flow below wedge'&&!independent)for(const f of fields){if(f.key==='inletLowerSegments')f.label='Reference wedge segments · mirrored below';else if(['inletHeightRatio','inletUpperWallRatio','inletUpperStartRatio','inletCowlRatio'].includes(f.key))f.label=f.label.replace('Upper','Upper reference');}
   return [...fields,M('M1',2),T,P,g];
  }
  if(id==='wall'&&x.wallShape===ramjetMode)return [{key:'ramjetOrientation',label:'Inlet orientation',value:ramjetOrientations[0],options:ramjetOrientations},input('theta','Ramp turn angle',8,.01,40,.1,'°'),input('channelHeight','Inlet channel height',1,.01,100,.01,'m'),cornerView,M('M1',2),T,P,g];
@@ -440,3 +440,4 @@ export function calculate(id,x){
 }
 
 export function trackingShockDetails(r){const e=r.tracking?.events.find(e=>e.index===r.selectedTrackingEvent);return (e?.waves??[]).filter(w=>w.kind==='Oblique shock').map((w,i)=>shockStateSection({kind:'oblique',title:`E${e.index} · ${e.type} · shock ${i+1}`,location:`x = ${Number(e.x.toPrecision(6))} m · y = ${Number(e.y.toPrecision(6))} m`,before:w.before,after:w.after,gamma:r.gamma,R:r.R,extra:[{label:'Shock angle β',value:p.deg(w.beta),unit:'°'},{label:'Flow turn',value:p.deg(w.after.theta-w.before.theta),unit:'°'}]}));}
+

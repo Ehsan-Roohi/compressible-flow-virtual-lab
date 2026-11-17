@@ -1,4 +1,4 @@
-import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-full-wall-reflections';
+import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-inlet-contour-fit';
 import {state,normalShock,obliqueShock,expansion,shockLimit,rad,deg} from './physics.js';
 import {requireValue} from './numerics.js';
 import {clipPolygon} from './wave-interaction.js';
@@ -52,37 +52,61 @@ export function multiRampPlot(r){
  series.push({name:'Selected region states',points:Object.values(r.regions).map(s=>[deg(s.theta),s.p/r.s1.p])});
  return {title:'Pressure–deflection diagram',xlabel:'Flow direction θ to horizontal (°)',ylabel:'p/p₁',zeroBaseline:false,series,markers};
 }
+// Fit only the accepted flow domain. Independent display axes keep very long or
+// tall geometries readable; numerical angles and dimensional lengths are unchanged.
+export function inletDisplayGeometry(r){
+ const g=r.geometry,end=r.wallReflections?Math.min(g.upperWall.b[0],r.reflectionField.end):g.end,start=-.10*Math.max(end,.01*g.wedgeLength),lower=[];
+ for(const p of g.lower){if(p.a[0]>=end)break;const stop=Math.min(end,p.b[0]),b=[stop,p.a[1]+Math.tan(p.theta)*(stop-p.a[0])];lower.push({...p,b});}
+ const tip=lower.at(-1)?.b??[0,0],base=Math.min(0,...lower.flatMap(p=>[p.a[1],p.b[1]])),pad=.025*Math.max(g.H-base,.05*g.wedgeLength),domain=[[start,0],[0,0],...lower.map(p=>p.b),[end,tip[1]],[end,g.H],[start,g.H]];
+ return {...g,start,end,lower,tip,base,pad,domain,lo:Math.min(base,tip[1]),hi:g.H+pad};
+}
+function inletFrame(parts){
+ const left=Math.min(...parts.map(p=>p.display.start)),right=Math.max(...parts.map(p=>p.display.end)),low=Math.min(0,...parts.map(p=>p.sign<0?-p.display.hi:p.display.lo)),high=Math.max(0,...parts.map(p=>p.sign<0?-p.display.lo:p.display.hi));
+ const scaleX=730/Math.max(right-left,1e-9),height=Math.max(280,Math.min(620,80+(high-low)*scaleX)),scaleY=(height-80)/Math.max(high-low,1e-9);
+ return {scaleX,scaleY,ox:35-left*scaleX,oy:40+high*scaleY,height,fitted:Math.abs(scaleX/scaleY-1)>.02};
+}
 export function multiRampDrawing(r,x,quantity='pressure',frame=null){
  if(r.inletSides)return inletSidesDrawing(r,x,quantity);
- const q={pressure:['Static pressure','kPa',s=>s.p/1000],mach:['Mach number','M',s=>s.M],temperature:['Static temperature','K',s=>s.T],density:['Density','kg/m³',s=>s.rho],speed:['Flow speed','m/s',s=>s.u]},key=q[quantity]?quantity:'pressure',[label,units,read]=q[key],vals=Object.values(r.regions).map(read),min=frame?.min??Math.min(...vals),max=frame?.max??Math.max(...vals),g=r.geometry,scale=frame?.scale??Math.min(730/(g.end-g.start),235/g.ymax),ox=frame?.ox??35-g.start*scale,oy=frame?.oy??280,V=p=>[ox+p[0]*scale,oy+(frame?.mirror?1:-1)*p[1]*scale],color=s=>cornerContourColor((read(s)-min)/(max-min||1));
- const poly=(p,fill)=>`<polygon points="${p.map(V).map(p=>p.join(',')).join(' ')}" fill="${fill}"/>`,line=(a,b,c='#101820',width=2)=>`<path d="M${V(a).join(',')} L${V(b).join(',')}" fill="none" stroke="${c}" stroke-width="${width}"/>`,text=(p,t)=>`<text x="${V(p)[0]}" y="${V(p)[1]}" fill="white" font-size="18" font-weight="600" text-anchor="middle">${t}</text>`;
+ const q={pressure:['Static pressure','kPa',s=>s.p/1000],mach:['Mach number','M',s=>s.M],temperature:['Static temperature','K',s=>s.T],density:['Density','kg/m³',s=>s.rho],speed:['Flow speed','m/s',s=>s.u]},key=q[quantity]?quantity:'pressure',[label,units,read]=q[key],vals=Object.values(r.regions).map(read),min=frame?.min??Math.min(...vals),max=frame?.max??Math.max(...vals),g=inletDisplayGeometry(r),f=frame??inletFrame([{display:g,sign:1}]),V=p=>[f.ox+p[0]*f.scaleX,f.oy+(f.mirror?1:-1)*p[1]*f.scaleY],color=s=>cornerContourColor((read(s)-min)/(max-min||1));
+ const path=p=>p.length<3?'':`M${p.map(V).map(p=>p.map(v=>+v.toFixed(6)).join(',')).join('L')}Z`,poly=(p,fill)=>`<path d="${path(p)}" fill="${fill}"/>`,line=(a,b,c='#101820',width=2)=>`<path d="M${V(a).join(',')} L${V(b).join(',')}" fill="none" stroke="${c}" stroke-width="${width}"/>`,text=(p,t)=>`<text x="${V(p)[0]}" y="${V(p)[1]}" fill="white" font-size="18" font-weight="600" text-anchor="middle">${t}</text>`;
  const half=(p,w,a)=>p[1]-w.origin[1]-Math.tan(a)*(p[0]-w.origin[0]);
- let content=poly(g.domain,r.wallReflections?'#edf0f2':color(r.s1)),cells=[{poly:g.domain,state:r.s1,region:1}];
- if(r.wallReflections){cells=[{poly:[[g.start,0],[0,0],[0,g.H],[g.start,g.H]],state:r.s1,region:'1'},...r.reflectionField.cells];for(const c of cells)content+=poly(c.poly,color(c.state));}
- if(!r.wallReflections){
- for(const w of r.waves){if(!w.rays.length)continue;const a=w.rays.at(-1);cells=cells.map(c=>({...c,poly:clipPolygon(c.poly,p=>half(p,w,a))}));const p=clipPolygon(g.domain,p=>-half(p,w,a));cells.push({poly:p,state:w.after,region:w.id});
- if(w.kind==='Expansion fan'){const N=80;for(let i=0;i<N;i++){const d=Math.abs(w.turn)*(i+.5)/N,n=expansion(w.before.M,d,r.gamma),s={...state(n.M2,w.before.T*n.T,w.before.p*n.p,r.gamma,r.R),theta:w.before.theta-d},a1=w.before.theta-Math.abs(w.turn)*i/N+Math.asin(1/(i?expansion(w.before.M,Math.abs(w.turn)*i/N,r.gamma).M2:w.before.M)),a2=w.before.theta-Math.abs(w.turn)*(i+1)/N+Math.asin(1/expansion(w.before.M,Math.abs(w.turn)*(i+1)/N,r.gamma).M2);content+=poly(clipPolygon(clipPolygon(g.domain,p=>-half(p,w,a1)),p=>half(p,w,a2)),color(s));}}
- content+=poly(p,color(w.after));}
- const normalSide=p=>(p[0]-g.cowl)*Math.cos(r.pre.theta)+(p[1]-g.H)*Math.sin(r.pre.theta);
- if(r.normal){for(const c of cells)c.poly=clipPolygon(c.poly,p=>-normalSide(p));const diffuser=[[g.cowl,g.H],[g.end,g.H],[g.end,g.tip[1]],g.shockFoot];const p=clipPolygon(diffuser,normalSide);cells.push({poly:p,state:r.final,region:r.terminalRegion});content+=poly(p,color(r.final));}
+ let content='',cells=[{poly:g.domain,state:r.s1,region:1}];
+ if(r.wallReflections){
+  cells=[{poly:[[g.start,0],[0,0],[0,g.H],[g.start,g.H]],state:r.s1,region:'1'},...r.reflectionField.cells];
+  // Batch adjacent cells in one path per colour, avoiding hairline background seams.
+  const paths=new Map();for(const c of cells){const fill=color(c.state);paths.set(fill,(paths.get(fill)??'')+path(c.poly));}
+  for(const [fill,d] of paths)content+=`<path d="${d}" fill="${fill}" shape-rendering="crispEdges"/>`;
+ }else{
+  content=poly(g.domain,color(r.s1));
+  for(const w of r.waves){if(!w.rays.length)continue;const a=w.rays.at(-1);cells=cells.map(c=>({...c,poly:clipPolygon(c.poly,p=>half(p,w,a))}));const p=clipPolygon(g.domain,p=>-half(p,w,a));cells.push({poly:p,state:w.after,region:w.id});
+   content+=poly(p,color(w.after));
+   if(w.kind==='Expansion fan'){
+    const N=100;for(let i=0;i<N;i++){const d=Math.abs(w.turn)*(i+.5)/N,n=expansion(w.before.M,d,r.gamma),s={...state(n.M2,w.before.T*n.T,w.before.p*n.p,r.gamma,r.R),theta:w.before.theta-d},a1=w.before.theta-Math.abs(w.turn)*i/N+Math.asin(1/(i?expansion(w.before.M,Math.abs(w.turn)*i/N,r.gamma).M2:w.before.M)),a2=w.before.theta-Math.abs(w.turn)*(i+1)/N+Math.asin(1/expansion(w.before.M,Math.abs(w.turn)*(i+1)/N,r.gamma).M2);content+=`<g data-expansion-band="${i}">`+poly(clipPolygon(clipPolygon(g.domain,p=>-half(p,w,a1)),p=>half(p,w,a2)),color(s))+'</g>';}
+   }
+  }
+  const normalSide=p=>(p[0]-g.cowl)*Math.cos(r.pre.theta)+(p[1]-g.H)*Math.sin(r.pre.theta);
+  if(r.normal){for(const c of cells)c.poly=clipPolygon(c.poly,p=>-normalSide(p));const p=clipPolygon([[g.cowl,g.H],[g.end,g.H],[g.end,g.tip[1]],g.shockFoot],normalSide);cells.push({poly:p,state:r.final,region:r.terminalRegion});content+=poly(p,color(r.final));}
  }
- if(r.wallReflections)for(const w of r.reflectionField.traces)content+=line([w.origin.x,w.origin.y],[w.end.x,w.end.y],w.kind==='Oblique shock'?'black':'#8dc6dd',w.kind==='Oblique shock'?2:0.6);
- if(!r.wallReflections)for(const w of r.waves)for(const a of w.rays){const end=[g.end,w.origin[1]+Math.tan(a)*(g.end-w.origin[0])];content+=line(w.origin,end,w.kind==='Oblique shock'?'black':'#a5d4e8',w.kind==='Oblique shock'?2:1);}
+ if(r.wallReflections)for(const w of r.reflectionField.traces)content+=line([w.origin.x,w.origin.y],[w.end.x,w.end.y],w.kind==='Oblique shock'?'black':'#8dc6dd',w.kind==='Oblique shock'?2:.45);
+ if(!r.wallReflections)for(const w of r.waves)for(const a of w.rays)content+=line(w.origin,[g.end,w.origin[1]+Math.tan(a)*(g.end-w.origin[0])],w.kind==='Oblique shock'?'black':'#a5d4e8',w.kind==='Oblique shock'?2:.65);
  if(r.normal)content+=line([g.cowl,g.H],g.shockFoot,'black',3);
- for(const w of r.waves)if(w.beta){const xx=Math.min(g.cowl-.05*g.L,w.origin[0]+.23*g.L),yy=w.origin[1]+Math.tan(w.rays[0])*(xx-w.origin[0])+.045*g.L;content+=text([xx,yy],`β = ${deg(w.beta).toFixed(2)}°`);}
- for(const region of new Set(cells.map(c=>String(c.region)))){const p=regionLabelPosition(cells.filter(c=>String(c.region)===region).map(c=>c.poly.map(V)))?.point;if(p)content+=`<text x="${p[0]}" y="${p[1]}" fill="white" font-size="20" text-anchor="middle">${frame?.prefix??''}${region}</text>`;}
- const pad=.055*g.wedgeLength;
- // Horizontal walls are independent of the compression surface mounted on the lower wall.
- let walls=`<g data-solid="${frame?.mirror?'lower-horizontal-wall':'upper-horizontal-wall'}">${poly([g.upperWall.a,g.upperWall.b,[g.upperWall.b[0],g.H+pad],[g.upperWall.a[0],g.H+pad]],'#a8adb3')}${line(g.upperWall.a,g.upperWall.b,'#56616a',3)}</g>`;
+ // Number and wave labels stay inside the clipped, computed field.
+ for(const w of r.waves)if(w.beta&&w.origin[0]<g.end){const xx=Math.min(g.end-.04*(g.end-g.start),w.origin[0]+.20*g.wedgeLength),yy=w.origin[1]+Math.tan(w.rays[0])*(xx-w.origin[0]);if(xx>w.origin[0])content+=text([xx,Math.min(g.H-.04*(g.hi-g.lo),yy+.03*(g.hi-g.lo))],`β = ${deg(w.beta).toFixed(2)}°`);}
+ // Label a bounded number of substantial regions. Searching the union of every
+ // tiny fan cell was quadratic and could freeze the picture after a valid solve.
+ const labels=new Map();for(const c of cells){const polygon=clipPolygon(clipPolygon(c.poly,p=>p[0]-g.start),p=>g.end-p[0]).map(V);if(polygon.length<3)continue;const area=Math.abs(polygon.reduce((sum,p,i)=>{const n=polygon[(i+1)%polygon.length];return sum+p[0]*n[1]-n[0]*p[1];},0))/2,previous=labels.get(String(c.region));if(!previous||area>previous.area)labels.set(String(c.region),{polygon,area});}
+ for(const [region,{polygon}] of [...labels].sort((a,b)=>b[1].area-a[1].area).slice(0,24)){const label=regionLabelPosition([polygon]);if(label&&label.clearance>=8)content+=`<text x="${label.point[0]}" y="${label.point[1]}" fill="white" font-size="20" text-anchor="middle">${f.prefix??''}${region}</text>`;}
 
- walls+=`<g data-solid="segmented-wedge">${poly(r.wallReflections?[[0,0],...g.lower.map(p=>p.b),[g.tip[0],0]]:[[0,0],...g.lower.map(p=>p.b),[g.end,g.tip[1]],[g.end,0]],'#d5b488')}`;
+ let walls='';const wallEnd=Math.min(g.end,g.upperWall.b[0]);
+ if(wallEnd>g.upperWall.a[0]){const a=g.upperWall.a,b=[wallEnd,g.H];walls+=`<g data-solid="${f.mirror?'lower-horizontal-wall':'upper-horizontal-wall'}">${poly([a,b,[b[0],g.H+g.pad],[a[0],g.H+g.pad]],'#a8adb3')}${line(a,b,'#56616a',3)}</g>`;}
+ walls+=`<g data-solid="segmented-wedge">${poly([[0,0],...g.lower.map(p=>p.b),[g.tip[0],0]],'#d5b488')}`;
  for(const p of g.lower)walls+=line(p.a,p.b,'#4c5964',3);
- walls+=(r.wallReflections?line(g.tip,[g.tip[0],0],'#4c5964',1):line(g.tip,[g.end,g.tip[1]],'#4c5964',2))+`<text x="${V([g.tip[0]*.7,g.tip[1]*.3])[0]}" y="${V([g.tip[0]*.7,g.tip[1]*.3])[1]}" fill="#24313c" font-size="17" text-anchor="middle">Wedge</text></g>`;
-
- for(const [i,p] of g.lower.entries()){const q=[(p.a[0]+p.b[0])/2,(p.a[1]+p.b[1])/2+.04*g.wedgeLength];walls+=text(q,`θ${i+1} = ${((frame?.mirror?-1:1)*deg(p.theta)).toFixed(1)}°`);}
-
- const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 330" role="img" aria-label="Custom multi-ramp ramjet inlet"><defs><clipPath id="${frame?.prefix??''}multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#${frame?.prefix??''}multiInletGas)">${content}</g>${walls}${frame?'':`<text x="35" y="25" fill="#24313c" font-size="17">M₁ = ${x.M1} · Lupper/Lw = ${x.inletUpperWallRatio??1} · xupper/Lw = ${x.inletUpperStartRatio??0}</text><text x="35" y="320" fill="#24313c" font-size="15">${r.wallReflections?'Computed wall reflections · no terminal normal shock':r.normal?'Terminal normal shock · diffuser-entry state':'Compression only · no terminal normal shock'}</text>`}</svg>`;
- return {svg,label:r.wallReflections?'Computed inlet wall-wave field':'Multi-ramp inlet · sequential wave states',meta:r.wallReflections?'Computed regular reflections and supported wave interactions':'Independent wall waves; schematic spatial field',field:{quantity:key,label,min,max,units,options:Object.keys(q),palette:cornerPalette,note:r.wallReflections?r.note:'Sequential compression estimate; normal shock is optional. Reflections and subsonic diffuser evolution are not included in this mode.'}};
+ walls+=line(g.tip,[g.tip[0],0],'#4c5964',1)+'</g>';
+ for(const [i,p] of g.lower.entries()){const q=[(p.a[0]+p.b[0])/2,(p.a[1]+p.b[1])/2+.045*(g.hi-g.lo)];walls+=text(q,`θ${i+1} = ${((f.mirror?-1:1)*deg(p.theta)).toFixed(1)}°`);}
+ const clip=f.prefix??'',extent=`Computed field: x ≤ ${g.end.toPrecision(4)} m`,fitNote=f.fitted?'Display axes fitted independently; labelled angles are physical values.':'Geometry shown to scale.';
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${f.height}" data-display-end="${g.end}" data-scale-x="${f.scaleX}" data-scale-y="${f.scaleY}" role="img" aria-label="Custom multi-ramp ramjet inlet"><defs><clipPath id="${clip}multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#${clip}multiInletGas)">${content}</g>${walls}${frame?'':`<text x="35" y="24" fill="#24313c" font-size="16">M₁ = ${x.M1} · ${extent}</text><text x="35" y="${f.height-10}" fill="#24313c" font-size="14">${fitNote}</text>`}</svg>`;
+ const note=[r.wallReflections?r.note:'Sequential compression estimate; wall interactions and diffuser evolution are not included.',r.reflectionField?.partial?'The view ends at the last accepted station; no downstream state is invented.':'',fitNote].filter(Boolean).join(' ');
+ return {svg,label:r.wallReflections?'Computed inlet wall-wave field':'Multi-ramp inlet · sequential wave states',meta:r.wallReflections?'Computed regular reflections and supported wave interactions':'Independent wall waves; schematic spatial field',field:{quantity:key,label,min,max,units,options:Object.keys(q),palette:cornerPalette,note},display:{...g,...f}};
 }
 
 export const inletFlowSides=['Flow above wedge','Flow below wedge','Both sides'];
@@ -106,9 +130,9 @@ function solveInletSides(x){
  return {...first,inletSides:true,sides,regions:Object.assign({},...parts.map(p=>p.physical.regions)),waves:parts.flatMap(p=>p.physical.waves),checks:Object.assign({},...Object.entries(sides).flatMap(([name,p])=>Object.entries(p.physical.checks).map(([k,v])=>({[name+'-'+k]:v})))),note:parts.map(p=>`${p.prefix}: ${p.physical.note??'Sequential compression estimate.'}`).join(' ')+' The two side fields are independent; interaction of the streams behind the trailing edge is not matched.'};
 }
 function inletSidesDrawing(r,x,quantity){
- const parts=Object.values(r.sides),both=parts.length===2,lo=Math.min(...parts.map(p=>p.canonical.geometry.start)),hi=Math.max(...parts.map(p=>p.canonical.geometry.end)),H=Math.max(...parts.map(p=>p.canonical.geometry.ymax)),scale=Math.min(730/(hi-lo),(both?165:220)/H),ox=35-lo*scale,oy=both?205:55;
+ const parts=Object.values(r.sides).map(p=>({...p,display:inletDisplayGeometry(p.canonical)})),both=parts.length===2,frame=inletFrame(parts);
  const read={pressure:s=>s.p/1000,mach:s=>s.M,temperature:s=>s.T,density:s=>s.rho,speed:s=>s.u},key=read[quantity]?quantity:'pressure',values=Object.values(r.regions).map(read[key]),min=Math.min(...values),max=Math.max(...values);
- const views=parts.map(p=>multiRampDrawing(p.canonical,p.inputs,key,{scale,ox,oy,mirror:p.sign<0,prefix:p.prefix,min,max}));
- const inner=views.map(v=>v.svg.replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'' )).join(''),height=both?420:330;
- return {...views[0],svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${height}" role="img" aria-label="${both?'Both wedge sides':'Flow below wedge'} with reflecting walls">${inner}<text x="35" y="24" fill="#24313c" font-size="17">${both?'Upper (U) and lower (L) flow':'Lower flow (L)'} · M₁ = ${x.M1}</text><text x="35" y="${height-10}" fill="#24313c" font-size="14">${both?'Independent side solutions; trailing-edge stream interaction is not matched.':'Angles are signed relative to horizontal; lower side is mirrored for calculation.'}</text></svg>`,field:{...views[0].field,min,max,note:r.note}};
+ const views=parts.map(p=>multiRampDrawing(p.canonical,p.inputs,key,{...frame,mirror:p.sign<0,prefix:p.prefix,min,max}));
+ const inner=views.map(v=>v.svg.replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'' )).join(''),fitNote=frame.fitted?'Display axes fitted independently; labelled angles are physical values.':'Geometry shown to scale.';
+ return {...views[0],svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${frame.height}" data-scale-x="${frame.scaleX}" data-scale-y="${frame.scaleY}" role="img" aria-label="${both?'Both wedge sides':'Flow below wedge'} with reflecting walls">${inner}<text x="35" y="24" fill="#24313c" font-size="17">${both?'Upper (U) and lower (L) flow':'Lower flow (L)'} · M₁ = ${x.M1}</text><text x="35" y="${frame.height-10}" fill="#24313c" font-size="14">${fitNote}</text></svg>`,field:{...views[0].field,min,max,note:r.note+' '+fitNote+' Each side ends at its last computed station; downstream fields are not extrapolated.'},display:frame};
 }
