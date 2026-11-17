@@ -1,4 +1,4 @@
-import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-closed-piston';
+import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-remove-tube-sample';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
@@ -24,7 +24,7 @@ function finiteMapOptions(r){
   const rows=r.frames.map(frame=>Float32Array.from(frame[property],normalize));
   const title=`${label} map · wave reflections in the x–t plane`;
   return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows,leftFractions:r.movingPiston?r.frames.map(frame=>frame.left/r.right):undefined}},
-   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted line marks the leading edge of the expansion fan, and the dash-dot line marks its trailing edge. A vertical amber line marks the fixed sample position when present. These analytical paths cover the first waves; later reflections appear in the colored numerical field. '} The horizontal cursor shows the selected time.`};
+   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted line marks the leading edge of the expansion fan, and the dash-dot line marks its trailing edge. These analytical paths cover the first waves; later reflections appear in the colored numerical field. '} The horizontal cursor shows the selected time.`};
  });
  finiteMaps.set(r,options);
  return options;
@@ -102,11 +102,6 @@ function basePlotOptions(d,time=.001){
   let samples, profileNote;
   if(r.finiteTube){
    options.splice(0,1,...finiteMapOptions(r));
-   if(r.sample>0){
-    const cell=Math.min(r.centers.length-1,Math.floor((r.sample-r.left)/(r.right-r.left)*r.centers.length));
-    add('finite-sample-p','Pressure history at sample','Time t (ms)','p (kPa)',r.frames.map(frame=>[frame.time*1000,frame.pressure[cell]/1000]));
-    options.at(-1).note=`Numerical history at the cell containing x = ${r.sample} m. Sharp fronts span several cells.`;
-   }
    if(r.movingPiston){
     const title='Pressure history at the piston and fixed wall';
     options.push({key:'piston-wall-pressure',label:title,chart:{title,xlabel:'Time t (ms)',ylabel:'p (kPa)',series:[

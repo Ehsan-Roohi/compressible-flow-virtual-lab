@@ -9,7 +9,7 @@ const near=(actual,expected,tolerance)=>assert.ok(Math.abs(actual-expected)<tole
 const base={...defaults('tube'),tubeDomain:finiteTubeMode};
 
 test('Example 7–12 gives the reflected-shock table and wall/contact trajectories',()=>{
- const d=calculate('tube',{...base,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300,finiteSampleX:0});
+ const d=calculate('tube',{...base,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300});
  const {reflected,wallTime,contactTime}=d.result;
  near(reflected.mach,2.09165,1e-5);
  near(reflected.pressureRatio,4.9375,1e-8);
@@ -20,12 +20,12 @@ test('Example 7–12 gives the reflected-shock table and wall/contact trajectori
  assert.ok(d.rows.filter(r=>r.label.includes('Δh₀')).length===2);
 });
 
-test('Example 7–13 reproduces sample timings and evolves the flow after reflections from both ends',()=>{
+test('Example 7–13 reproduces the first-wave solution and evolves the flow after reflections from both ends',()=>{
  const d=calculate('tube',base),r=d.result;
  near(r.incident.p2p1,4.7386213857,1e-8);
  near(r.wallTime,.0084541513,1e-9);
  near(r.contactTime,.0111911116,1e-9);
- near(d.rows.find(row=>row.label==='Time between shock and contact at sample').value,2.4283264,1e-6);
+ assert.ok(d.rows.every(row=>!/sample/i.test(row.label)));
  assert.ok(r.driverWallTime>r.contactTime);
  const initial=finiteTubeFrame(r,0),pre=finiteTubeFrame(r,.0065),reflection=finiteTubeFrame(r,.0105),end=finiteTubeFrame(r,r.end);
  near(initial.pressure[0],200000,1e-6);
@@ -37,12 +37,12 @@ test('Example 7–13 reproduces sample timings and evolves the flow after reflec
  assert.ok(r.frames.every(f=>f.pressure.every(p=>Number.isFinite(p)&&p>0)&&f.density.every(z=>Number.isFinite(z)&&z>0)));
  assert.ok(r.checks.mass<1e-10&&r.checks.energy<1e-10);
  const plots=plotOptions(d,.02),map=plots.find(p=>p.key==='finite-map-pressure');
- assert.ok(plots.some(p=>p.key==='finite-sample-p'));
+ assert.ok(plots.every(p=>!/sample/i.test(p.key)));
  assert.ok(plots.some(p=>p.key==='tube-profile-h0'));
  const view=chartSVG(map.chart);
  assert.doesNotMatch(view.svg,/NaN|Infinity|undefined/);
  assert.match(view.svg,/id="finiteTimeCursor"/);
- for(const dash of ['8 4','1 4','6 3 1 3','4 3'])assert.ok(view.legend.includes(`stroke-dasharray="${dash}"`));
+ for(const dash of ['8 4','1 4','6 3 1 3'])assert.ok(view.legend.includes(`stroke-dasharray="${dash}"`));
  assert.match(finiteTubeDrawing(r,.02).svg,/Driven wall/);
 });
 
@@ -52,7 +52,7 @@ test('finite geometry is conditional and simulation duration and geometry are va
  assert.ok(!keys(base).includes('tubeInitialVelocity'));
  assert.ok(!keys(defaults('tube')).includes('finiteEndTime'));
  assert.ok(!keys({...base,unsteadyExperiment:'Two-stage piston'}).includes('tubeDomain'));
- assert.throws(()=>calculate('tube',{...base,finiteSampleX:7}),/sample/);
+ assert.ok(keys(base).every(key=>!/sample/i.test(key)));
  assert.throws(()=>calculate('tube',{...base,finiteEndTime:101}),/100 ms/);
  const short=calculate('tube',{...base,finiteEndTime:2,tubeInitialVelocity:-200});
  assert.equal(short.result.incident.initialVelocity,0);

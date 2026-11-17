@@ -1,4 +1,4 @@
-import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston} from './finite-tube.js?v=20261117-closed-piston';
+import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston} from './finite-tube.js?v=20261117-remove-tube-sample';
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
@@ -228,8 +228,7 @@ export function calculate(id,x){
   const solved=closed?solveClosedPiston(x):solveFiniteTube(x),result=solved.result;
   const notice=closed?'Reflections are computed at the fixed wall and the moving piston.'+
    (result.stoppedAtGap?' The solve stops at 10% of the initial gas gap to avoid full closure.':'')+
-   (result.end<result.motion.delay?' The second speed change is after the simulated interval.':''):'First-wave values use the analytical incident and reflected shocks. The numerical profiles and x–t maps include later interactions at both closed walls.'+
-   (!result.sampleValid&&result.sample>0?' The sample meets a reflected wave before an undisturbed contact passage can be assumed.':'');
+   (result.end<result.motion.delay?' The second speed change is after the simulated interval.':''):'First-wave values use the analytical incident and reflected shocks. The numerical profiles and x–t maps include later interactions at both closed walls.';
   return {id,inputs:solved.inputs,gas:gasInfo(x),result,rows:solved.rows.map(([label,value,unit])=>row(label,value,unit)),
    chart:result.chart,scene:{kind:'finiteTube'},model:closed?'One-dimensional Euler equations · moving piston and reflecting wall':'One-dimensional Euler equations · two reflecting walls',notice,
    checks:result.checks,shockDetails:[],version:'0.1.0'};

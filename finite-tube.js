@@ -10,9 +10,8 @@ export const finiteTubeFields = [
  {key:'finiteDriverLength',label:'Driver length · left of diaphragm',value:4,min:.1,max:20,step:.1,unit:'m'},
  {key:'finiteDrivenLength',label:'Driven length · right of diaphragm',value:6,min:.1,max:20,step:.1,unit:'m'},
  {key:'finiteDiameter',label:'Tube diameter',value:.3,min:.01,max:2,step:.01,unit:'m',help:'Sets area and total gas mass. The tube has constant area.'},
- {key:'finiteSampleX',label:'Sample position from diaphragm',value:3,min:0,max:20,step:.01,unit:'m',help:'Set to 0 to omit the sample.'},
  {key:'finiteEndTime',label:'Simulation end time',value:30,min:1,max:100,step:1,unit:'ms'},
- {key:'finiteCells',label:'Computational cells',value:600,min:160,max:1200,step:20,unit:'cells'}
+ {key:'finiteCells',label:'Computational cells',value:600,min:160,max:1200,step:20,unit:'cells',help:'Number of cells used to divide the gas along the tube. More cells resolve wave fronts more sharply and take longer to compute.'}
 ];
 
 export const closedPistonMode='Finite tube · closed far end';
@@ -134,13 +133,10 @@ export function solveFiniteTube(raw){
  for(const [v,label] of [[x.finiteDriverLength,'Driver length'],[x.finiteDrivenLength,'Driven length'],[x.finiteDiameter,'Diameter'],[x.finiteEndTime,'End time']])positive(v,label);
  requireValue(x.finiteEndTime<=100,'Set the simulation end time to 100 ms or less.');
  requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use an integer grid size from 160 to 1200 cells.');
- const left=-x.finiteDriverLength,right=x.finiteDrivenLength,end=x.finiteEndTime/1000,sample=x.finiteSampleX;
- requireValue(Number.isFinite(sample)&&sample>=0&&sample<=right,'Put the sample between the diaphragm and the driven wall.');
+ const left=-x.finiteDriverLength,right=x.finiteDrivenLength,end=x.finiteEndTime/1000;
  const reflected=wallReflection(incident,gamma,R);
  const wallTime=right/incident.shockSpeed, driverWallTime=left/incident.head;
  const contactTime=(right+reflected.speed*wallTime)/(incident.u+reflected.speed);
- const shockSample=sample/incident.shockSpeed,contactSample=sample/incident.u;
- const sampleValid=contactSample<=contactTime&&contactSample<=driverWallTime;
  const domain=simulate(x,left,right,end,gamma,R);
  const trajectory=(name,t0,x0,speed,stop,color,dash)=>{
   const last=Math.min(end,stop);
@@ -154,8 +150,7 @@ export function solveFiniteTube(raw){
    trajectory('Contact surface',0,0,incident.u,referenceEnd,'#fff','8 4'),
    trajectory('Reflected shock',wallTime,right,-reflected.speed,referenceEnd,'#fff'),
    trajectory('Expansion head',0,0,incident.head,referenceEnd,'#fff','1 4'),
-   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3'),
-   ...(sample>0?[trajectory('Sample position',0,sample,0,end,'#ffd06b','4 3')]:[])
+   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3')
   ]};
  const rows=[
   ['Incident shock speed',incident.shockSpeed,'m/s'],['Incident pressure ratio',incident.p2p1,'p₂/p₁'],
@@ -169,10 +164,6 @@ export function solveFiniteTube(raw){
   ['Expansion density ratio',incident.rho3/(x.p4*1000/(R*x.T4)),'ρ₃/ρ₄'],
   ['Incident shock reaches driven wall · estimate',wallTime*1000,'ms'],['Expansion head reaches driver wall',driverWallTime*1000,'ms'],
   ['Reflected shock meets contact · first-wave estimate',contactTime*1000,'ms'],
-  ...(sampleValid&&sample>0?[
-   ['Incident shock reaches sample',shockSample*1000,'ms'],['Contact reaches sample',contactSample*1000,'ms'],
-   ['Time between shock and contact at sample',(contactSample-shockSample)*1000,'ms']
-  ]:[]),
   ['Initial gas mass',domain.massPerArea*Math.PI*x.finiteDiameter**2/4,'kg'],
   ['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
  ];
@@ -185,7 +176,7 @@ export function solveFiniteTube(raw){
   ['First reflected shock · Δh₀',h05-h02,'kJ/kg']
  );
  return {inputs:x,result:{status:'ok',finiteTube:true,left,right,end,gamma,R,cp,incident,reflected,
-  sample,sampleValid,wallTime,driverWallTime,contactTime,chart,...domain},rows};
+  wallTime,driverWallTime,contactTime,chart,...domain},rows};
 }
 
 export function solveClosedPiston(x){
@@ -257,7 +248,6 @@ export function finiteTubeDrawing(r,time){
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
  ${cells}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
- ${r.sample>0?`<path d="M${X(r.sample)} 195V209" stroke="#b36536" stroke-width="3"/><text x="${X(r.sample)}" y="226" text-anchor="middle" fill="#7f4728">Sample</text>`:''}
  <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};
 }
