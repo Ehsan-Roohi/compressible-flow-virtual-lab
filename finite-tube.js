@@ -29,12 +29,16 @@ export function expansionRaySpeeds({head,tail}){
 
 export function expansionContourMarks(waves,time,X,top,bottom){
  if(!(time>0)||!(waves.tail>waves.head))return '';
- const marks=expansionRaySpeeds(waves).map(speed=>{
-  const x=X(speed*time);
-  return `<path d="M${x} ${top}V${bottom}" stroke="#18304a" stroke-width=".85"/><path d="M${x+.75} ${top}V${bottom}" stroke="#fff" stroke-opacity=".75" stroke-width=".65"/>`;
- }).join('');
- const center=X((waves.head+waves.tail)*time/2);
- return `<g data-expansion-characteristics="6" aria-label="Positions of the six C− characteristics at the displayed time">${marks}
+ const head=X(waves.head*time),tail=X(waves.tail*time),width=tail-head;
+ if(width<2)return '';
+ const count=Math.min(36,Math.max(1,Math.floor(width/2.8)-1));
+ const marks=Array.from({length:count},(_,i)=>{
+  const x=head+width*(i+1)/(count+1);
+  return `M${x} ${top}V${bottom}`;
+ }).join(' ');
+ const center=(head+tail)/2;
+ return `<g data-expansion-characteristics="${count}" aria-label="Positions of C− characteristics at the displayed time">
+ <path d="${marks}" fill="none" stroke="#fff" stroke-opacity=".94" stroke-width="1" />
  <text x="${center}" y="${top-5}" text-anchor="middle" font-size="10" fill="#18304a" stroke="#fff" stroke-width="2.5" paint-order="stroke">C−</text></g>`;
 }
 

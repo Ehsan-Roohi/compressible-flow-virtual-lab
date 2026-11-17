@@ -136,9 +136,12 @@ test('expansion characteristics are shown in the flow visualization of each tube
   const rays=chart=>chart.series.filter(s=>s.name.startsWith('Expansion characteristic'));
   assert.equal(rays(finite.chart).length,0);
   assert.equal(rays(analytical.chart).length,6);
-  assert.match(finiteTubeDrawing(finite.result,.004).svg,/data-expansion-characteristics="6"/);
+  const fan=finiteTubeDrawing(finite.result,.004).svg.match(/<g data-expansion-characteristics="(\d+)"[\s\S]*?<\/g>/);
+  assert.ok(fan&&Number(fan[1])>6);
+  assert.match(fan[0],/stroke="#fff" stroke-opacity=/);
+  assert.doesNotMatch(fan[0],/stroke="#18304a"/);
   assert.doesNotMatch(finiteTubeDrawing(finite.result,.03).svg,/data-expansion-characteristics/);
-  assert.match(sceneSVG(analytical.scene,analytical.inputs,.001,'pressure').svg,/data-expansion-characteristics="6"/);
+  assert.match(sceneSVG(analytical.scene,analytical.inputs,.001,'pressure').svg,/data-expansion-characteristics="\d+"/);
  }
 });
 
