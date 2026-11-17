@@ -39,7 +39,10 @@ test('Example 7–13 reproduces sample timings and evolves the flow after reflec
  const plots=plotOptions(d,.02),map=plots.find(p=>p.key==='finite-map-pressure');
  assert.ok(plots.some(p=>p.key==='finite-sample-p'));
  assert.ok(plots.some(p=>p.key==='tube-profile-h0'));
- assert.doesNotMatch(chartSVG(map.chart).svg,/NaN|Infinity|undefined/);
+ const view=chartSVG(map.chart);
+ assert.doesNotMatch(view.svg,/NaN|Infinity|undefined/);
+ assert.match(view.svg,/id="finiteTimeCursor"/);
+ for(const dash of ['8 4','1 4','6 3 1 3','4 3'])assert.ok(view.legend.includes(`stroke-dasharray="${dash}"`));
  assert.match(finiteTubeDrawing(r,.02).svg,/Driven wall/);
 });
 

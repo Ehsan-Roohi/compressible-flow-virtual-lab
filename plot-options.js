@@ -1,4 +1,4 @@
-import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-rainbow-tube';
+import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-tube-playback';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
@@ -24,7 +24,7 @@ function finiteMapOptions(r){
   const rows=r.frames.map(frame=>Float32Array.from(frame[property],normalize));
   const title=`${label} map · wave reflections in the x–t plane`;
   return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows}},
-   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. White lines are first-wave analytical references.`};
+   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted line marks the leading edge of the expansion fan, and the dash-dot line marks its trailing edge. A vertical amber line marks the fixed sample position when present. These analytical paths cover the first waves; later reflections appear in the colored numerical field. The horizontal cursor shows the selected time.`};
  });
  finiteMaps.set(r,options);
  return options;
@@ -137,7 +137,7 @@ function basePlotOptions(d,time=.001){
    const get=z=>{const xi=z/t,initial=r.initialVelocity??0;let T,p,u=initial;if(xi<r.head){T=x.T4;p=x.p4*1000;}else if(xi<r.tail){const a=2*r.a4/(g+1)-(g-1)*(xi-initial)/(g+1);T=a*a/(g*R);p=x.p4*1000*(a/r.a4)**(2*g/(g-1));u=initial+2*(r.a4+xi-initial)/(g+1);}else if(xi<r.contact){T=r.T3;p=r.p;u=r.u;}else if(xi<r.shockSpeed){T=r.T2;p=r.p;u=r.u;}else{T=x.T1;p=x.p1*1000;}return {T,p,u,rho:p/(R*T),M:Math.abs(u)/Math.sqrt(g*R*T)};};
    const positions=[...linspace(left,right,220),...bounds.flatMap(b=>[b-1e-9,b+1e-9])].sort((a,b)=>a-b);
    samples=positions.map(z=>[z,get(z)]);
-   original.note='Position x versus time t before end-wall reflections. Thin solid rays inside the expansion fan are left-running characteristics (dx/dt = u − a), between its head and tail. They are not particle paths.';
+   original.note='The solid black line is the incident shock. The dashed amber line is the contact surface separating the two gases. The first and last blue lines mark the expansion fan edges; the thin blue rays between them are acoustic characteristics (dx/dt = u − a).';
    profileNote=`Analytical infinite-tube similarity solution at t = ${(t*1000).toFixed(3)} ms, before end-wall reflections.`;
   }
   family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = |u|/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000],['h0','Stagnation-enthalpy profile','h₀ (kJ/kg)',s=>(g*R*s.T/(g-1)+s.u*s.u/2)/1000]]);

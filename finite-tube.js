@@ -127,11 +127,11 @@ export function solveFiniteTube(raw){
   series:[
    {name:'Domain',hideLegend:true,points:[[left,0],[right,end*1000]],width:0},
    trajectory('Incident shock',0,0,incident.shockSpeed,Math.min(wallTime,driverWallTime),'#fff'),
-   trajectory('Contact surface',0,0,incident.u,referenceEnd,'#fff','5 3'),
+   trajectory('Contact surface',0,0,incident.u,referenceEnd,'#fff','8 4'),
    trajectory('Reflected shock',wallTime,right,-reflected.speed,referenceEnd,'#fff'),
-   trajectory('Expansion head',0,0,incident.head,referenceEnd,'#fff','2 4'),
-   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','2 4'),
-   ...(sample>0?[trajectory('Sample',0,sample,0,end,'#ffd06b','3 4')]:[])
+   trajectory('Expansion head',0,0,incident.head,referenceEnd,'#fff','1 4'),
+   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3'),
+   ...(sample>0?[trajectory('Sample position',0,sample,0,end,'#ffd06b','4 3')]:[])
   ]};
  const rows=[
   ['Incident shock speed',incident.shockSpeed,'m/s'],['Incident pressure ratio',incident.p2p1,'p₂/p₁'],

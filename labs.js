@@ -1,4 +1,4 @@
-import {finiteTubeMode,finiteTubeFields,solveFiniteTube} from './finite-tube.js';
+import {finiteTubeMode,finiteTubeFields,solveFiniteTube} from './finite-tube.js?v=20261117-tube-playback';
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
