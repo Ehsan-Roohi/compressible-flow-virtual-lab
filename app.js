@@ -292,7 +292,7 @@ function currentPlotTime(){
  return fraction*(r.end??r.catchTime??1);
 }
 function updatePlotChoices(){
- chartChoices=plotOptions(current,currentPlotTime());$('unsteadyProfileTimeLabel').hidden=true;$('chart').closest('.chart-card').hidden=!chartChoices.length||current.id==='airfoil'||!!(current.result.finalStreamMatch&&current.inspectTrackingEvent);if(!chartChoices.length){$('extraPlotPicker')?.setAttribute('hidden','');$('plotQuantity').innerHTML='';$('plotQuantity').hidden=true;$('plotQuantity').previousElementSibling.hidden=true;$('chart').innerHTML='';$('legend').innerHTML='';$('plotNote').textContent='';displayedChart=null;return;}const select=$('plotQuantity');select.innerHTML=chartChoices.map(o=>`<option value="${o.key}">${o.label}</option>`).join('');if(!chartChoices.some(o=>o.key===plotSelection[id]))plotSelection[id]=chartChoices[0].key;select.value=plotSelection[id];const single=chartChoices.length===1;select.hidden=single;select.previousElementSibling.hidden=single;renderSelectedPlot();renderPlotPicker();
+ chartChoices=plotOptions(current,currentPlotTime());$('chartPlay').hidden=!current.result.finiteTube;$('unsteadyProfileTimeLabel').hidden=true;$('chart').closest('.chart-card').hidden=!chartChoices.length||current.id==='airfoil'||!!(current.result.finalStreamMatch&&current.inspectTrackingEvent);if(!chartChoices.length){$('extraPlotPicker')?.setAttribute('hidden','');$('plotQuantity').innerHTML='';$('plotQuantity').hidden=true;$('plotQuantity').previousElementSibling.hidden=true;$('chart').innerHTML='';$('legend').innerHTML='';$('plotNote').textContent='';displayedChart=null;return;}const select=$('plotQuantity');select.innerHTML=chartChoices.map(o=>`<option value="${o.key}">${o.label}</option>`).join('');if(!chartChoices.some(o=>o.key===plotSelection[id]))plotSelection[id]=chartChoices[0].key;select.value=plotSelection[id];const single=chartChoices.length===1;select.hidden=single;select.previousElementSibling.hidden=single;renderSelectedPlot();renderPlotPicker();
 }
 function renderSelectedPlot(){
  $('chartProbe').hidden=true;
@@ -345,7 +345,13 @@ $('reset').onclick=()=>{stopSweep();clearTimeout(timer);sweepPositioned=false;sw
 $('pin').onclick=()=>{if(!current)return;pinned={id,inputs:{...inputs},rows:current.rows.map(x=>({...x}))};try{localStorage.setItem('gdvl-pinned',JSON.stringify(pinned));}catch{}renderCompare();};
 try{pinned=JSON.parse(localStorage.getItem('gdvl-pinned'));}catch{}
 function renderCompare(){let box=$('comparison');if(!current||!pinned||pinned.id!==id){box.hidden=true;return;}box.hidden=false;box.innerHTML='<b>Pinned / current</b><table><tr><th>Property</th><th>Pinned</th><th>Current</th></tr>'+current.rows.map((r,i)=>`<tr><td>${r.label}</td><td>${fmt(pinned.rows.find(v=>v.label===r.label&&v.unit===r.unit)?.value)}</td><td>${fmt(r.value)}</td></tr>`).join('')+'</table><button class="text-btn" id="clearPin">Clear comparison</button>';$('clearPin').onclick=()=>{pinned=null;try{localStorage.removeItem('gdvl-pinned');}catch{}renderCompare();};}
-function stopAnimation(){animation=false;cancelAnimationFrame(frame);$('scene').classList.remove('animating');$('animate').textContent=current?.result.finiteTube?'▶ Play':'▶ Animate';$('animate').setAttribute('aria-pressed','false');}
+function syncChartPlay(){
+ const button=$('chartPlay');
+ button.hidden=!current?.result.finiteTube;
+ button.textContent=animation?'Ⅱ Pause':'▶ Play';
+ button.setAttribute('aria-pressed',String(animation));
+}
+function stopAnimation(){animation=false;syncChartPlay();cancelAnimationFrame(frame);$('scene').classList.remove('animating');$('animate').textContent=current?.result.finiteTube?'▶ Play':'▶ Animate';$('animate').setAttribute('aria-pressed','false');}
 function playFiniteTube(){
  const slider=$('unsteadyProfileTime');
  const from=Number(slider.value)>=1?0:Number(slider.value);
@@ -363,7 +369,8 @@ function playFiniteTube(){
  };
  frame=requestAnimationFrame(tick);
 }
-$('animate').onclick=()=>{if(id==='nozzle'){toggleSweep();return;}if(!current)return;if(animation){stopAnimation();return;}if(matchMedia('(prefers-reduced-motion: reduce)').matches){$('notice').hidden=false;$('notice').textContent='Animation is paused because your system prefers reduced motion.';return;}animation=true;$('scene').classList.add('animating');$('animate').textContent='Ⅱ Pause';$('animate').setAttribute('aria-pressed','true');if(current.result.finiteTube){playFiniteTube();return;}if(id==='tube'){const tick=t=>{if(!animation)return;if(t-lastFrame>45){lastFrame=t;sceneTime=.00012+(t%6000)/6000*.00188;renderScene();if((plotSelection[id]??'').startsWith('tube-profile-'))renderSelectedPlot();}frame=requestAnimationFrame(tick);};frame=requestAnimationFrame(tick);}else{$('notice').hidden=false;$('notice').textContent='Moving tracers illustrate flow direction only; they are not time-resolved particle trajectories.';}};
+$('animate').onclick=()=>{if(id==='nozzle'){toggleSweep();return;}if(!current)return;if(animation){stopAnimation();return;}if(matchMedia('(prefers-reduced-motion: reduce)').matches){$('notice').hidden=false;$('notice').textContent='Animation is paused because your system prefers reduced motion.';return;}animation=true;syncChartPlay();$('scene').classList.add('animating');$('animate').textContent='Ⅱ Pause';$('animate').setAttribute('aria-pressed','true');if(current.result.finiteTube){playFiniteTube();return;}if(id==='tube'){const tick=t=>{if(!animation)return;if(t-lastFrame>45){lastFrame=t;sceneTime=.00012+(t%6000)/6000*.00188;renderScene();if((plotSelection[id]??'').startsWith('tube-profile-'))renderSelectedPlot();}frame=requestAnimationFrame(tick);};frame=requestAnimationFrame(tick);}else{$('notice').hidden=false;$('notice').textContent='Moving tracers illustrate flow direction only; they are not time-resolved particle trajectories.';}};
+$('chartPlay').onclick=()=>{$('animate').onclick();};
 let sweepPlaying=false,sweepTimer=null,sweepPositioned=false,sweepAtEnd=false,sweepDelay=100,sweepFinished=false,solvePending=false,sweepPlanCache=null,sweepPlanKey='';
 function getSweepPlan(){
  const key=JSON.stringify([id,inputs.ductProblem,inputs.fannoSystemSolve,inputs.systemAreaRatio,inputs.nozzleContraction,inputs.nozzleLength,inputs.ductLength,inputs.ductSection,inputs.ductWidth,inputs.ductHeight,inputs.lambda,inputs.frictionInput,inputs.hydraulicDiameter,inputs.frictionFactor,inputs.frictionConvention,inputs.reservoirT0,inputs.nozzleType,inputs.areaRatio,inputs.contractionRatio,inputs.MIn,inputs.sonicBranch,inputs.outletCondition,inputs.gamma]);
