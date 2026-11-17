@@ -4,7 +4,7 @@ import {clipPolygon} from './wave-interaction.js';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js';
 import {regionLabelPosition} from './region-labels.js';
 export const multiRampMode='Ramjet inlet · multiple ramps';
-export const multiRampPreset={wallShape:'Custom wall',customInteraction:multiRampMode,inletReference:1,inletHeightRatio:.3,inletCowlRatio:1,inletTerminal:'Normal shock',inletLowerSegments:[{angle:7,length:.5},{angle:15,length:.5}],inletUpperSegments:[{angle:15,length:.6}],M1:2.5,T1:216.65,p1:11.6,inletPressureType:'Static pressure',temperatureInput:'Static temperature',bookExample:'6–P1b'};
+export const multiRampPreset={wallShape:'Custom wall',customInteraction:multiRampMode,inletReference:1,inletHeightRatio:.3,inletCowlRatio:1,inletTerminal:'Normal shock',inletLowerSegments:[{angle:7,length:.5},{angle:15,length:.5}],inletUpperWallRatio:1,inletLowerWallRatio:1,M1:2.5,T1:216.65,p1:11.6,inletPressureType:'Static pressure',temperatureInput:'Static temperature',bookExample:'6–P1b'};
 export function inletPanels(segments,L,start){
  requireValue(Array.isArray(segments)&&segments.length>0&&segments.length<=8,'Use 1–8 segments per inlet wall.');
  let a=start;
@@ -13,13 +13,11 @@ export function inletPanels(segments,L,start){
 export function solveMultiRamp(x){
  const L=x.inletReference,H=L*x.inletHeightRatio,cowl=L*x.inletCowlRatio,g=x.gamma??1.4,R=x.R??287;
  requireValue([L,H,cowl,x.M1,x.T1,x.p1].every(Number.isFinite)&&L>0&&H>0&&cowl>0&&x.M1>1&&x.T1>0&&x.p1>0,'Require positive reference length, height, cowl position, pressure and temperature, and M > 1.');
- const lower=inletPanels(x.inletLowerSegments,L,[0,0]),upper=inletPanels(x.inletUpperSegments,L,[cowl,H]),tip=lower.at(-1).b;
- requireValue(cowl>=lower.at(-1).a[0]-1e-9,'The cowl must start at or after the final compression-ramp corner. Increase cowl x/Lref or shorten the ramps.');
- const end=upper.at(-1).b[0],last=lower.at(-1),bottom=xx=>last.b[1]+Math.tan(last.theta)*(xx-last.b[0]);
- const floor=xx=>{const p=lower.find(p=>xx>=p.a[0]-1e-9&&xx<=p.b[0]+1e-9);return p?p.a[1]+Math.tan(p.theta)*(xx-p.a[0]):bottom(xx);};
- for(const p of upper)for(const a of [p.a,p.b])requireValue(a[1]>floor(a[0]),'The upper and lower inlet walls cross. Increase the inlet height or change the wall angles.');
- for(const p of lower)for(const u of upper)if(p.b[0]>=u.a[0]&&p.b[0]<=u.b[0])requireValue(u.a[1]+Math.tan(u.theta)*(p.b[0]-u.a[0])>p.b[1],'The upper and lower inlet walls cross.');
- requireValue(end>=tip[0]-1e-9,'The upper cowl must extend at least as far downstream as the lower ramp endpoint. Increase its length.');
+ const lower=inletPanels(x.inletLowerSegments,L,[0,0]),tip=lower.at(-1).b,wedgeLength=x.inletLowerSegments.reduce((sum,p)=>sum+p.length*L,0),upperRatio=x.inletUpperWallRatio??1,lowerRatio=x.inletLowerWallRatio??1;
+ requireValue([upperRatio,lowerRatio].every(n=>Number.isFinite(n)&&n>0&&n<=100),'Upper and lower horizontal wall length ratios must be positive and ≤ 100.');
+ requireValue(cowl>=tip[0]-1e-9,'Place the inlet lip at or beyond the wedge end. Increase cowl x/Lref or shorten the wedge segments.');
+ requireValue(H>Math.max(...lower.map(p=>p.b[1])),'The horizontal upper wall intersects the wedge. Increase channel height.');
+ const upperWall={a:[cowl,H],b:[cowl+upperRatio*wedgeLength,H]},lowerWall={a:[0,0],b:[lowerRatio*wedgeLength,0]},upper=[{...upperWall,theta:0}],end=Math.max(upperWall.b[0],lowerWall.b[0],tip[0]+.15*wedgeLength),last=lower.at(-1),bottom=xx=>xx>=tip[0]?tip[1]:last.a[1]+Math.tan(last.theta)*(xx-last.a[0]);
  const s1={...state(x.M1,x.T1,x.p1*1000,g,R),theta:0},regions={1:s1},waves=[];let before=s1;
  for(const [i,p] of lower.entries()){
   requireValue(before.M>1,'A ramp has a sonic/subsonic upstream state; supersonic wall marching cannot continue.');
@@ -33,14 +31,14 @@ export function solveMultiRamp(x){
  const n=terminal?normalShock(pre.M,g):null,final=terminal?{...state(n.M2,pre.T*n.T,pre.p*n.p,g,R),theta:pre.theta}:pre;
  if(terminal)regions[terminalRegion]=final;
  // A normal shock is perpendicular to the final local stream. Its upper endpoint is the cowl lip.
- const m=Math.tan(pre.theta),shockFoot=[(cowl+m*(H-last.b[1]+m*last.b[0]))/(1+m*m),0];shockFoot[1]=bottom(shockFoot[0]);
+ const m=Math.tan(pre.theta),shockFoot=[cowl+(H-tip[1])*m,tip[1]];
  requireValue(shockFoot[0]<end&&H>bottom(cowl),'No open inlet section remains at the cowl.');
  if(terminal)for(const w of waves)if(w.kind==='Oblique shock')for(const a of [[cowl,H],shockFoot])requireValue(a[1]<=w.origin[1]+Math.tan(w.rays[0])*(a[0]-w.origin[0])+1e-8,'The cowl entry is above an upstream shock: it does not receive the final ramp state uniformly. Lower the cowl height or move the cowl downstream.');
  let overlap=false;
  for(let i=0;i<waves.length;i++)for(let j=i+1;j<waves.length;j++)for(const ai of waves[i].rays)for(const aj of waves[j].rays){const a=waves[i],b=waves[j],mi=Math.tan(ai),mj=Math.tan(aj);if(Math.abs(mi-mj)>1e-12){const xx=(b.origin[1]-a.origin[1]+mi*a.origin[0]-mj*b.origin[0])/(mi-mj);if(xx>Math.max(a.origin[0],b.origin[0])+1e-8&&xx<cowl)overlap=true;}}
- const ymax=Math.max(H,...upper.map(p=>p.b[1]),tip[1])+.35*L,start=-.2*L;
- const domain=[[start,0],[0,0],...lower.map(p=>p.b),[end,bottom(end)],...upper.filter(p=>p.a[0]<end).flatMap(p=>p.b[0]<=end?[p.b]:[[end,p.a[1]+Math.tan(p.theta)*(end-p.a[0])]]).reverse(),[cowl,H],[cowl,ymax],[start,ymax]];
- return {multiRamp:true,regions,s1,waves,pre,final,normal:n,terminalRegion:terminal?terminalRegion:null,gamma:g,R,geometry:{L,H,cowl,lower,upper,start,end,ymax,domain,shockFoot},overlap,checks:{stagnationTemperature:Math.abs(final.T0/s1.T0-1)}};
+ const ymax=H+.22*wedgeLength,start=-.18*wedgeLength;
+ const domain=[[start,0],[0,0],...lower.map(p=>p.b),[end,tip[1]],[end,H],[cowl,H],[cowl,ymax],[start,ymax]];
+ return {multiRamp:true,regions,s1,waves,pre,final,normal:n,terminalRegion:terminal?terminalRegion:null,gamma:g,R,geometry:{L,H,cowl,lower,upper,upperWall,lowerWall,wedgeLength,tip,start,end,ymax,domain,shockFoot},overlap,checks:{stagnationTemperature:Math.abs(final.T0/s1.T0-1)}};
 }
 export function multiRampPlot(r){
  const series=[],markers=[{name:'1',x:0,y:1}];
@@ -50,7 +48,7 @@ export function multiRampPlot(r){
  return {title:'Pressure–deflection diagram',xlabel:'Flow direction θ to horizontal (°)',ylabel:'p/p₁',zeroBaseline:false,series,markers};
 }
 export function multiRampDrawing(r,x,quantity='pressure'){
- const q={pressure:['Static pressure','kPa',s=>s.p/1000],mach:['Mach number','M',s=>s.M],temperature:['Static temperature','K',s=>s.T],density:['Density','kg/m³',s=>s.rho],speed:['Flow speed','m/s',s=>s.u]},key=q[quantity]?quantity:'pressure',[label,units,read]=q[key],vals=Object.values(r.regions).map(read),min=Math.min(...vals),max=Math.max(...vals),g=r.geometry,scale=Math.min(730/(g.end-g.start),275/g.ymax),ox=35-g.start*scale,oy=335,V=p=>[ox+p[0]*scale,oy-p[1]*scale],color=s=>cornerContourColor((read(s)-min)/(max-min||1));
+ const q={pressure:['Static pressure','kPa',s=>s.p/1000],mach:['Mach number','M',s=>s.M],temperature:['Static temperature','K',s=>s.T],density:['Density','kg/m³',s=>s.rho],speed:['Flow speed','m/s',s=>s.u]},key=q[quantity]?quantity:'pressure',[label,units,read]=q[key],vals=Object.values(r.regions).map(read),min=Math.min(...vals),max=Math.max(...vals),g=r.geometry,scale=Math.min(730/(g.end-g.start),235/g.ymax),ox=35-g.start*scale,oy=280,V=p=>[ox+p[0]*scale,oy-p[1]*scale],color=s=>cornerContourColor((read(s)-min)/(max-min||1));
  const poly=(p,fill)=>`<polygon points="${p.map(V).map(p=>p.join(',')).join(' ')}" fill="${fill}"/>`,line=(a,b,c='#101820',width=2)=>`<path d="M${V(a).join(',')} L${V(b).join(',')}" fill="none" stroke="${c}" stroke-width="${width}"/>`,text=(p,t)=>`<text x="${V(p)[0]}" y="${V(p)[1]}" fill="white" font-size="18" font-weight="600" text-anchor="middle">${t}</text>`;
  const half=(p,w,a)=>p[1]-w.origin[1]-Math.tan(a)*(p[0]-w.origin[0]);
  let content=poly(g.domain,color(r.s1)),cells=[{poly:g.domain,state:r.s1,region:1}];
@@ -58,12 +56,21 @@ export function multiRampDrawing(r,x,quantity='pressure'){
  if(w.kind==='Expansion fan'){const N=80;for(let i=0;i<N;i++){const d=Math.abs(w.turn)*(i+.5)/N,n=expansion(w.before.M,d,r.gamma),s={...state(n.M2,w.before.T*n.T,w.before.p*n.p,r.gamma,r.R),theta:w.before.theta-d},a1=w.before.theta-Math.abs(w.turn)*i/N+Math.asin(1/(i?expansion(w.before.M,Math.abs(w.turn)*i/N,r.gamma).M2:w.before.M)),a2=w.before.theta-Math.abs(w.turn)*(i+1)/N+Math.asin(1/expansion(w.before.M,Math.abs(w.turn)*(i+1)/N,r.gamma).M2);content+=poly(clipPolygon(clipPolygon(g.domain,p=>-half(p,w,a1)),p=>half(p,w,a2)),color(s));}}
  content+=poly(p,color(w.after));}
  const normalSide=p=>(p[0]-g.cowl)*Math.cos(r.pre.theta)+(p[1]-g.H)*Math.sin(r.pre.theta);
- if(r.normal){for(const c of cells)c.poly=clipPolygon(c.poly,p=>-normalSide(p));const diffuser=[[g.cowl,g.H],...g.upper.map(p=>p.b),[g.end,g.lower.at(-1).b[1]+Math.tan(g.lower.at(-1).theta)*(g.end-g.lower.at(-1).b[0])],g.shockFoot];const p=clipPolygon(diffuser,normalSide);cells.push({poly:p,state:r.final,region:r.terminalRegion});content+=poly(p,color(r.final));}
+ if(r.normal){for(const c of cells)c.poly=clipPolygon(c.poly,p=>-normalSide(p));const diffuser=[[g.cowl,g.H],[g.end,g.H],[g.end,g.tip[1]],g.shockFoot];const p=clipPolygon(diffuser,normalSide);cells.push({poly:p,state:r.final,region:r.terminalRegion});content+=poly(p,color(r.final));}
  for(const w of r.waves)for(const a of w.rays){const end=[g.end,w.origin[1]+Math.tan(a)*(g.end-w.origin[0])];content+=line(w.origin,end,w.kind==='Oblique shock'?'black':'#a5d4e8',w.kind==='Oblique shock'?2:1);}
  if(r.normal)content+=line([g.cowl,g.H],g.shockFoot,'black',3);
  for(const w of r.waves)if(w.beta){const xx=Math.min(g.cowl-.05*g.L,w.origin[0]+.23*g.L),yy=w.origin[1]+Math.tan(w.rays[0])*(xx-w.origin[0])+.045*g.L;content+=text([xx,yy],`β = ${deg(w.beta).toFixed(2)}°`);}
  for(const c of cells){const p=regionLabelPosition([c.poly.map(V)])?.point;if(p)content+=`<text x="${p[0]}" y="${p[1]}" fill="white" font-size="20" text-anchor="middle">${c.region}</text>`;}
- let walls=line([g.start,0],[0,0],'#56616a',4);for(const p of [...g.lower,...g.upper])walls+=line(p.a,p.b,'#56616a',4);walls+=line(g.lower.at(-1).b,[g.end,g.lower.at(-1).b[1]+Math.tan(g.lower.at(-1).theta)*(g.end-g.lower.at(-1).b[0])],'#56616a',4);
- const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-label="Custom multi-ramp ramjet inlet"><defs><clipPath id="multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#multiInletGas)">${content}</g>${walls}<text x="35" y="25" fill="#24313c" font-size="17">M₁ = ${x.M1} · angles to horizontal · lengths / Lref</text><text x="35" y="377" fill="#24313c" font-size="15">${r.normal?'Terminal normal shock · downstream colour = diffuser-entry state':'Supersonic compression ramps · no terminal normal shock'}</text></svg>`;
+ const pad=.055*g.wedgeLength;
+ // Horizontal walls are independent of the compression surface mounted on the lower wall.
+ let walls=`<g data-solid="upper-horizontal-wall">${poly([g.upperWall.a,g.upperWall.b,[g.upperWall.b[0],g.H+pad],[g.cowl,g.H+pad]],'#a8adb3')}${line(g.upperWall.a,g.upperWall.b,'#56616a',3)}</g>`;
+ walls+=`<g data-solid="lower-horizontal-wall">${poly([g.lowerWall.a,g.lowerWall.b,[g.lowerWall.b[0],-pad],[0,-pad]],'#a8adb3')}${line(g.lowerWall.a,g.lowerWall.b,'#56616a',3)}</g>`;
+ walls+=`<g data-solid="segmented-wedge">${poly([[0,0],...g.lower.map(p=>p.b),[g.end,g.tip[1]],[g.end,0]],'#d5b488')}`;
+ for(const p of g.lower)walls+=line(p.a,p.b,'#4c5964',3);
+ walls+=line(g.tip,[g.end,g.tip[1]],'#4c5964',2)+`<text x="${V([g.tip[0]*.7,g.tip[1]*.3])[0]}" y="${V([g.tip[0]*.7,g.tip[1]*.3])[1]}" fill="#24313c" font-size="17" text-anchor="middle">Wedge</text></g>`;
+ walls+=line(g.lowerWall.a,g.lowerWall.b,'#56616a',2);
+ for(const [i,p] of g.lower.entries()){const q=[(p.a[0]+p.b[0])/2,(p.a[1]+p.b[1])/2+.04*g.wedgeLength];walls+=text(q,`θ${i+1} = ${deg(p.theta).toFixed(1)}°`);}
+
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 330" role="img" aria-label="Custom multi-ramp ramjet inlet"><defs><clipPath id="multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#multiInletGas)">${content}</g>${walls}<text x="35" y="25" fill="#24313c" font-size="17">M₁ = ${x.M1} · Lupper/Lw = ${x.inletUpperWallRatio??1} · Llower/Lw = ${x.inletLowerWallRatio??1}</text><text x="35" y="320" fill="#24313c" font-size="15">${r.normal?'Terminal normal shock · downstream colour = diffuser-entry state':'Supersonic compression ramps · no terminal normal shock'}</text></svg>`;
  return {svg,label:'Multi-ramp inlet · sequential wave states',meta:'Independent wall waves; schematic spatial field',field:{quantity:key,label,min,max,units,options:Object.keys(q),palette:cornerPalette,note:'Sequential shock–expansion states. Wave intersections and subsonic diffuser evolution are not solved; downstream colour denotes entry state only.'}};
 }
