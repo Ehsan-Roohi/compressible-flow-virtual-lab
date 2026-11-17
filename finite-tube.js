@@ -25,6 +25,17 @@ export function expansionRaySpeeds({head,tail}){
  return Array.from({length:6},(_,i)=>head+(tail-head)*(i+1)/7);
 }
 
+export function expansionContourMarks(waves,time,X,top,bottom){
+ if(!(time>0)||!(waves.tail>waves.head))return '';
+ const marks=expansionRaySpeeds(waves).map(speed=>{
+  const x=X(speed*time);
+  return `<path d="M${x} ${top}V${bottom}" stroke="#18304a" stroke-width=".85"/><path d="M${x+.75} ${top}V${bottom}" stroke="#fff" stroke-opacity=".75" stroke-width=".65"/>`;
+ }).join('');
+ const center=X((waves.head+waves.tail)*time/2);
+ return `<g data-expansion-characteristics="6" aria-label="Positions of the six C− characteristics at the displayed time">${marks}
+ <text x="${center}" y="${top-5}" text-anchor="middle" font-size="10" fill="#18304a" stroke="#fff" stroke-width="2.5" paint-order="stroke">C−</text></g>`;
+}
+
 function wallReflection(incident,gamma,R){
  const a2=Math.sqrt(gamma*R*incident.T2);
  const q=(gamma+1)*incident.u/(4*a2);
@@ -155,10 +166,6 @@ export function solveFiniteTube(raw){
    trajectory('Contact surface',0,0,incident.u,referenceEnd,'#fff','8 4'),
    trajectory('Reflected shock',wallTime,right,-reflected.speed,referenceEnd,'#fff'),
    trajectory('Expansion head',0,0,incident.head,referenceEnd,'#fff','1 4'),
-   ...expansionRaySpeeds(incident).map((speed,i)=>({
-    ...trajectory(i===0?'Expansion characteristics (C−)':`Expansion characteristic ${i+1}`,0,0,speed,referenceEnd,'#ffffffb8'),
-    legendColor:'#627586',width:.8,hideLegend:i!==0
-   })),
    trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3')
   ]};
  const rows=[
@@ -185,7 +192,7 @@ export function solveFiniteTube(raw){
   ['First reflected shock · Δh₀',h05-h02,'kJ/kg']
  );
  return {inputs:x,result:{status:'ok',finiteTube:true,left,right,end,gamma,R,cp,incident,reflected,
-  wallTime,driverWallTime,contactTime,chart,...domain},rows};
+  wallTime,driverWallTime,contactTime,referenceEnd,chart,...domain},rows};
 }
 
 export function solveClosedPiston(x){
@@ -221,6 +228,7 @@ export function solveClosedPiston(x){
   ['Piston work per tube area',domain.pistonWork/1000,'kJ/m²'],
   ['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
  ];
+ if(free.catchTime<=isolatedEnd)rows.splice(2,0,['Launch shocks merge · analytical estimate',free.catchTime*1000,'ms']);
  if(firstHit<=isolatedEnd)rows.splice(1,0,['First shock reaches fixed wall · analytical',firstHit*1000,'ms']);
  const h0=s=>(cp*s.T+.5*s.u*s.u)/1000;
  for(const [name,shock] of [['First launch shock',free.first],...(isolatedEnd>motion.delay?[['Second launch shock',free.second]]:[])]){
@@ -228,7 +236,9 @@ export function solveClosedPiston(x){
    [`${name} · Δh₀`,h0(shock.after)-h0(shock.before),'kJ/kg']);
  }
  return {inputs:x,result:{status:'ok',finiteTube:true,movingPiston:true,left:0,right:length,end,gamma,R,cp,chart,
-  motion,stoppedAtGap:end===gapLimit,...domain},rows};
+  motion,initialShocks:{firstSpeed:free.first.speed,secondSpeed:free.second.speed,
+   launchX:free.launchX,end:isolatedEnd,mergeTime:free.catchTime<=isolatedEnd?free.catchTime:null},
+  stoppedAtGap:end===gapLimit,...domain},rows};
 }
 
 export function finiteTubeFrame(r,time){
@@ -247,6 +257,22 @@ export function finiteTubeScale(frames,property){
  return scales[property]={normalize,min,max};
 }
 
+function pistonShockMarks(r,t,X){
+ const shocks=r.initialShocks;
+ if(t===0)return '';
+ if(t>=shocks.end){
+  const description=shocks.mergeTime?'Launch shocks merge at about '+(shocks.mergeTime*1000).toFixed(2)+' ms. Continue to see reflections.':'Wave reflections and interactions appear in the pressure colors.';
+  return `<text x="320" y="60" text-anchor="middle" font-size="11">${description}</text>`;
+ }
+ const marker=(position,number,offset)=>{
+  const x=X(position),labelX=Math.max(29,Math.min(611,x+offset));
+  return `<g data-launch-shock="${number}"><path d="M${labelX} 59L${x} 85V197" fill="none" stroke="#20394a" stroke-width="1.25"/>
+  <text x="${labelX}" y="55" text-anchor="middle" fill="#20394a" font-size="11">Shock ${number}</text></g>`;
+ };
+ const first=marker(shocks.firstSpeed*t,1,16);
+ return t<r.motion.delay?first:first+marker(shocks.launchX+shocks.secondSpeed*(t-r.motion.delay),2,-16);
+}
+
 export function finiteTubeDrawing(r,time){
  const frame=finiteTubeFrame(r,time),{normalize}=finiteTubeScale(r.frames,'pressure');
  const X=x=>40+(x-r.left)/(r.right-r.left)*560;
@@ -255,7 +281,7 @@ export function finiteTubeDrawing(r,time){
  const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
- ${cells}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
+ ${cells}${r.movingPiston?pistonShockMarks(r,frame.time,X):frame.time<r.referenceEnd?expansionContourMarks(r.incident,frame.time,X,105,193):''}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
  <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};

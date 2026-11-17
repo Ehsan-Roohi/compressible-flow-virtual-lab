@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {calculate,defaults,inputDefinitions} from './labs.js';
-import {chartSVG} from './graphics.js';
+import {chartSVG,sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 import {finiteTubeDrawing,finiteTubeFrame,finiteTubeMode} from './finite-tube.js';
 
@@ -113,6 +113,11 @@ test('closed two-stage piston tracks its moving boundary and reflects waves from
  const map=options.find(o=>o.key==='finite-map-pressure').chart;
  near(map.heatmap.leftFractions.at(-1),2.975/6,1e-10);
  assert.match(finiteTubeDrawing(r,.06).svg,/Fixed wall/);
+ const preview=finiteTubeDrawing(r,.004).svg;
+ assert.match(preview,/data-launch-shock="1"/);
+ assert.match(preview,/data-launch-shock="2"/);
+ near(r.initialShocks.mergeTime,.01225042,1e-8);
+ assert.doesNotMatch(finiteTubeDrawing(r,.02).svg,/data-launch-shock="2"/);
  const fields=inputDefinitions('tube',inputs).map(f=>f.key);
  assert.ok(fields.includes('pistonTubeLength')&&fields.includes('finiteEndTime')&&!fields.includes('p4'));
  assert.ok(!inputDefinitions('tube',{...inputs,pistonDomain:'Before shock catch-up'}).some(f=>f.key==='pistonTubeLength'));
@@ -123,19 +128,15 @@ test('closed two-stage piston tracks its moving boundary and reflects waves from
  assert.throws(()=>calculate('tube',{...inputs,pistonTubeLength:0}),/length/);
 });
 
-test('both finite shock-tube examples use the same initial expansion rays as the analytical tube',()=>{
+test('expansion characteristics are shown in the flow visualization of each tube example',()=>{
  for(const values of [base,{...base,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300}]){
   const finite=calculate('tube',values);
   const analytical=calculate('tube',{...values,tubeDomain:'Before wall reflections'});
   const rays=chart=>chart.series.filter(s=>s.name.startsWith('Expansion characteristic'));
-  assert.equal(rays(finite.chart).length,6);
-  const stop=Math.min(finite.result.end,finite.result.contactTime,finite.result.driverWallTime);
-  rays(finite.chart).forEach((ray,i)=>{
-   const [x,t]=ray.points.at(-1),[refX,refT]=rays(analytical.chart)[i].points.at(-1);
-   near(x/t,refX/refT,1e-12);
-   near(t,stop*1000,1e-12);
-  });
-  const plot=plotOptions(finite)[0];
-  assert.match(chartSVG(plot.chart).legend,/Expansion characteristics/);
+  assert.equal(rays(finite.chart).length,0);
+  assert.equal(rays(analytical.chart).length,6);
+  assert.match(finiteTubeDrawing(finite.result,.004).svg,/data-expansion-characteristics="6"/);
+  assert.doesNotMatch(finiteTubeDrawing(finite.result,.03).svg,/data-expansion-characteristics/);
+  assert.match(sceneSVG(analytical.scene,analytical.inputs,.001,'pressure').svg,/data-expansion-characteristics="6"/);
  }
 });
