@@ -16,7 +16,6 @@ import {sonicRelations} from './reference-relations.js?v=20261109-wedge-cone';
 import {linspace,deg,rad,isentropic,isentropicRelations,state,normalShock,obliqueShock,expansion,rayleighRatios,fannoRatios,linearAirfoil} from './physics.js';
 // Each selectable property has its own units and axis. Unavailable states are omitted.
 function basePlotOptions(d,time=.001){
- if(d.result.valveClosure||d.result.twoStagePiston)return d.result.plots;
  if(d.result.multiRamp)return [{key:'multi-inlet-p-theta',label:'Pressure–deflection diagram',chart:multiRampPlot(d.result),note:'θ is absolute to horizontal. A normal shock increases pressure without changing flow direction.'}];
  if(d.result.ramjet)return ramjetPlots(d.result).filter(p=>p.key==='inlet-p-theta');
  if(d.result.ductSystem)return d.result.plots;
@@ -85,12 +84,36 @@ function basePlotOptions(d,time=.001){
   family('regions-','Region number · comparison only',samples,[['M','Region Mach numbers','M',s=>s.M],['p','Region pressure ratios','p/p₁',s=>s.p],['T','Region temperature ratios','T/T₁',s=>s.T],['rho','Region density ratios','ρ/ρ₁',s=>s.rho],['p0','Region stagnation-pressure recovery','p₀/p₀₁',s=>s.p0]]);
   options.filter(o=>o.key.startsWith('regions-')).forEach(o=>{o.chart.scatter=true;o.note='Independent uniform regions are compared; points do not represent a spatial path.';});
  }else if(id==='tube'){
-  const t=Math.max(1e-6,time),bounds=[r.head*t,r.tail*t,r.contact*t,r.shockSpeed*t],left=Math.min(-1,bounds[0]*1.1),right=Math.max(1.8,bounds.at(-1)*1.1);
-  const get=z=>{const xi=z/t;let T,p,u=0;if(xi<r.head){T=x.T4;p=x.p4*1000;}else if(xi<r.tail){const a=2*r.a4/(g+1)-(g-1)*xi/(g+1);T=a*a/(g*R);p=x.p4*1000*(a/r.a4)**(2*g/(g-1));u=2*(r.a4+xi)/(g+1);}else if(xi<r.contact){T=r.T3;p=r.p;u=r.u;}else if(xi<r.shockSpeed){T=r.T2;p=r.p;u=r.u;}else{T=x.T1;p=x.p1*1000;}return {T,p,u,rho:p/(R*T),M:u/Math.sqrt(g*R*T)};};
-  const positions=[...linspace(left,right,220),...bounds.flatMap(b=>[b-1e-9,b+1e-9])].sort((a,b)=>a-b),samples=positions.map(z=>[z,get(z)]);
-  family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = u/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000]]);
-  original.note='Position x versus time t before end-wall reflections. Thin solid rays inside the expansion fan are left-running characteristics (dx/dt = u − a), between its head and tail. They are not particle paths.';
-  options.filter(o=>o.key.startsWith('tube-profile-')).forEach(o=>o.note=`Analytical infinite-tube similarity solution at t = ${(t*1000).toFixed(3)} ms, before end-wall reflections.`);
+  let samples, profileNote;
+  if(r.valveClosure){
+   const t=Math.min(1,Math.max(1e-6,time)), shock=-r.speed*t;
+   samples=[[shock*1.2,r.upstream],[shock,r.upstream],[shock,r.downstream],[0,r.downstream]];
+   options.splice(0,1,...r.plots);
+   profileNote=`Laboratory-frame profile at t = ${t.toPrecision(4)} s. The valve is at x = 0; the shock moves toward negative x.`;
+  }else if(r.twoStagePiston){
+   const t=Math.min(r.catchTime,Math.max(0,time));
+   const first=r.first.speed*t;
+   const secondActive=t>=r.delay;
+   const piston=secondActive?r.launchX+r.second.after.u*(t-r.delay):r.first.after.u*t;
+   const [ahead,between,behind]=r.regions;
+   samples=[[piston,secondActive?behind:between]];
+   if(secondActive&&t<r.catchTime){
+    const second=Math.min(first,r.launchX+r.second.speed*(t-r.delay));
+    samples.push([second,behind],[second,between]);
+   }
+   samples.push([first,secondActive&&t===r.catchTime?behind:between],[first,ahead],[first+Math.max(1,first-piston)*.2,ahead]);
+   options.splice(0,1,...r.plots);
+   profileNote=`Laboratory-frame profile at t = ${t.toPrecision(4)} s, measured from initial piston motion. The profile starts at the piston face and ends in the undisturbed gas.`;
+  }else{
+   const t=Math.max(1e-6,time),bounds=[r.head*t,r.tail*t,r.contact*t,r.shockSpeed*t],left=Math.min(-1,bounds[0]*1.1),right=Math.max(1.8,bounds.at(-1)*1.1);
+   const get=z=>{const xi=z/t;let T,p,u=0;if(xi<r.head){T=x.T4;p=x.p4*1000;}else if(xi<r.tail){const a=2*r.a4/(g+1)-(g-1)*xi/(g+1);T=a*a/(g*R);p=x.p4*1000*(a/r.a4)**(2*g/(g-1));u=2*(r.a4+xi)/(g+1);}else if(xi<r.contact){T=r.T3;p=r.p;u=r.u;}else if(xi<r.shockSpeed){T=r.T2;p=r.p;u=r.u;}else{T=x.T1;p=x.p1*1000;}return {T,p,u,rho:p/(R*T),M:u/Math.sqrt(g*R*T)};};
+   const positions=[...linspace(left,right,220),...bounds.flatMap(b=>[b-1e-9,b+1e-9])].sort((a,b)=>a-b);
+   samples=positions.map(z=>[z,get(z)]);
+   original.note='Position x versus time t before end-wall reflections. Thin solid rays inside the expansion fan are left-running characteristics (dx/dt = u − a), between its head and tail. They are not particle paths.';
+   profileNote=`Analytical infinite-tube similarity solution at t = ${(t*1000).toFixed(3)} ms, before end-wall reflections.`;
+  }
+  family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = u/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000],['h0','Stagnation-enthalpy profile','h₀ (kJ/kg)',s=>(g*R*s.T/(g-1)+s.u*s.u/2)/1000]]);
+  options.filter(o=>o.key.startsWith('tube-profile-')).forEach(o=>o.note=profileNote);
  }
  // Existing multi-series charts can also be inspected one curve at a time.
  if(!['foundations','normal','rayleigh','fanno','tube'].includes(id)&&d.chart.series.length>1)for(const [i,s] of d.chart.series.entries())options.push({key:'curve-'+i,label:s.name,chart:{...d.chart,title:s.name,series:[s]}});

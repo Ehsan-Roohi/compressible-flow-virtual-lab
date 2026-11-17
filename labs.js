@@ -36,6 +36,15 @@ const cornerView={key:'cornerView',label:'Drawing style',value:'Analytical conto
 const T=input('T1','Inlet temperature',300,100,1500,1,'K');
 const P=input('p1','Inlet pressure',101,1,1000,1,'kPa');
 const row=(label,value,unit='')=>({label,value,unit});
+function movingShockEnthalpyRows(name,before,after,gamma,R){
+ const cp=gamma*R/(gamma-1);
+ const h0=({T,u})=>(cp*T+u*u/2)/1000;
+ return [
+  row(`${name} · h₀ ahead (laboratory)`,h0(before),'kJ/kg'),
+  row(`${name} · h₀ behind (laboratory)`,h0(after),'kJ/kg'),
+  row(`${name} · Δh₀ (behind − ahead)`,h0(after)-h0(before),'kJ/kg')
+ ];
+}
 function shockStateSection({kind,title,location,before,after,gamma,R,extra=[]}){
  const upstream=p.state(before.M,before.T,before.P??before.p,gamma,R);
  const downstream=p.state(after.M,after.T,after.P??after.p,gamma,R);
@@ -210,13 +219,14 @@ export function calculate(id,x){x=normalizeStateInputs(id,x);
    row('Gas speed behind shock',result.downstream.u,'m/s'),
    row('Upstream Mach · shock frame',result.mach),
    row('Downstream Mach · shock frame',result.ratios.M2),
-   row('Shock pressure ratio',result.ratios.p,'p₂/p₁')
+   row('Shock pressure ratio',result.ratios.p,'p₂/p₁'),
+   ...movingShockEnthalpyRows('Valve shock',result.upstream,result.downstream,x.gamma,x.R)
   ];
   for(const r of result.referenceTable.rows)r.values.forEach((v,i)=>rows.push({...row(`${result.referenceTable.columns[i]} · ${r.label}`,v),panel:'reference'}));
   return {id,inputs:x,gas:gasInfo(x),model:valveInfo.model,result,rows,chart:result.chart,scene:{kind:'valveClosure',...result},checks:result.checks,shockDetails:[],notice:valveInfo.limitations,version:'0.1.0'};
  }
  if(id==='tube'&&x.unsteadyExperiment===pistonExperiment){
-  const result=solvePistonShocks(x),rows=[row('Shock 1 speed · laboratory',result.first.speed,'m/s'),row('Shock 2 speed · laboratory',result.second.speed,'m/s'),row('Shock 1 Mach · relative to region 1',result.first.relativeMach),row('Shock 2 Mach · relative to region 2',result.second.relativeMach),row('Catch-up time · from initial motion',result.catchTime,'s'),row('Catch-up position · from initial piston',result.catchX,'m'),row('Time after second speed increase',result.catchTime-result.delay,'s'),row('Second-shock launch position',result.launchX,'m'),row('Shock 1 pressure ratio',result.first.ratios.p,'p₂/p₁'),row('Shock 2 pressure ratio',result.second.ratios.p,'p₃/p₂')];
+  const result=solvePistonShocks(x),rows=[row('Shock 1 speed · laboratory',result.first.speed,'m/s'),row('Shock 2 speed · laboratory',result.second.speed,'m/s'),row('Shock 1 Mach · relative to region 1',result.first.relativeMach),row('Shock 2 Mach · relative to region 2',result.second.relativeMach),row('Catch-up time · from initial motion',result.catchTime,'s'),row('Catch-up position · from initial piston',result.catchX,'m'),row('Time after second speed increase',result.catchTime-result.delay,'s'),row('Second-shock launch position',result.launchX,'m'),row('Shock 1 pressure ratio',result.first.ratios.p,'p₂/p₁'),row('Shock 2 pressure ratio',result.second.ratios.p,'p₃/p₂'),...movingShockEnthalpyRows('Shock 1',result.first.before,result.first.after,result.gamma,result.R),...movingShockEnthalpyRows('Shock 2',result.second.before,result.second.after,result.gamma,result.R)];
   for(const r of result.referenceTable.rows)r.values.forEach((v,i)=>rows.push({...row(`${result.referenceTable.columns[i]} · ${r.label}`,v),panel:'reference'}));
   return {id,inputs:x,gas:gasInfo(x),model:'Two successive piston-generated shocks · constant heat capacities · before catch-up',result,rows,chart:result.chart,scene:{kind:'pistonShocks',...result},checks:result.checks,shockDetails:[],notice:'Both shock speeds are in the laboratory frame. Shock 2 propagates through the moving, heated gas behind shock 1. The model ends at catch-up; post-interaction waves and end-wall reflections are not solved.',version:'0.1.0'};
  }
@@ -265,7 +275,7 @@ export function calculate(id,x){x=normalizeStateInputs(id,x);
   const span=p.rad(3),left=Math.max(result.interval[0]+1e-9,result.delta-span),right=Math.min(result.interval[1]-1e-9,result.delta+span);
   for(const d of p.linspace(left,right,101)){const {a,b}=interactionPair(result,d);chart.series[0].points.push([p.deg(d),a.after.p/1000]);chart.series[1].points.push([p.deg(d),b.after.p/1000]);}
  }
- else if(id==='tube'){const solved=solveTube(x);x=solved.inputs;result=solved.result;checks={contactVelocity:Math.abs(result.residual)/result.a1};rows=[row('Shock pressure ratio',result.p2p1,'p₂/p₁'),row('Initial pressure ratio',x.p4/x.p1,'p₄/p₁'),row('Required driver pressure',x.p4,'kPa'),row('Shock temperature ratio',result.T2/x.T1,'T₂/T₁'),row('Incident shock Mach',result.Ms),row('Incident shock speed',result.shockSpeed,'m/s'),row('Contact velocity',result.u,'m/s'),row('Contact pressure',result.p/1000,'kPa'),row('Driven post-shock T₂',result.T2,'K'),row('Expanded driver T₃',result.T3,'K')];scene={kind:'tube',...result,...x};chart={title:'Wave trajectories · before reflection',xlabel:'Position x (m)',ylabel:'Time t (ms)',series:[['Expansion head',result.head],...Array.from({length:6},(_,i)=>[`Expansion characteristic ${i+1}`,result.head+(result.tail-result.head)*(i+1)/7]),['Expansion tail',result.tail],['Contact',result.contact],['Shock',result.shockSpeed]].map(([name,v])=>({name,points:[[0,0],[v*.002,2]],...(name.startsWith('Expansion')?{color:'#4e8f94',...(name.startsWith('Expansion characteristic')?{width:.75,hideLegend:true}:{width:2.2})}:name==='Shock'?{color:'#000000'}:{color:'#b36536',dash:'6 3'})}))};}
+ else if(id==='tube'){const solved=solveTube(x);x=solved.inputs;result=solved.result;checks={contactVelocity:Math.abs(result.residual)/result.a1};rows=[row('Shock pressure ratio',result.p2p1,'p₂/p₁'),row('Initial pressure ratio',x.p4/x.p1,'p₄/p₁'),row('Required driver pressure',x.p4,'kPa'),row('Shock temperature ratio',result.T2/x.T1,'T₂/T₁'),row('Incident shock Mach',result.Ms),row('Incident shock speed',result.shockSpeed,'m/s'),row('Contact velocity',result.u,'m/s'),row('Contact pressure',result.p/1000,'kPa'),row('Driven post-shock T₂',result.T2,'K'),row('Expanded driver T₃',result.T3,'K'),...movingShockEnthalpyRows('Incident shock',{T:x.T1,u:0},{T:result.T2,u:result.u},g,R)];scene={kind:'tube',...result,...x};chart={title:'Wave trajectories · before reflection',xlabel:'Position x (m)',ylabel:'Time t (ms)',series:[['Expansion head',result.head],...Array.from({length:6},(_,i)=>[`Expansion characteristic ${i+1}`,result.head+(result.tail-result.head)*(i+1)/7]),['Expansion tail',result.tail],['Contact',result.contact],['Shock',result.shockSpeed]].map(([name,v])=>({name,points:[[0,0],[v*.002,2]],...(name.startsWith('Expansion')?{color:'#4e8f94',...(name.startsWith('Expansion characteristic')?{width:.75,hideLegend:true}:{width:2.2})}:name==='Shock'?{color:'#000000'}:{color:'#b36536',dash:'6 3'})}))};}
  else if(id==='nozzle'){
   const type=x.nozzleType??'Converging–diverging';
   result=p.nozzle({...x,p0:x.p0===undefined?500000:x.p0*1000,minArea:x.minAreaCm2===undefined?.0006:x.minAreaCm2*1e-4});

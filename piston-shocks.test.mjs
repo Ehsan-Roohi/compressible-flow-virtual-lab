@@ -40,7 +40,7 @@ test('interface provides piston inputs and two consistent trajectories without c
  const d=calculate('tube',book),keys=inputDefinitions('tube',book).map(f=>f.key);
  for(const k of ['pistonSpeed1','pistonSpeed2','pistonDelay','p1','T1'])assert.ok(keys.includes(k));
  for(const k of ['p4','T4','tubeInput','shockRatio','driverRatio','inducedSpeed'])assert.ok(!keys.includes(k));
- const plots=plotOptions(d);assert.equal(plots.length,2);
+ const plots=plotOptions(d).filter(plot=>!plot.key.startsWith('tube-profile-'));assert.equal(plots.length,2);
  const full=plots[0].chart,early=plots[1].chart;
  assert.equal(full.ylabel,'Time t (s)');assert.deepEqual(full.series[1].points[0],[25,1]);
  assert.deepEqual(full.series[0].points.at(-1),full.series[1].points.at(-1));
@@ -53,4 +53,26 @@ test('interface provides piston inputs and two consistent trajectories without c
 
 test('rejects speed decreases, nonpositive delay, and invalid states',()=>{
  for(const extra of [{pistonSpeed2:25},{pistonSpeed2:20},{pistonSpeed1:0},{pistonDelay:0},{pistonDelay:NaN},{T1:-1},{p1:0},{pistonSpeed2:Infinity}])assert.throws(()=>solvePistonShocks({...book,...extra}));
+});
+
+test('unsteady modes show laboratory enthalpy changes and spatial profiles',()=>{
+ const base=defaults('tube');
+ const modes=[
+  [base,d=>[d.result.shockSpeed*d.result.u/1000]],
+  [book,d=>[d.result.first,d.result.second].map(shock=>shock.speed*(shock.after.u-shock.before.u)/1000)],
+  [{...base,unsteadyExperiment:'Sudden valve closure',valveInletSpeed:60,p1:101,T1:300},d=>[d.result.speed*d.result.upstream.u/1000]]
+ ];
+ for(const [inputs,expected] of modes){
+  const d=calculate('tube',inputs);
+  const changes=d.rows.filter(row=>row.label.includes('Δh₀'));
+  const values=expected(d);
+  assert.equal(changes.length,values.length);
+  changes.forEach((row,i)=>near(row.value,values[i]));
+  const time=d.result.twoStagePiston?(d.result.delay+d.result.catchTime)/2:.001;
+  const profiles=plotOptions(d,time).filter(plot=>plot.key.startsWith('tube-profile-'));
+  assert.equal(profiles.length,9);
+  const points=profiles.find(plot=>plot.key==='tube-profile-h0').chart.series[0].points;
+  assert.ok(points.every(([x,y],i)=>Number.isFinite(y)&&(!i||x>=points[i-1][0])));
+  if(d.result.twoStagePiston)assert.equal(points.filter(([x,y],i)=>i&&x===points[i-1][0]&&y!==points[i-1][1]).length,2);
+ }
 });
