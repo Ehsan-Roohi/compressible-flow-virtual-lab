@@ -20,6 +20,11 @@ export const closedPistonFields=[
  {key:'pistonTubeLength',label:'Initial tube length',value:6,min:.1,max:100000,sliderMax:30,step:.1,unit:'m'}
 ];
 
+// C− characteristics are straight in the initial centered simple wave.
+export function expansionRaySpeeds({head,tail}){
+ return Array.from({length:6},(_,i)=>head+(tail-head)*(i+1)/7);
+}
+
 function wallReflection(incident,gamma,R){
  const a2=Math.sqrt(gamma*R*incident.T2);
  const q=(gamma+1)*incident.u/(4*a2);
@@ -150,6 +155,10 @@ export function solveFiniteTube(raw){
    trajectory('Contact surface',0,0,incident.u,referenceEnd,'#fff','8 4'),
    trajectory('Reflected shock',wallTime,right,-reflected.speed,referenceEnd,'#fff'),
    trajectory('Expansion head',0,0,incident.head,referenceEnd,'#fff','1 4'),
+   ...expansionRaySpeeds(incident).map((speed,i)=>({
+    ...trajectory(i===0?'Expansion characteristics (C−)':`Expansion characteristic ${i+1}`,0,0,speed,referenceEnd,'#ffffffb8'),
+    legendColor:'#627586',width:.8,hideLegend:i!==0
+   })),
    trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3')
   ]};
  const rows=[

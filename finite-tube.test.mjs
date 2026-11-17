@@ -122,3 +122,20 @@ test('closed two-stage piston tracks its moving boundary and reflects waves from
  near(early.end,.018,1e-12);
  assert.throws(()=>calculate('tube',{...inputs,pistonTubeLength:0}),/length/);
 });
+
+test('both finite shock-tube examples use the same initial expansion rays as the analytical tube',()=>{
+ for(const values of [base,{...base,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300}]){
+  const finite=calculate('tube',values);
+  const analytical=calculate('tube',{...values,tubeDomain:'Before wall reflections'});
+  const rays=chart=>chart.series.filter(s=>s.name.startsWith('Expansion characteristic'));
+  assert.equal(rays(finite.chart).length,6);
+  const stop=Math.min(finite.result.end,finite.result.contactTime,finite.result.driverWallTime);
+  rays(finite.chart).forEach((ray,i)=>{
+   const [x,t]=ray.points.at(-1),[refX,refT]=rays(analytical.chart)[i].points.at(-1);
+   near(x/t,refX/refT,1e-12);
+   near(t,stop*1000,1e-12);
+  });
+  const plot=plotOptions(finite)[0];
+  assert.match(chartSVG(plot.chart).legend,/Expansion characteristics/);
+ }
+});
