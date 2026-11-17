@@ -14,7 +14,7 @@ test('Full wedge includes both face shocks and a regular reflected state with co
  const a=q.regions[2],b=q.regions[3],un=a.u*Math.sin(q.shock.beta),vn=b.u*Math.sin(q.shock.beta-q.t);
  near(b.rho*vn/(a.rho*un),1);near((b.p+1.4*4*b.rho*vn*vn)/(a.p+1.4*4*a.rho*un*un),1);near(b.T*(1+.2*b.M*b.M),a.T*(1+.2*a.M*a.M));
  assert.ok(q.hit<q.end&&q.end<q.next);near(q.mi*q.hit,-q.H);near(-q.H+q.mr*(q.next-q.hit),-q.mt*q.next);
- assert.equal(d.result.bodyTable.columns.length,4);assert.equal(d.shockDetails.length,3);assert.equal(plotOptions(d).length,5);
+ assert.equal(d.result.bodyTable.columns.length,4);assert.equal(d.shockDetails.length,3);assert.deepEqual(plotOptions(d),[]);
 });
 test('Upper/lower walls mirror all states and incidence consistently; distance only scales geometry',()=>{
  const a=calculate('cone',{...input,wedgeAlpha:2}).result.wallReflection,b=calculate('cone',{...input,nearbyWall:'Above wedge',wedgeAlpha:-2,wallDistance:3}).result.wallReflection;
@@ -43,6 +43,6 @@ test('Both walls solve two reflections, fill the common domain, and show inciden
  assert.ok(q.end>q.hit&&q.end>q.upperReflection.hit);assert.ok(q.end<q.next&&q.end<q.upperReflection.next);
  for(let i=0;i<30;i++)for(let j=0;j<35;j++){const p=[q.start+(q.end-q.start)*(i+.29)/30,-q.H+2*q.H*(j+.39)/35],body=p[0]>=0&&Math.abs(p[1])<q.mt*p[0],cells=q.cells.filter(c=>pointInPolygon(p,c.poly));assert.equal(cells.length,body?0:1);const z=probeWedgeWall(d.result,...V(p));assert.equal(z===null,body);}
  const svg=sceneSVG(d.scene,x).svg;assert.match(svg,/viewBox="0 0 640 300"/);assert.match(svg,new RegExp('data-incidence-angle="'+alpha+'"'));assert.ok(svg.includes('α = '+alpha+'°'));
- assert.equal(plotOptions(d)[0].chart.series[1].points.length,3);
+ assert.deepEqual(plotOptions(d),[]);
  }
 });

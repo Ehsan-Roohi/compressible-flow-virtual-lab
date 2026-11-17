@@ -1,3 +1,4 @@
+import {bodyPlots} from './wedge-cone.js';
 import {pressureTurningPlot} from './pressure-turning.js';
 import {annotateTurningRegions} from './turning-region-markers.js';
 import test from 'node:test';
@@ -8,7 +9,7 @@ import {chartSVG} from './graphics.js';
 import {ramjetPreset} from './ramjet-inlet.js';
 import {chapter6Example} from './regular-channel.js';
 const run=(id,x={})=>calculate(id,{...defaults(id),...x});
-const chart=d=>d.id==='airfoil'?annotateTurningRegions(d,pressureTurningPlot(d)).chart:plotOptions(d).find(p=>p.chart.regionMarkers).chart;
+const chart=d=>d.inputs.bodyGeometry==='Wedge'?annotateTurningRegions(d,pressureTurningPlot(d)??bodyPlots(d.result).find(p=>/p-theta/.test(p.key))).chart:d.id==='airfoil'?annotateTurningRegions(d,pressureTurningPlot(d)).chart:plotOptions(d).find(p=>p.chart.regionMarkers).chart;
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7);
 test('Every turning chart has visible markers matching the solved states',()=>{
  for(const d of [run('oblique'),run('expansion'),run('wall'),run('collision'),run('wall',chapter6Example(4)),run('wall',ramjetPreset),run('airfoil'),run('cone'),run('cone',{bodyGeometry:'Wedge'}),run('cone',{bodyGeometry:'Wedge',nearbyWall:'Both walls'})]){
