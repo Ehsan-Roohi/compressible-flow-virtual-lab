@@ -49,3 +49,5 @@ test('multi-corner inlet wall solver follows accepted reflections and preserves 
  const x={...multiRampPreset,M1:3,inletLowerSegments:[{angle:3,length:.5},{angle:6,length:.5}],inletHeightRatio:.2},r=solveMultiRamp(x);
  assert.ok(Object.keys(r.regions).length>=3);assert.ok(r.reflectionField.cells.length>0);assert.equal(r.normal,null);assert.doesNotMatch(multiRampDrawing(r,x).svg,/NaN|undefined|Infinity/);
 });
+
+test('a half-length upper wall cutting just beyond a wedge break solves its short final segment',()=>{const x={...multiRampProblemPreset,inletTerminal:'Wall reflections',inletUpperWallRatio:.5},r=solveMultiRamp(x);assert.ok(r.reflectionField.cells.length>0);assert.ok(r.regions[2]);assert.doesNotMatch(multiRampDrawing(r,x).svg,/NaN|undefined|Infinity/);});

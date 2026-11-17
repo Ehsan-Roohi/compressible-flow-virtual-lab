@@ -8,7 +8,9 @@ export function solveInletReflections(x,geometry){
  requireValue(end>0,'The common inlet-wall length must be positive.');
  const segments=[];for(const p of lower){if(p.a[0]>=end-1e-10)break;const dx=Math.min(end,p.b[0])-p.a[0];segments.push({angle:p.theta*180/Math.PI,length:dx/Math.cos(p.theta)});}
  // Solve in a normalized coordinate system so small dimensional lengths are valid.
- const scale=segments.reduce((s,p)=>s+p.length,0),h=H/scale;
+ const total=segments.reduce((s,p)=>s+p.length,0),minScale=Math.max(H,...segments.map(p=>p.length),end)/99,maxScale=Math.min(H,...segments.map(p=>p.length))/.011;
+ requireValue(minScale<=maxScale,'This wall corner is too close to the channel exit for the current wave-front resolution. Adjust the wall length slightly.');
+ const scale=Math.max(minScale,Math.min(total,maxScale)),h=H/scale;
  requireValue(h>=.01&&h<=100,'The inlet height/wedge length ratio is outside the wall-wave solver range (0.01–100).');
  const field=solveWaveTracker({...x,channelHeight:h,wallSegments:segments.map(p=>({...p,length:p.length/scale})),upperWallSegments:[{angle:0,length:end/scale}],trackingStep:.5,trackingStation:1,trackingRefine:'Off'});
  const t=field.tracking;
