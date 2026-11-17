@@ -3,7 +3,7 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {calculate,defaults,inputDefinitions} from './labs.js';
-import {chartSVG,sceneSVG} from './graphics.js';
+import {chartSVG,sceneSVG,finiteTubeFlowView} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 import {finiteTubeDrawing,finiteTubeFrame,finiteTubeMode} from './finite-tube.js';
 
@@ -129,21 +129,18 @@ test('closed two-stage piston tracks its moving boundary and reflects waves from
  assert.throws(()=>calculate('tube',{...inputs,pistonTubeLength:0}),/length/);
 });
 
-test('expansion characteristics are shown in the flow visualization of each tube example',()=>{
+test('finite tube uses the original 50 expansion bands before the first wall reflection',()=>{
  for(const values of [base,{...base,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300}]){
   const finite=calculate('tube',values);
   const analytical=calculate('tube',{...values,tubeDomain:'Before wall reflections'});
-  const rays=chart=>chart.series.filter(s=>s.name.startsWith('Expansion characteristic'));
-  assert.equal(rays(finite.chart).length,0);
-  assert.equal(rays(analytical.chart).length,6);
-  const fan=finiteTubeDrawing(finite.result,.004).svg.match(/<g data-expansion-characteristics="(\d+)"[\s\S]*?<\/g>/);
-  assert.ok(fan&&Number(fan[1])>6);
-  assert.match(fan[0],/stroke="#fff" stroke-opacity=/);
-  assert.doesNotMatch(fan[0],/stroke="#18304a"/);
-  const fading=finiteTubeDrawing(finite.result,finite.result.referenceEnd-.00075).svg.match(/data-expansion-characteristics="\d+" opacity="([\d.]+)"/);
-  assert.ok(fading&&Number(fading[1])>0&&Number(fading[1])<.75);
-  assert.doesNotMatch(finiteTubeDrawing(finite.result,.03).svg,/data-expansion-characteristics/);
-  assert.match(sceneSVG(analytical.scene,analytical.inputs,.001,'pressure').svg,/data-expansion-characteristics="\d+"/);
+  const original=sceneSVG(analytical.scene,analytical.inputs,.001,'pressure').svg;
+  const before=finiteTubeFlowView(finite.result,finite.inputs,.004).svg;
+  const after=finiteTubeFlowView(finite.result,finite.inputs,.03).svg;
+  assert.equal((original.match(/data-expansion-band/g)??[]).length,50);
+  assert.equal((before.match(/data-expansion-band/g)??[]).length,50);
+  assert.doesNotMatch(before,/data-expansion-characteristics/);
+  assert.doesNotMatch(after,/data-expansion-band/);
+  assert.match(after,/id="finitePressure"/);
  }
 });
 
