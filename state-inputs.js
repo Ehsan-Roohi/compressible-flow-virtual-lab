@@ -48,6 +48,19 @@ export function normalizeStateInputs(id,raw){
   x.inletPressureType='Static pressure';x.temperatureInput='Static temperature';
   return x;
  }
+ if(id==='tube'&&x.unsteadyExperiment!=='Two-stage piston'){
+  const R=x.R??287, u=x.tubeInitialVelocity??0;
+  if(u!==0){
+   const kineticTemperature=(g-1)*u*u/(2*g*R);
+   if(total(x.temperatureInput))x.T1-=kineticTemperature;
+   if(total(x.driverTemperatureType))x.T4-=kineticTemperature;
+   if(total(x.inletPressureType)&&x.T1>0)x.p1/=isentropic(Math.abs(u)/Math.sqrt(g*R*x.T1),g).p0p;
+   if(total(x.driverPressureType)&&x.T4>0)x.p4/=isentropic(Math.abs(u)/Math.sqrt(g*R*x.T4),g).p0p;
+  }
+  x.driverPressureType='Static pressure';x.driverTemperatureType='Static temperature';
+  x.inletPressureType='Static pressure';x.temperatureInput='Static temperature';
+  return x;
+ }
  const M=id==='tube'?0:['foundations','airfoil','cone','linear'].includes(id)?x.M:x.M1;
  if(Number.isFinite(M)){
   const iso=isentropic(M,g);
@@ -55,6 +68,5 @@ export function normalizeStateInputs(id,raw){
   if(total(x.temperatureInput))x.T1/=iso.T0T;
  }
  x.inletPressureType='Static pressure';x.temperatureInput='Static temperature';
- // Both shock-tube chambers are initially at rest: static and total coincide.
  return x;
 }

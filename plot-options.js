@@ -106,13 +106,13 @@ function basePlotOptions(d,time=.001){
    profileNote=`Laboratory-frame profile at t = ${t.toPrecision(4)} s, measured from initial piston motion. The profile starts at the piston face and ends in the undisturbed gas.`;
   }else{
    const t=Math.max(1e-6,time),bounds=[r.head*t,r.tail*t,r.contact*t,r.shockSpeed*t],left=Math.min(-1,bounds[0]*1.1),right=Math.max(1.8,bounds.at(-1)*1.1);
-   const get=z=>{const xi=z/t;let T,p,u=0;if(xi<r.head){T=x.T4;p=x.p4*1000;}else if(xi<r.tail){const a=2*r.a4/(g+1)-(g-1)*xi/(g+1);T=a*a/(g*R);p=x.p4*1000*(a/r.a4)**(2*g/(g-1));u=2*(r.a4+xi)/(g+1);}else if(xi<r.contact){T=r.T3;p=r.p;u=r.u;}else if(xi<r.shockSpeed){T=r.T2;p=r.p;u=r.u;}else{T=x.T1;p=x.p1*1000;}return {T,p,u,rho:p/(R*T),M:u/Math.sqrt(g*R*T)};};
+   const get=z=>{const xi=z/t,initial=r.initialVelocity??0;let T,p,u=initial;if(xi<r.head){T=x.T4;p=x.p4*1000;}else if(xi<r.tail){const a=2*r.a4/(g+1)-(g-1)*(xi-initial)/(g+1);T=a*a/(g*R);p=x.p4*1000*(a/r.a4)**(2*g/(g-1));u=initial+2*(r.a4+xi-initial)/(g+1);}else if(xi<r.contact){T=r.T3;p=r.p;u=r.u;}else if(xi<r.shockSpeed){T=r.T2;p=r.p;u=r.u;}else{T=x.T1;p=x.p1*1000;}return {T,p,u,rho:p/(R*T),M:Math.abs(u)/Math.sqrt(g*R*T)};};
    const positions=[...linspace(left,right,220),...bounds.flatMap(b=>[b-1e-9,b+1e-9])].sort((a,b)=>a-b);
    samples=positions.map(z=>[z,get(z)]);
    original.note='Position x versus time t before end-wall reflections. Thin solid rays inside the expansion fan are left-running characteristics (dx/dt = u − a), between its head and tail. They are not particle paths.';
    profileNote=`Analytical infinite-tube similarity solution at t = ${(t*1000).toFixed(3)} ms, before end-wall reflections.`;
   }
-  family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = u/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000],['h0','Stagnation-enthalpy profile','h₀ (kJ/kg)',s=>(g*R*s.T/(g-1)+s.u*s.u/2)/1000]]);
+  family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = |u|/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000],['h0','Stagnation-enthalpy profile','h₀ (kJ/kg)',s=>(g*R*s.T/(g-1)+s.u*s.u/2)/1000]]);
   options.filter(o=>o.key.startsWith('tube-profile-')).forEach(o=>o.note=profileNote);
  }
  // Existing multi-series charts can also be inspected one curve at a time.

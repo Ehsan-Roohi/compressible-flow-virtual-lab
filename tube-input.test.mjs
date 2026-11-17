@@ -45,3 +45,28 @@ test('Example 7–2: given induced speed, reference choices and exact Celsius co
  for(const value of [0,-150,NaN,Infinity])assert.throws(()=>resolveTubeInputs({...x,inducedSpeed:value}),/Induced gas speed/);
  assert.throws(()=>resolveTubeInputs({...x,inducedSpeed:10000}),/Increase the driver temperature/);
 });
+
+test('Example 7–7 translates wave trajectories and reports laboratory velocities and enthalpy',()=>{
+ const x={...defaults('tube'),tubeInput:tubeModes[2],shockRatio:10,p1:100,T1:300,T4:300};
+ const still=calculate('tube',x);
+ const moving=calculate('tube',{...x,tubeInitialVelocity:-200});
+ const r=moving.result;
+ near(r.shockSpeed,824.8999951214753);
+ near(r.u,556.0737668928915);
+ for(const key of ['head','tail','contact'])near(r[key],still.result[key]-200);
+ for(const key of ['Ms','T2','T3','p','p2p1'])near(r[key],still.result[key]);
+ near(r.relativeShockSpeed,still.result.shockSpeed);
+ const h=moving.rows.find(row=>row.label.includes('Δh₀'));
+ near(h.value,r.shockSpeed*(r.u-r.initialVelocity)/1000);
+ const mach=moving.rows.find(row=>row.label==='Gas Mach behind shock · laboratory');
+ near(mach.value,Math.abs(r.u)/Math.sqrt(x.gamma*x.R*r.T2));
+ const plots=plotOptions(moving,.001);
+ const velocity=plots.find(o=>o.key==='tube-profile-u').chart.series[0].points;
+ near(velocity[0][1],-200);near(velocity.at(-1)[1],-200);
+ assert.ok(!sceneSVG(moving.scene,moving.inputs,.001,'pressure').svg.includes('NaN'));
+ const inverse=calculate('tube',{...x,tubeInput:tubeModes[3],tubeInitialVelocity:-200,inducedSpeed:r.u});
+ near(inverse.result.p2p1,r.p2p1);
+ const reversed=calculate('tube',{...x,tubeInput:tubeModes[3],tubeInitialVelocity:-1500,inducedSpeed:-900});
+ assert.ok(reversed.result.shockSpeed<0);
+ assert.ok(plotOptions(reversed,.001).some(o=>o.key==='tube-profile-p0'));
+});
