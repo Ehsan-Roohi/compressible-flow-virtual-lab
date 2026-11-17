@@ -88,7 +88,7 @@ function basePlotOptions(d,time=.001){
   const get=z=>{const xi=z/t;let T,p,u=0;if(xi<r.head){T=x.T4;p=x.p4*1000;}else if(xi<r.tail){const a=2*r.a4/(g+1)-(g-1)*xi/(g+1);T=a*a/(g*R);p=x.p4*1000*(a/r.a4)**(2*g/(g-1));u=2*(r.a4+xi)/(g+1);}else if(xi<r.contact){T=r.T3;p=r.p;u=r.u;}else if(xi<r.shockSpeed){T=r.T2;p=r.p;u=r.u;}else{T=x.T1;p=x.p1*1000;}return {T,p,u,rho:p/(R*T),M:u/Math.sqrt(g*R*T)};};
   const positions=[...linspace(left,right,220),...bounds.flatMap(b=>[b-1e-9,b+1e-9])].sort((a,b)=>a-b),samples=positions.map(z=>[z,get(z)]);
   family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = u/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000]]);
-  original.note='Position x versus time t before end-wall reflections. Thin dashed rays inside the expansion fan are left-running characteristics (dx/dt = u − a), between its head and tail. They are not particle paths.';
+  original.note='Position x versus time t before end-wall reflections. Thin solid rays inside the expansion fan are left-running characteristics (dx/dt = u − a), between its head and tail. They are not particle paths.';
   options.filter(o=>o.key.startsWith('tube-profile-')).forEach(o=>o.note=`Analytical infinite-tube similarity solution at t = ${(t*1000).toFixed(3)} ms, before end-wall reflections.`);
  }
  // Existing multi-series charts can also be inspected one curve at a time.
