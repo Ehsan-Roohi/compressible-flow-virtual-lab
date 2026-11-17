@@ -24,7 +24,7 @@ test('Example dropdown loads connected plates with the textbook input values',()
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),start=source.indexOf('function renderExamples(){'),end=source.indexOf('\nfunction knownRayleighData',start),elements=new Map();
  const $=id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);};let solves=0;
  const context=vm.createContext({$,id:'airfoil',inputs:defaults('airfoil'),defaults,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0});
- vm.runInContext(source.slice(start,end),context);context.renderExamples();assert.match($('examplesPanel').innerHTML,/Example 6–15/);
+ vm.runInContext(source.slice(start,end),context);context.renderExamples();assert.match($('examplesPanel').innerHTML,/<option value="6–15"[^>]*>Example (?:6–)?15/);
  $('exampleSelect').onchange({target:{value:'6–15'}});assert.equal(solves,1);
  for(const [k,v]of Object.entries({airfoilShape:'Connected flat plates',M:2.5,alpha:4.2,bookExample:'6–15'}))assert.equal(context.inputs[k],v);
  context.renderExamples();assert.match($('examplesPanel').innerHTML,/zero[- ]thickness/i);

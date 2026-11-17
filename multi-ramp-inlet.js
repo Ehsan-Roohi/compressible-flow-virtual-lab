@@ -1,4 +1,4 @@
-import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-inlet-contour-fit';
+import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-inlet-contour-fit2';
 import {state,normalShock,obliqueShock,expansion,shockLimit,rad,deg} from './physics.js';
 import {requireValue} from './numerics.js';
 import {clipPolygon} from './wave-interaction.js';
@@ -65,6 +65,9 @@ function inletFrame(parts){
  const scaleX=730/Math.max(right-left,1e-9),height=Math.max(280,Math.min(620,80+(high-low)*scaleX)),scaleY=(height-80)/Math.max(high-low,1e-9);
  return {scaleX,scaleY,ox:35-left*scaleX,oy:40+high*scaleY,height,fitted:Math.abs(scaleX/scaleY-1)>.02};
 }
+function inletUncomputedBackdrop(frame,id){
+ return `<defs><pattern id="${id}inletUncomputed" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#eef1f2"/><path d="M-3,3L3,-3M0,12L12,0M9,15L15,9" stroke="#d3dadd" stroke-width=".7"/></pattern></defs><rect data-uncomputed-background="true" x="35" y="40" width="730" height="${frame.height-80}" fill="url(#${id}inletUncomputed)"/>`;
+}
 export function multiRampDrawing(r,x,quantity='pressure',frame=null){
  if(r.inletSides)return inletSidesDrawing(r,x,quantity);
  const q={pressure:['Static pressure','kPa',s=>s.p/1000],mach:['Mach number','M',s=>s.M],temperature:['Static temperature','K',s=>s.T],density:['Density','kg/m³',s=>s.rho],speed:['Flow speed','m/s',s=>s.u]},key=q[quantity]?quantity:'pressure',[label,units,read]=q[key],vals=Object.values(r.regions).map(read),min=frame?.min??Math.min(...vals),max=frame?.max??Math.max(...vals),g=inletDisplayGeometry(r),f=frame??inletFrame([{display:g,sign:1}]),V=p=>[f.ox+p[0]*f.scaleX,f.oy+(f.mirror?1:-1)*p[1]*f.scaleY],color=s=>cornerContourColor((read(s)-min)/(max-min||1));
@@ -104,8 +107,8 @@ export function multiRampDrawing(r,x,quantity='pressure',frame=null){
  walls+=line(g.tip,[g.tip[0],0],'#4c5964',1)+'</g>';
  for(const [i,p] of g.lower.entries()){const q=[(p.a[0]+p.b[0])/2,(p.a[1]+p.b[1])/2+.045*(g.hi-g.lo)];walls+=text(q,`θ${i+1} = ${((f.mirror?-1:1)*deg(p.theta)).toFixed(1)}°`);}
  const clip=f.prefix??'',extent=`Computed field: x ≤ ${g.end.toPrecision(4)} m`,fitNote=f.fitted?'Display axes fitted independently; labelled angles are physical values.':'Geometry shown to scale.';
- const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${f.height}" data-display-end="${g.end}" data-scale-x="${f.scaleX}" data-scale-y="${f.scaleY}" role="img" aria-label="Custom multi-ramp ramjet inlet"><defs><clipPath id="${clip}multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#${clip}multiInletGas)">${content}</g>${walls}${frame?'':`<text x="35" y="24" fill="#24313c" font-size="16">M₁ = ${x.M1} · ${extent}</text><text x="35" y="${f.height-10}" fill="#24313c" font-size="14">${fitNote}</text>`}</svg>`;
- const note=[r.wallReflections?r.note:'Sequential compression estimate; wall interactions and diffuser evolution are not included.',r.reflectionField?.partial?'The view ends at the last accepted station; no downstream state is invented.':'',fitNote].filter(Boolean).join(' ');
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${f.height}" data-display-end="${g.end}" data-scale-x="${f.scaleX}" data-scale-y="${f.scaleY}" role="img" aria-label="Custom multi-ramp ramjet inlet">${frame?'':inletUncomputedBackdrop(f,clip)}<defs><clipPath id="${clip}multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#${clip}multiInletGas)">${content}</g>${walls}${frame?'':`<text x="35" y="24" fill="#24313c" font-size="16">M₁ = ${x.M1} · ${extent}</text><text x="35" y="${f.height-10}" fill="#24313c" font-size="14">${fitNote}</text>`}</svg>`;
+ const note=[r.wallReflections?r.note:'Sequential compression estimate; wall interactions and diffuser evolution are not included.',r.reflectionField?.partial?'The view ends at the last accepted station; no downstream state is invented.':'',fitNote].filter(Boolean).join(' ')+' Hatched areas are outside the computed flow (including an unmatched trailing-edge wake); they have no reported contour value.';
  return {svg,label:r.wallReflections?'Computed inlet wall-wave field':'Multi-ramp inlet · sequential wave states',meta:r.wallReflections?'Computed regular reflections and supported wave interactions':'Independent wall waves; schematic spatial field',field:{quantity:key,label,min,max,units,options:Object.keys(q),palette:cornerPalette,note},display:{...g,...f}};
 }
 
@@ -134,5 +137,5 @@ function inletSidesDrawing(r,x,quantity){
  const read={pressure:s=>s.p/1000,mach:s=>s.M,temperature:s=>s.T,density:s=>s.rho,speed:s=>s.u},key=read[quantity]?quantity:'pressure',values=Object.values(r.regions).map(read[key]),min=Math.min(...values),max=Math.max(...values);
  const views=parts.map(p=>multiRampDrawing(p.canonical,p.inputs,key,{...frame,mirror:p.sign<0,prefix:p.prefix,min,max}));
  const inner=views.map(v=>v.svg.replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'' )).join(''),fitNote=frame.fitted?'Display axes fitted independently; labelled angles are physical values.':'Geometry shown to scale.';
- return {...views[0],svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${frame.height}" data-scale-x="${frame.scaleX}" data-scale-y="${frame.scaleY}" role="img" aria-label="${both?'Both wedge sides':'Flow below wedge'} with reflecting walls">${inner}<text x="35" y="24" fill="#24313c" font-size="17">${both?'Upper (U) and lower (L) flow':'Lower flow (L)'} · M₁ = ${x.M1}</text><text x="35" y="${frame.height-10}" fill="#24313c" font-size="14">${fitNote}</text></svg>`,field:{...views[0].field,min,max,note:r.note+' '+fitNote+' Each side ends at its last computed station; downstream fields are not extrapolated.'},display:frame};
+ return {...views[0],svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${frame.height}" data-scale-x="${frame.scaleX}" data-scale-y="${frame.scaleY}" role="img" aria-label="${both?'Both wedge sides':'Flow below wedge'} with reflecting walls">${inletUncomputedBackdrop(frame,'shared')}${inner}<text x="35" y="24" fill="#24313c" font-size="17">${both?'Upper (U) and lower (L) flow':'Lower flow (L)'} · M₁ = ${x.M1}</text><text x="35" y="${frame.height-10}" fill="#24313c" font-size="14">${fitNote}</text></svg>`,field:{...views[0].field,min,max,note:r.note+' '+fitNote+' Each side ends at its last computed station; downstream fields are not extrapolated. Hatched areas, including the unmatched wake, are outside the computed flow and carry no contour value.'},display:frame};
 }
