@@ -95,7 +95,7 @@ function inletSideInput(x){
 function physicalInletSide(r,sign,prefix){
  const states=new Map(),state=s=>{if(!states.has(s))states.set(s,{...s,theta:sign*s.theta});return states.get(s);};
  const id=n=>prefix+String(n);
- return {...r,regions:Object.fromEntries(Object.entries(r.regions).map(([n,s])=>[id(n),state(s)])),s1:state(r.s1),pre:state(r.pre),final:state(r.final),terminalRegion:r.terminalRegion?id(r.terminalRegion):null,
+ return {...r,note:sign<0?r.note?.replaceAll('upper-wall','lower-wall').replace('The lower boundary is open','The upper boundary is open'):r.note,regions:Object.fromEntries(Object.entries(r.regions).map(([n,s])=>[id(n),state(s)])),s1:state(r.s1),pre:state(r.pre),final:state(r.final),terminalRegion:r.terminalRegion?id(r.terminalRegion):null,
  waves:r.waves.map(w=>({...w,id:id(w.id),parentId:id(w.parentId??Number(w.id)-1),before:state(w.before),after:state(w.after),turn:sign*w.turn})),reflections:r.reflections?.map(e=>({...e,y:sign*e.y,region:id(e.region),before:state(e.before),after:state(e.after)}))};
 }
 function solveInletSides(x){
@@ -103,7 +103,7 @@ function solveInletSides(x){
  const sides={};if(x.inletFlowSide==='Both sides'){const canonical=solveMultiRamp({...x,inletFlowSide:inletFlowSides[0]});sides.upper={canonical,physical:physicalInletSide(canonical,1,'U'),inputs:{...x,inletFlowSide:inletFlowSides[0]},sign:1,prefix:'U'};}
  const lowerInput=inletSideInput(x),canonical=solveMultiRamp(lowerInput);sides.lower={canonical,physical:physicalInletSide(canonical,-1,'L'),inputs:lowerInput,sign:-1,prefix:'L'};
  const parts=Object.values(sides),first=parts[0].physical;
- return {...first,inletSides:true,sides,regions:Object.assign({},...parts.map(p=>p.physical.regions)),waves:parts.flatMap(p=>p.physical.waves),checks:Object.assign({},...Object.entries(sides).flatMap(([name,p])=>Object.entries(p.physical.checks).map(([k,v])=>({[name+'-'+k]:v})))),note:parts.map(p=>`${p.prefix}: ${p.canonical.note??'Sequential compression estimate.'}`).join(' ')+' The two side fields are independent; interaction of the streams behind the trailing edge is not matched.'};
+ return {...first,inletSides:true,sides,regions:Object.assign({},...parts.map(p=>p.physical.regions)),waves:parts.flatMap(p=>p.physical.waves),checks:Object.assign({},...Object.entries(sides).flatMap(([name,p])=>Object.entries(p.physical.checks).map(([k,v])=>({[name+'-'+k]:v})))),note:parts.map(p=>`${p.prefix}: ${p.physical.note??'Sequential compression estimate.'}`).join(' ')+' The two side fields are independent; interaction of the streams behind the trailing edge is not matched.'};
 }
 function inletSidesDrawing(r,x,quantity){
  const parts=Object.values(r.sides),both=parts.length===2,lo=Math.min(...parts.map(p=>p.canonical.geometry.start)),hi=Math.max(...parts.map(p=>p.canonical.geometry.end)),H=Math.max(...parts.map(p=>p.canonical.geometry.ymax)),scale=Math.min(730/(hi-lo),(both?165:220)/H),ox=35-lo*scale,oy=both?205:55;
