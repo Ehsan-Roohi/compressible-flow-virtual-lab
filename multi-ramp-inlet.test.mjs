@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {multiRampPreset,solveMultiRamp,multiRampDrawing} from './multi-ramp-inlet.js';
+import {multiRampPreset,multiRampProblemPreset,solveMultiRamp,multiRampDrawing} from './multi-ramp-inlet.js';
 import {defaults,calculate,inputDefinitions} from './labs.js';
 import {plotOptions} from './plot-options.js';
-const x=()=>({...defaults('wall'),...multiRampPreset});
+const x=()=>({...defaults('wall'),...multiRampProblemPreset});
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} vs ${b}`);
 test('Problem 6–1 inlet sequences use absolute wall angles and normal shock conservation',()=>{
  const a=solveMultiRamp({...x(),inletLowerSegments:[{angle:15,length:1}]}),b=solveMultiRamp(x());
@@ -27,3 +27,25 @@ test('integration exposes ratio editors and only a numbered pressure–theta plo
 });
 
 test('horizontal walls accept half/equal/double wedge length and remain independent of wedge breaks',()=>{for(const a of [.5,1,2])for(const b of [.5,1,2]){const r=solveMultiRamp({...x(),inletUpperWallRatio:a,inletLowerWallRatio:b}),g=r.geometry;near(g.upperWall.b[0]-g.upperWall.a[0],a*g.wedgeLength);near(g.lowerWall.b[0]-g.lowerWall.a[0],b*g.wedgeLength);near(g.upperWall.a[0],0);near(g.upperWall.a[1],g.upperWall.b[1]);near(g.lowerWall.a[1],g.lowerWall.b[1]);const svg=multiRampDrawing(r,x()).svg;assert.match(svg,/data-solid="segmented-wedge"/);assert.match(svg,/data-solid="upper-horizontal-wall"/);assert.doesNotMatch(svg,/NaN|undefined|Infinity/);}});
+
+test('Example 6–9 in the common inlet mode computes the regular reflected shock without a normal shock',()=>{
+ const x={...defaults('wall'),...multiRampPreset},d=calculate('wall',x),r=d.result;
+ assert.equal(r.wallReflections,true);assert.equal(r.normal,null);assert.deepEqual(Object.keys(r.regions),['1','2','3']);
+ near(r.regions[2].M,1.713743932037159);near(r.regions[3].M,1.4370356540871854);near(r.regions[3].theta,0);
+ near(r.reflectionLocation,1.3169674970779564);assert.equal(d.shockDetails.length,2);assert.equal(plotOptions(d).length,1);
+ assert.ok(!inputDefinitions('wall',x).some(f=>f.key==='inletCowlRatio'));
+ assert.ok(r.reflectionField.cells.length>0);assert.ok(!r.reflectionField.partial);assert.doesNotMatch(multiRampDrawing(r,x).svg,/NaN|undefined|Infinity/);
+});
+test('obsolete normal-shock position cannot block a no-normal solution, including cleared and zero inputs',()=>{
+ for(const station of [0,NaN,undefined,-1])for(const mode of ['Wall reflections','Compression only','None']){
+  const r=solveMultiRamp({...multiRampPreset,inletTerminal:mode,inletCowlRatio:station});assert.equal(r.normal,null);assert.ok(r.final.M>1);
+ }
+ const d=calculate('wall',{...defaults('wall'),...multiRampProblemPreset});assert.ok(inputDefinitions('wall',d.inputs).some(f=>f.key==='inletCowlRatio'));
+});
+test('short finite walls still return the incident solution instead of failing a missing-reflection condition',()=>{
+ const r=solveMultiRamp({...multiRampPreset,inletUpperWallRatio:.5});assert.equal(r.normal,null);assert.equal(r.reflectionLocation,null);assert.ok(r.regions[2]);assert.match(r.note,/wall ends/);
+});
+test('multi-corner inlet wall solver follows accepted reflections and preserves admissible results',()=>{
+ const x={...multiRampPreset,M1:3,inletLowerSegments:[{angle:3,length:.5},{angle:6,length:.5}],inletHeightRatio:.2},r=solveMultiRamp(x);
+ assert.ok(Object.keys(r.regions).length>=3);assert.ok(r.reflectionField.cells.length>0);assert.equal(r.normal,null);assert.doesNotMatch(multiRampDrawing(r,x).svg,/NaN|undefined|Infinity/);
+});
