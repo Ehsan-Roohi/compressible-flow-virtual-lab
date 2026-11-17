@@ -206,6 +206,7 @@ export function calculate(id,x){x=normalizeStateInputs(id,x);
    row('Shock speed · upstream',result.speed,'m/s'),
    row('Pressure behind shock',result.downstream.p/1000,'kPa'),
    row('Temperature behind shock',result.downstream.T,'K'),
+   row('Static temperature ratio',result.ratios.T,'T₂/T₁'),
    row('Gas speed behind shock',result.downstream.u,'m/s'),
    row('Upstream Mach · shock frame',result.mach),
    row('Downstream Mach · shock frame',result.ratios.M2),
