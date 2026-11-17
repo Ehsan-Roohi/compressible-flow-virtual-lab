@@ -17,7 +17,7 @@ export function solveMultiRamp(x){
  requireValue([upperRatio,lowerRatio].every(n=>Number.isFinite(n)&&n>0&&n<=100),'Upper and lower horizontal wall length ratios must be positive and ≤ 100.');
  requireValue(cowl>=tip[0]-1e-9,'Place the inlet lip at or beyond the wedge end. Increase cowl x/Lref or shorten the wedge segments.');
  requireValue(H>Math.max(...lower.map(p=>p.b[1])),'The horizontal upper wall intersects the wedge. Increase channel height.');
- const upperWall={a:[cowl,H],b:[cowl+upperRatio*wedgeLength,H]},lowerWall={a:[0,0],b:[lowerRatio*wedgeLength,0]},upper=[{...upperWall,theta:0}],end=Math.max(upperWall.b[0],lowerWall.b[0],tip[0]+.15*wedgeLength),last=lower.at(-1),bottom=xx=>xx>=tip[0]?tip[1]:last.a[1]+Math.tan(last.theta)*(xx-last.a[0]);
+ const upperWall={a:[0,H],b:[upperRatio*wedgeLength,H]},lowerWall={a:[0,0],b:[lowerRatio*wedgeLength,0]},upper=[{...upperWall,theta:0}],end=Math.max(upperWall.b[0],lowerWall.b[0],tip[0]+.15*wedgeLength),last=lower.at(-1),bottom=xx=>xx>=tip[0]?tip[1]:last.a[1]+Math.tan(last.theta)*(xx-last.a[0]);
  const s1={...state(x.M1,x.T1,x.p1*1000,g,R),theta:0},regions={1:s1},waves=[];let before=s1;
  for(const [i,p] of lower.entries()){
   requireValue(before.M>1,'A ramp has a sonic/subsonic upstream state; supersonic wall marching cannot continue.');
@@ -37,7 +37,7 @@ export function solveMultiRamp(x){
  let overlap=false;
  for(let i=0;i<waves.length;i++)for(let j=i+1;j<waves.length;j++)for(const ai of waves[i].rays)for(const aj of waves[j].rays){const a=waves[i],b=waves[j],mi=Math.tan(ai),mj=Math.tan(aj);if(Math.abs(mi-mj)>1e-12){const xx=(b.origin[1]-a.origin[1]+mi*a.origin[0]-mj*b.origin[0])/(mi-mj);if(xx>Math.max(a.origin[0],b.origin[0])+1e-8&&xx<cowl)overlap=true;}}
  const ymax=H+.22*wedgeLength,start=-.18*wedgeLength;
- const domain=[[start,0],[0,0],...lower.map(p=>p.b),[end,tip[1]],[end,H],[cowl,H],[cowl,ymax],[start,ymax]];
+ const domain=[[start,0],[0,0],...lower.map(p=>p.b),[end,tip[1]],[end,H],[0,H],[0,ymax],[start,ymax]];
  return {multiRamp:true,regions,s1,waves,pre,final,normal:n,terminalRegion:terminal?terminalRegion:null,gamma:g,R,geometry:{L,H,cowl,lower,upper,upperWall,lowerWall,wedgeLength,tip,start,end,ymax,domain,shockFoot},overlap,checks:{stagnationTemperature:Math.abs(final.T0/s1.T0-1)}};
 }
 export function multiRampPlot(r){
@@ -63,7 +63,7 @@ export function multiRampDrawing(r,x,quantity='pressure'){
  for(const c of cells){const p=regionLabelPosition([c.poly.map(V)])?.point;if(p)content+=`<text x="${p[0]}" y="${p[1]}" fill="white" font-size="20" text-anchor="middle">${c.region}</text>`;}
  const pad=.055*g.wedgeLength;
  // Horizontal walls are independent of the compression surface mounted on the lower wall.
- let walls=`<g data-solid="upper-horizontal-wall">${poly([g.upperWall.a,g.upperWall.b,[g.upperWall.b[0],g.H+pad],[g.cowl,g.H+pad]],'#a8adb3')}${line(g.upperWall.a,g.upperWall.b,'#56616a',3)}</g>`;
+ let walls=`<g data-solid="upper-horizontal-wall">${poly([g.upperWall.a,g.upperWall.b,[g.upperWall.b[0],g.H+pad],[g.upperWall.a[0],g.H+pad]],'#a8adb3')}${line(g.upperWall.a,g.upperWall.b,'#56616a',3)}</g>`;
  walls+=`<g data-solid="lower-horizontal-wall">${poly([g.lowerWall.a,g.lowerWall.b,[g.lowerWall.b[0],-pad],[0,-pad]],'#a8adb3')}${line(g.lowerWall.a,g.lowerWall.b,'#56616a',3)}</g>`;
  walls+=`<g data-solid="segmented-wedge">${poly([[0,0],...g.lower.map(p=>p.b),[g.end,g.tip[1]],[g.end,0]],'#d5b488')}`;
  for(const p of g.lower)walls+=line(p.a,p.b,'#4c5964',3);

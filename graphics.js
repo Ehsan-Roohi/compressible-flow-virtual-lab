@@ -1,4 +1,4 @@
-import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-horizontal-inlet';
+import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-tip-wall';
 import {shockFanDrawing} from './shock-fan-example.js?v=20261114-final-view';
 import {wedgeWallDrawing} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetInletDrawing} from './ramjet-inlet-graphics.js?v=20261114-region-markers';
