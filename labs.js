@@ -4,7 +4,7 @@ import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.j
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
 import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot,inletFlowSides,inletLowerDefinitions} from './multi-ramp-inlet.js?v=20261117-inlet-both-sides';
 import {airfoilRegionLabel} from './airfoil-region-labels.js';
-import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261114-final-view';
+import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261117-example-numbers';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
 import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261117-moving-tube';
@@ -13,7 +13,7 @@ import {ductInputs} from './duct-input.js?v=20261112-state-inputs';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
 import {solveBodyLab,bodyPlots} from './wedge-cone.js?v=20261115-wedge-drag';
 import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './channel-comparison.js';
-import {channelSolverName,solveShockExpansionChannel} from './channel-solver.js?v=20261114-custom-final';
+import {channelSolverName,solveShockExpansionChannel} from './channel-solver.js?v=20261117-example-numbers';
 import {solveWaveTracker,trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
 import {defaultTrackingEvent,selectTrackingEvent,trackingSummaryRows} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20261109-wedge-cone';

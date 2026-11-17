@@ -16,7 +16,7 @@ export function solveShockExpansionChannel(x){
    r.bookCase=e.bookCase='6–5';e.bookRegions={'Region 1':r.s1,'Region 2':r.tracking.events.find(z=>z.type==='Wall corner'&&z.side==='lower')?.after,'Region 3':e.lower,'Region 4':e.match.a.after,'Region 5':e.match.b.after};
   }
  }
- if(r.bookCase&&r.reason)r.reason=`Example ${r.bookCase} interaction solved. Downstream continuation stops: ${r.reason}`;
+ if(r.bookCase&&r.reason)r.reason=`Example ${String(r.bookCase).split(/[–−-]/).pop()} interaction solved. Downstream continuation stops: ${r.reason}`;
  r.finalStreamMatch=customFinalMatch(x,r);
  return {...r,channelMethod:'Shock–Expansion'};
 }
