@@ -1,4 +1,4 @@
-import {finiteTubeMode,finiteTubeFrame,closedPistonMode,sinusoidalExperiment} from './finite-tube.js?v=20261117-sinusoidal-piston';
+import {finiteTubeMode,finiteTubeFrame,closedPistonMode,sinusoidalExperiment} from './finite-tube.js?v=20261117-shock-contours';
 import {valveExperiment} from './valve-closure.js';
 import {multiRampMode,multiRampPreset,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261117-inlet-contour-fit3';
 import {probeAirfoilField} from './airfoil-field.js?v=20261117-multi-inlet';
@@ -33,7 +33,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261117-sinusoidal-piston';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261117-sinusoidal-piston';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261117-shock-contours';
 function defaults(id){
  const inputs=experimentDefaults(id);
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001}:inputs;

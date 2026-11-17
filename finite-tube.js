@@ -367,6 +367,43 @@ export function finiteTubeScale(frames,property){
  return scales[property]={normalize,min,max};
 }
 
+export function resolvedShockFronts(r,frame){
+ const n=frame.pressure.length,dx=(r.right-frame.left)/n,window=6;
+ const candidates=[];
+ // A resolved compression front has coincident pressure/density changes,
+ // decreasing velocity and a localized pressure gradient.
+ for(let i=window;i<n-window-1;i++){
+  const p=frame.pressure,d=frame.density,u=frame.velocity;
+  const gradient=Math.abs(p[i+1]-p[i])/Math.min(p[i],p[i+1]);
+  if(gradient<.0025)continue;
+  let peak=true;
+  for(let j=i-3;j<=i+3;j++){
+   if(Math.abs(p[j+1]-p[j])/Math.min(p[j],p[j+1])>gradient){peak=false;break;}
+  }
+  if(!peak)continue;
+  const l=i-window,h=i+window;
+  const dp=p[h]-p[l],densityJump=d[h]-d[l],du=u[l]-u[h];
+  const sound=Math.sqrt(r.gamma*.5*(p[l]/d[l]+p[h]/d[h]));
+  if(dp*densityJump<=0||du<.002*sound||Math.abs(dp)/Math.min(p[l],p[h])<.025)continue;
+  candidates.push({x:frame.left+(i+1)*dx,gradient,index:i,direction:dp<0?1:-1});
+ }
+ candidates.sort((a,b)=>b.gradient-a.gradient);
+ const peaks=[];
+ for(const c of candidates)if(peaks.every(p=>Math.abs(p.index-c.index)>2*window))peaks.push(c);
+ return peaks.sort((a,b)=>a.x-b.x);
+}
+
+function resolvedShockMarks(r,frame,X){
+ const fronts=resolvedShockFronts(r,frame);
+ const marks=fronts.map((front,i)=>{
+  const x=X(front.x),labelX=Math.max(64,Math.min(576,x)),y=i%2?78:61;
+  return `<g data-numerical-shock="${i+1}"><path d="M${x} 93V196" stroke="#fff" stroke-width="4" opacity=".8"/>
+   <path d="M${labelX} ${y+4}L${x} 88V197" fill="none" stroke="#111" stroke-width="1.7"/>
+   <text x="${labelX}" y="${y}" text-anchor="middle" font-size="11" fill="#111">Shock ${front.direction>0?'→':'←'}</text></g>`;
+ }).join('');
+ return marks||(r.sinusoidal?'<text x="320" y="78" text-anchor="middle" font-size="11" fill="#40576a">Smooth wave · no resolved shock front</text>':'');
+}
+
 function pistonShockMarks(r,t,X){
  if(r.sinusoidal){
   const velocity=sinusoidalVelocity(r.motion,t),position=sinusoidalPosition(r.motion,t);
@@ -398,11 +435,13 @@ export function finiteTubeDrawing(r,time){
  const X=x=>40+(x-r.left)/(r.right-r.left)*560;
  const stops=frame.pressure.map((p,i)=>`<stop offset="${(i+.5)/frame.pressure.length}" stop-color="rgb(${contourColor(normalize(p)).join(',')})"/>`).join('');
  const gasX=r.movingPiston?X(frame.left):40;
- const overlay=r.movingPiston?pistonShockMarks(r,frame.time,X):'';
+ const initial=r.movingPiston&&!r.sinusoidal&&(r.closedValve?frame.time<r.valveEncounter:frame.time<r.initialShocks.end);
+ const overlay=initial?pistonShockMarks(r,frame.time,X):resolvedShockMarks(r,frame,X);
+ const motionCaption=r.sinusoidal?pistonShockMarks(r,frame.time,X):'';
  const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
- ${cells}${overlay}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
+ ${cells}${motionCaption}${overlay}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
  <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};
