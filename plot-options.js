@@ -16,6 +16,7 @@ import {sonicRelations} from './reference-relations.js?v=20261109-wedge-cone';
 import {linspace,deg,rad,isentropic,isentropicRelations,state,normalShock,obliqueShock,expansion,rayleighRatios,fannoRatios,linearAirfoil} from './physics.js';
 // Each selectable property has its own units and axis. Unavailable states are omitted.
 function basePlotOptions(d,time=.001){
+ if(d.result.twoStagePiston)return d.result.plots;
  if(d.result.multiRamp)return [{key:'multi-inlet-p-theta',label:'Pressure–deflection diagram',chart:multiRampPlot(d.result),note:'θ is absolute to horizontal. A normal shock increases pressure without changing flow direction.'}];
  if(d.result.ramjet)return ramjetPlots(d.result).filter(p=>p.key==='inlet-p-theta');
  if(d.result.ductSystem)return d.result.plots;
