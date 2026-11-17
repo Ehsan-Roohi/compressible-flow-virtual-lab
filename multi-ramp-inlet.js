@@ -14,11 +14,12 @@ export function solveMultiRamp(x){
  const L=x.inletReference,H=L*x.inletHeightRatio,cowl=L*x.inletCowlRatio,g=x.gamma??1.4,R=x.R??287;
  requireValue([L,H,cowl,x.M1,x.T1,x.p1].every(Number.isFinite)&&L>0&&H>0&&cowl>0&&x.M1>1&&x.T1>0&&x.p1>0,'Require positive reference length, height, cowl position, pressure and temperature, and M > 1.');
  const lower=inletPanels(x.inletLowerSegments,L,[0,0]),upper=inletPanels(x.inletUpperSegments,L,[cowl,H]),tip=lower.at(-1).b;
- requireValue(cowl>=tip[0]-1e-9,'The cowl must start at or after the final compression-ramp corner/endpoint. Increase cowl x/Lref or shorten the ramps.');
+ requireValue(cowl>=lower.at(-1).a[0]-1e-9,'The cowl must start at or after the final compression-ramp corner. Increase cowl x/Lref or shorten the ramps.');
  const end=upper.at(-1).b[0],last=lower.at(-1),bottom=xx=>last.b[1]+Math.tan(last.theta)*(xx-last.b[0]);
  const floor=xx=>{const p=lower.find(p=>xx>=p.a[0]-1e-9&&xx<=p.b[0]+1e-9);return p?p.a[1]+Math.tan(p.theta)*(xx-p.a[0]):bottom(xx);};
  for(const p of upper)for(const a of [p.a,p.b])requireValue(a[1]>floor(a[0]),'The upper and lower inlet walls cross. Increase the inlet height or change the wall angles.');
  for(const p of lower)for(const u of upper)if(p.b[0]>=u.a[0]&&p.b[0]<=u.b[0])requireValue(u.a[1]+Math.tan(u.theta)*(p.b[0]-u.a[0])>p.b[1],'The upper and lower inlet walls cross.');
+ requireValue(end>=tip[0]-1e-9,'The upper cowl must extend at least as far downstream as the lower ramp endpoint. Increase its length.');
  const s1={...state(x.M1,x.T1,x.p1*1000,g,R),theta:0},regions={1:s1},waves=[];let before=s1;
  for(const [i,p] of lower.entries()){
   requireValue(before.M>1,'A ramp has a sonic/subsonic upstream state; supersonic wall marching cannot continue.');
