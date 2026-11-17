@@ -56,3 +56,35 @@ test('finite geometry is conditional and simulation duration and geometry are va
  assert.equal(short.result.frames.at(-1).time,.002);
  assert.equal(short.chart.series.find(s=>s.name==='Reflected shock').points.length,0);
 });
+
+test('contours interpolate the full grid and render one high-resolution raster with time increasing upward',async()=>{
+ const {contourColor,contourPixels}=await import('./contour-raster.js');
+ const data=new Uint8ClampedArray(3*3*4);
+ contourPixels([[0,0],[1,1]],3,3,data);
+ assert.deepEqual([...data.slice(0,4)],[...contourColor(1),255]);
+ assert.deepEqual([...data.slice(-4)],[...contourColor(0),255]);
+ const middle=[...data.slice(16,19)];
+ contourColor(.5).forEach((value,i)=>assert.ok(Math.abs(value-middle[i])<=1));
+ const d=calculate('tube',{...base,finiteEndTime:2});
+ const options=plotOptions(d,.001),chart=options.find(p=>p.key==='finite-map-pressure').chart;
+ assert.equal(chart.heatmap.rows[0].length,base.finiteCells);
+ assert.equal(plotOptions(d,.002).find(p=>p.key==='finite-map-pressure').chart.heatmap,chart.heatmap);
+ let renders=0;
+ const original=globalThis.document;
+ globalThis.document={createElement:()=>{
+  const canvas={getContext:()=>({
+   createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+   putImageData:()=>renders++
+  }),toDataURL:()=>`data:image/png;base64,${canvas.width}x${canvas.height}`};
+  return canvas;
+ }};
+ try{
+  const svg=chartSVG(chart).svg;
+  assert.match(svg,/<image href="data:image\/png;base64,1080x440"/);
+  assert.doesNotMatch(svg,/contourRow/);
+  chartSVG(chart);
+  assert.equal(renders,1);
+ }finally{
+  if(original===undefined)delete globalThis.document;else globalThis.document=original;
+ }
+});

@@ -1,3 +1,4 @@
+import {contourColor as rasterColor,contourRasterURL} from './contour-raster.js';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
 import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-inlet-solutions';
@@ -233,23 +234,21 @@ if(s.comparison){
 }
 function chartHeatmap(map,X,Y){
  if(!map)return '';
- const width=(X(map.right)-X(map.left))/map.values[0].length;
- const height=(Y(0)-Y(map.end))/map.values.length;
- const grouped=map.colors.map(()=>'');
- for(let row=0;row<map.values.length;row++){
-  const cells=map.values[row],y=(Y(0)-(row+1)*height).toFixed(2);
-  for(let start=0;start<cells.length;){
-   const color=cells[start];
-   let end=start+1;
-   while(end<cells.length&&cells[end]===color)end++;
-   const x=(X(map.left)+start*width).toFixed(2), w=((end-start)*width+.04).toFixed(3);
-   grouped[color]+=`M${x} ${y}h${w}v${(height+.04).toFixed(3)}h-${w}z`;
-   start=end;
-  }
- }
- return grouped.map((d,i)=>d?`<path d="${d}" fill="${map.colors[i]}"/>`:'').join('');
+ const x=X(map.left),y=Y(map.end),width=X(map.right)-x,height=Y(0)-y;
+ const url=contourRasterURL(map);
+ if(url)return `<image href="${url}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none"/>`;
+ // Retain a vector representation for SVG rendering without a browser canvas.
+ const columns=Math.min(100,map.rows[0].length), bands=map.rows.length;
+ return map.rows.map((row,i)=>{
+  const stops=Array.from({length:columns},(_,j)=>{
+   const fraction=(j+.5)/columns;
+   const color=rasterColor(row[Math.floor(fraction*row.length)]);
+   return `<stop offset="${fraction}" stop-color="rgb(${color.join(',')})"/>`;
+  }).join('');
+  return `<defs><linearGradient id="contourRow${i}">${stops}</linearGradient></defs><rect x="${x}" y="${Y(0)-(i+1)*height/bands}" width="${width}" height="${height/bands+.03}" fill="url(#contourRow${i})"/>`;
+ }).join('');
 }
-function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=49;let all=[...c.series.flatMap(s=>s.points),...(c.regionMarkers?(c.markers??[]).map(m=>[m.x,m.y]):[])].filter(s=>s.every(Number.isFinite));if(!all.length)return{svg:'',legend:''};let xmin=Math.min(...all.map(p=>p[0])),xmax=Math.max(...all.map(p=>p[0])),ymin=c.zeroBaseline===false?Math.min(...all.map(p=>p[1])):Math.min(0,...all.map(p=>p[1])),ymax=Math.max(...all.map(p=>p[1]));if(xmax===xmin)xmax=xmin+1;if(ymax===ymin)ymax=ymin+1;let pad=(ymax-ymin)*.08;ymax+=pad;if(ymin<0||c.zeroBaseline===false)ymin-=pad*.3;if(all.every(p=>p[1]>=0))ymin=Math.max(0,ymin);const X=x=>L+(x-xmin)/(xmax-xmin)*(W-L-R),Y=y=>H-B-(y-ymin)/(ymax-ymin)*(H-B-T);let inner=chartHeatmap(c.heatmap,X,Y);for(let i=0;i<=4;i++){let y=ymin+(ymax-ymin)*i/4;inner+=(c.heatmap?'':line(L,Y(y),W-R,Y(y),'#e8eee5'))+txt(L-10,Y(y)+3,fmt(y,3),'#4b5563',9,'end');}for(let i=0;i<=5;i++){let x=xmin+(xmax-xmin)*i/5;inner+=txt(X(x),H-B+18,fmt(x,3),'#4b5563',9,'middle');}inner+=line(L,T,L,H-B,'#c8d4c5')+line(L,H-B,W-R,H-B,'#c8d4c5');c.series.forEach((s,i)=>{if(c.scatter){for(const [x,y] of s.points.filter(p=>p.every(Number.isFinite)))inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${colors[i%colors.length]}"/>`;return;}inner+=`<polyline points="${s.points.filter(p=>p.every(Number.isFinite)).map(([x,y])=>[X(x),Y(y)].join(',')).join(' ')}" fill="none" stroke="${s.color??colors[i%colors.length]}" stroke-width="${s.width??2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round"/>`;});if(c.regionMarkers){
+function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=49;let all=[...c.series.flatMap(s=>s.points),...(c.regionMarkers?(c.markers??[]).map(m=>[m.x,m.y]):[])].filter(s=>s.every(Number.isFinite));if(!all.length)return{svg:'',legend:''};let xmin=Math.min(...all.map(p=>p[0])),xmax=Math.max(...all.map(p=>p[0])),ymin=c.zeroBaseline===false?Math.min(...all.map(p=>p[1])):Math.min(0,...all.map(p=>p[1])),ymax=Math.max(...all.map(p=>p[1]));if(xmax===xmin)xmax=xmin+1;if(ymax===ymin)ymax=ymin+1;let pad=c.heatmap?0:(ymax-ymin)*.08;ymax+=pad;if(ymin<0||c.zeroBaseline===false)ymin-=pad*.3;if(all.every(p=>p[1]>=0))ymin=Math.max(0,ymin);const X=x=>L+(x-xmin)/(xmax-xmin)*(W-L-R),Y=y=>H-B-(y-ymin)/(ymax-ymin)*(H-B-T);let inner=chartHeatmap(c.heatmap,X,Y);for(let i=0;i<=4;i++){let y=ymin+(ymax-ymin)*i/4;inner+=(c.heatmap?'':line(L,Y(y),W-R,Y(y),'#e8eee5'))+txt(L-10,Y(y)+3,fmt(y,3),'#4b5563',9,'end');}for(let i=0;i<=5;i++){let x=xmin+(xmax-xmin)*i/5;inner+=txt(X(x),H-B+18,fmt(x,3),'#4b5563',9,'middle');}inner+=line(L,T,L,H-B,'#c8d4c5')+line(L,H-B,W-R,H-B,'#c8d4c5');c.series.forEach((s,i)=>{if(c.scatter){for(const [x,y] of s.points.filter(p=>p.every(Number.isFinite)))inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${colors[i%colors.length]}"/>`;return;}inner+=`<polyline points="${s.points.filter(p=>p.every(Number.isFinite)).map(([x,y])=>[X(x),Y(y)].join(',')).join(' ')}" fill="none" stroke="${s.color??colors[i%colors.length]}" stroke-width="${s.width??2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round"/>`;});if(c.regionMarkers){
  const occupied=[];
  for(const m of c.markers??[]){const px=X(m.x),py=Y(m.y),width=Math.min(260,String(m.name).length*8+8),candidates=[...[-13,22,-35,44,-57,66,-79,88,-101,110].flatMap(dy=>[[9,dy],[-9,dy]]),...[-13,22,-35,44,-57,66].flatMap(dy=>[[-120,dy],[-230,dy]])].map(([dx,dy])=>{const anchor=dx<0?'end':'start',xx=px+dx,left=Math.max(L+3,Math.min(W-R-width-3,anchor==='end'?xx-width:xx)),yy=Math.max(T+15,Math.min(H-B-5,py+dy));return {x:anchor==='end'?left+width:left,y:yy,anchor,left,top:yy-16,right:left+width,bottom:yy+5};});
  const overlaps=q=>occupied.filter(z=>q.left<z.right+4&&q.right>z.left-4&&q.top<z.bottom+4&&q.bottom>z.top-4).length;

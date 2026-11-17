@@ -1,0 +1,45 @@
+// A continuous color scale for logarithmically normalized pressure and density.
+const palette = [[24,48,129],[22,101,176],[26,157,157],[108,179,85],[236,191,65],[179,40,40]];
+
+export function contourColor(value){
+ const scaled=Math.min(1,Math.max(0,value))*(palette.length-1);
+ const i=Math.min(palette.length-2,Math.floor(scaled)), f=scaled-i;
+ return palette[i].map((channel,j)=>Math.round(channel+f*(palette[i+1][j]-channel)));
+}
+
+export function contourPixels(rows,width,height,pixels){
+ const lastRow=rows.length-1,lastCol=rows[0].length-1;
+ const columns=Array.from({length:width},(_,x)=>{
+  const col=Math.min(lastCol,Math.max(0,(x+.5)/width*(lastCol+1)-.5));
+  return [Math.floor(col),Math.min(lastCol,Math.floor(col)+1),col%1];
+ });
+ const colors=Array.from({length:2048},(_,i)=>contourColor(i/2047));
+ for(let y=0,k=0;y<height;y++){
+  // Image rows start at the top, while the x–t diagram starts at t = 0 at the bottom.
+  const time=height===1?0:(1-y/(height-1))*lastRow;
+  const lo=rows[Math.floor(time)],hi=rows[Math.min(lastRow,Math.floor(time)+1)],ft=time%1;
+  for(const [i,j,fx] of columns){
+   const a=lo[i]+fx*(lo[j]-lo[i]),b=hi[i]+fx*(hi[j]-hi[i]);
+   const rgb=colors[Math.round(2047*Math.max(0,Math.min(1,a+ft*(b-a))))];
+   pixels[k++]=rgb[0];pixels[k++]=rgb[1];pixels[k++]=rgb[2];pixels[k++]=255;
+  }
+ }
+}
+
+const rasterURLs=new WeakMap();
+
+export function contourRasterURL(map){
+ if(rasterURLs.has(map))return rasterURLs.get(map);
+ if(typeof document==='undefined')return null;
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.max(1080,map.rows[0].length);
+ canvas.height=440;
+ const ctx=canvas.getContext('2d');
+ if(!ctx)return null;
+ const image=ctx.createImageData(canvas.width,canvas.height);
+ contourPixels(map.rows,canvas.width,canvas.height,image.data);
+ ctx.putImageData(image,0,0);
+ const url=canvas.toDataURL('image/png');
+ rasterURLs.set(map,url);
+ return url;
+}

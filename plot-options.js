@@ -1,4 +1,4 @@
-import {finiteTubeFrame,finiteTubeColors} from './finite-tube.js';
+import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-smooth-contours';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
@@ -15,6 +15,20 @@ import {wallPlots} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilPlots} from './airfoil.js?v=20261109-wedge-cone';
 import {sonicRelations} from './reference-relations.js?v=20261109-wedge-cone';
 import {linspace,deg,rad,isentropic,isentropicRelations,state,normalShock,obliqueShock,expansion,rayleighRatios,fannoRatios,linearAirfoil} from './physics.js';
+const finiteMaps=new WeakMap();
+function finiteMapOptions(r){
+ if(finiteMaps.has(r))return finiteMaps.get(r);
+ const fields=[['pressure','Pressure',1000,'kPa'],['density','Density',1,'kg/m³']];
+ const options=fields.map(([property,label,scale,unit])=>{
+  const {normalize,min,max}=finiteTubeScale(r.frames,property);
+  const rows=r.frames.map(frame=>Float32Array.from(frame[property],normalize));
+  const title=`${label} map · wave reflections in the x–t plane`;
+  return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows}},
+   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. White lines are first-wave analytical references.`};
+ });
+ finiteMaps.set(r,options);
+ return options;
+}
 // Each selectable property has its own units and axis. Unavailable states are omitted.
 function basePlotOptions(d,time=.001){
  if(d.result.multiRamp)return [{key:'multi-inlet-p-theta',label:'Pressure–deflection diagram',chart:multiRampPlot(d.result),note:'θ is absolute to horizontal. A normal shock increases pressure without changing flow direction.'}];
@@ -87,14 +101,7 @@ function basePlotOptions(d,time=.001){
  }else if(id==='tube'){
   let samples, profileNote;
   if(r.finiteTube){
-   options.length=0;
-   for(const [property,label,scale,unit] of [['pressure','Pressure',1000,'kPa'],['density','Density',1,'kg/m³']]){
-    const {colors,index,min,max}=finiteTubeColors(r.frames,property),columns=Math.min(120,r.centers.length);
-    const values=r.frames.map(frame=>Array.from({length:columns},(_,i)=>index(frame[property][Math.floor((i+.5)*r.centers.length/columns)])));
-    const title=`${label} map · wave reflections in the x–t plane`;
-    options.push({key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,colors,values}},
-     note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. White lines are first-wave analytical references. The colored field continues through subsequent reflections.`});
-   }
+   options.splice(0,1,...finiteMapOptions(r));
    if(r.sample>0){
     const cell=Math.min(r.centers.length-1,Math.floor((r.sample-r.left)/(r.right-r.left)*r.centers.length));
     add('finite-sample-p','Pressure history at sample','Time t (ms)','p (kPa)',r.frames.map(frame=>[frame.time*1000,frame.pressure[cell]/1000]));

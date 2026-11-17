@@ -1,3 +1,4 @@
+import {contourColor} from './contour-raster.js';
 import {gas, positive, requireValue} from './numerics.js';
 import {normalShock} from './physics.js';
 import {solveTube} from './tube-input.js?v=20261117-moving-tube';
@@ -167,20 +168,23 @@ export function finiteTubeFrame(r,time){
  return r.frames[Math.round(Math.max(0,Math.min(1,time/r.end))*(r.frames.length-1))];
 }
 
-export function finiteTubeColors(frames,property){
+const fieldScales=new WeakMap();
+export function finiteTubeScale(frames,property){
+ let scales=fieldScales.get(frames);
+ if(!scales){scales={};fieldScales.set(frames,scales);}
+ if(scales[property])return scales[property];
  let min=Infinity,max=0;
  for(const frame of frames)for(const value of frame[property]){min=Math.min(min,value);max=Math.max(max,value);}
  const span=Math.log(max/min)||1;
- const colors=Array.from({length:24},(_,i)=>`hsl(${Math.round(230-220*i/23)} 68% 40%)`);
- const index=value=>Math.min(23,Math.max(0,Math.round(23*Math.log(value/min)/span)));
- return {colors,index,min,max};
+ const normalize=value=>Math.min(1,Math.max(0,Math.log(value/min)/span));
+ return scales[property]={normalize,min,max};
 }
 
 export function finiteTubeDrawing(r,time){
- const frame=finiteTubeFrame(r,time),{colors,index}=finiteTubeColors(r.frames,'pressure');
+ const frame=finiteTubeFrame(r,time),{normalize}=finiteTubeScale(r.frames,'pressure');
  const X=x=>40+(x-r.left)/(r.right-r.left)*560;
- const dx=560/frame.pressure.length;
- const cells=frame.pressure.map((p,i)=>`<rect x="${(40+i*dx).toFixed(2)}" y="92" width="${dx+.05}" height="105" fill="${colors[index(p)]}"/>`).join('');
+ const stops=frame.pressure.map((p,i)=>`<stop offset="${(i+.5)/frame.pressure.length}" stop-color="rgb(${contourColor(normalize(p)).join(',')})"/>`).join('');
+ const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="40" y="92" width="560" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
  ${cells}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
