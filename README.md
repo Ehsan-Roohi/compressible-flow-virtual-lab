@@ -1,4 +1,4 @@
-# Gas Dynamics Virtual Lab
+# Compressible Flow Virtual Lab
 
 A working analytical compressible-flow laboratory for *Introduction to Compressible Flows*. Experiments are organized around the ten-chapter book. This is an early implementation; not all book sections or worked examples have been accepted.
 
