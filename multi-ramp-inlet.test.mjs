@@ -73,7 +73,7 @@ test('upper and lower geometry fields have identical definitions, limits and ord
 test('short, long and tall inlet frames fill the available width and crop at the solved exit',()=>{
  for(const patch of [{inletUpperWallRatio:.5},{inletUpperWallRatio:8},{inletHeightRatio:10}]){
   const x={...multiRampPreset,...patch},r=solveMultiRamp(x),v=multiRampDrawing(r,x),f=v.display;
-  near((f.end-f.start)*f.scaleX,730);near(f.end,r.reflectionField.end);assert.ok(f.height>=280&&f.height<=620);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);assert.match(v.field.note,/axes fitted independently/);
+  near((f.end-f.start)*f.scaleX,730);assert.match(v.svg,/data-custom-wall="inlet"/);near(f.end,r.reflectionField.end);assert.ok(f.height>=280&&f.height<=620);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);assert.match(v.field.note,/axes fitted independently/);
  }
 });
 test('partial inlet pictures end at accepted flow without extrapolated downstream colour',()=>{
