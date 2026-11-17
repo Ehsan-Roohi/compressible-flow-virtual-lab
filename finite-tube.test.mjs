@@ -181,7 +181,7 @@ test('closed Example 7–3 preserves the helium merger result and reaches the wa
 test('every browser example opens the closed model and the separate demo is gone',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8');
  const elements=new Map();
- const context=vm.createContext({id:'tube',experimentDefaults:defaults,inputs:{},finiteTubeMode,closedPistonMode:'Finite tube · closed far end',
+ const context=vm.createContext({id:'tube',experimentDefaults:defaults,inputs:{},plotSelection:{},sinusoidalExperiment:'Sinusoidal piston',finiteTubeMode,closedPistonMode:'Finite tube · closed far end',
   valveExperiment:'Sudden valve closure',request:0,
   $:key=>{if(!elements.has(key))elements.set(key,{});return elements.get(key);},
   stopAnimation(){},stopSweep(){},renderInputs(){},solve(){}});
@@ -189,7 +189,7 @@ test('every browser example opens the closed model and the separate demo is gone
  vm.runInContext(source.slice(source.indexOf('function renderExamples(){'),source.indexOf('function knownRayleighData')),context);
  context.renderExamples();
  assert.doesNotMatch(elements.get('examplesPanel').innerHTML,/closed-piston-demo/);
- for(const code of ['7–1','7–2','7–3','7–4','7–7','7–12','7–13']){
+ for(const code of ['7–1','7–2','7–3','7–4','7–7','7–10','7–12','7–13']){
   assert.ok(elements.get('examplesPanel').innerHTML.includes(`value="${code}"`));
   elements.get('exampleSelect').onchange({target:{value:code}});
   assert.equal(context.inputs.tubeDomain,finiteTubeMode);

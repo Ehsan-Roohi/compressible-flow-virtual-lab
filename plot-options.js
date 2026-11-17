@@ -1,4 +1,4 @@
-import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-original-fan';
+import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261117-sinusoidal-piston';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
@@ -24,7 +24,7 @@ function finiteMapOptions(r){
   const rows=r.frames.map(frame=>Float32Array.from(frame[property],normalize));
   const title=`${label} map · wave reflections in the x–t plane`;
   return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows,leftFractions:r.movingPiston?r.frames.map(frame=>frame.left/r.right):undefined}},
-   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.closedValve?'The dark sloping boundary is the piston, and the fixed boundary is the closed valve. The white line traces the initial valve shock until it reaches the piston. Later reflections appear in the colored field.':r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':r.referenceEnd===0?'The closed walls produce waves from t = 0 in the moving gas. The colored field shows the resulting waves and interactions.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted and dash-dot lines mark the fan’s leading and trailing edges. The upper view shows the original banded expansion fan before the first wall reflection. Later waves appear in the numerical pressure field. '} The horizontal cursor shows the selected time.`};
+   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.sinusoidal?'The dark curve is the piston trajectory. The colored field shows the compression and expansion waves and their reflections at the closed end.':r.closedValve?'The dark sloping boundary is the piston, and the fixed boundary is the closed valve. The white line traces the initial valve shock until it reaches the piston. Later reflections appear in the colored field.':r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':r.referenceEnd===0?'The closed walls produce waves from t = 0 in the moving gas. The colored field shows the resulting waves and interactions.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted and dash-dot lines mark the fan’s leading and trailing edges. The upper view shows the original banded expansion fan before the first wall reflection. Later waves appear in the numerical pressure field. '} The horizontal cursor shows the selected time.`};
  });
  finiteMaps.set(r,options);
  return options;
@@ -108,6 +108,28 @@ function basePlotOptions(d,time=.001){
      {name:'Cell next to piston',points:r.frames.map(frame=>[frame.time*1000,frame.pressure[0]/1000])},
      {name:r.closedValve?'Cell next to closed valve':'Cell next to fixed wall',points:r.frames.map(frame=>[frame.time*1000,frame.pressure.at(-1)/1000])}
     ]},note:'Numerical pressure adjacent to each reflecting boundary.'});
+   }
+   if(r.sinusoidal){
+    const f=finiteTubeFrame(r,time),dx=(r.right-f.left)/r.centers.length;
+    const usable=[];
+    r.centers.forEach((_,i)=>{
+     const position=f.left+(i+.5)*dx;
+     if(f.time<(2*r.right-position)/r.a1)usable.push([position,i]);
+    });
+    for(const [key,label,unit,read,reference] of [
+     ['u','Velocity','u (m/s)',i=>f.velocity[i],s=>s.u],
+     ['p','Pressure','p (kPa)',i=>f.pressure[i]/1000,s=>s.p/1000]
+    ]){
+     const title=`${label} · Example 10 comparison`;
+     if(usable.length)options.push({key:`tube-profile-sine-${key}`,label:title,chart:{title,xlabel:'Position x (m)',ylabel:unit,zeroBaseline:false,series:[
+      {name:'Numerical Euler solution',points:usable.map(([x,i])=>[x,read(i)]),color:'#176f9c'},
+      {name:'Example 10 · small-amplitude solution',points:usable.map(([x])=>[x,reference(sinusoidalReference(r,x,f.time))]),color:'#d47822',dash:'5 3'}
+     ]},note:usable.length?`Comparison at ${(f.time*1000).toFixed(2)} ms in cells ahead of the returning reflected wave. The book uses u = εa₁ sin[ω(t − x/a₁)] for 0 < t − x/a₁ < N/f and p − p₁ = ρ₁a₁u.`:'The reflected wave has reached the whole tube. Select an earlier time to compare with the book’s outgoing-wave solution.'});
+    }
+    const title='Prescribed sinusoidal piston motion';
+    options.push({key:'sinusoidal-motion',label:title,chart:{title,xlabel:'Time t (ms)',ylabel:'uₚ (m/s)',series:[
+     {name:'Piston velocity',points:r.frames.map(frame=>[frame.time*1000,sinusoidalVelocity(r.motion,frame.time)])}
+    ]},note:'The piston completes the chosen number of cycles and returns to its initial position, then remains stationary.'});
    }
    const frame=finiteTubeFrame(r,time);
    samples=r.centers.map((x,i)=>{

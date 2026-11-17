@@ -22,6 +22,28 @@ export const closedPistonFields=[
  {key:'pistonTubeLength',label:'Initial tube length',value:6,min:.1,max:100000,sliderMax:30,step:.1,unit:'m'}
 ];
 
+export const sinusoidalExperiment='Sinusoidal piston';
+export const sinusoidalFields=[
+ {key:'pistonEpsilon',label:'Velocity amplitude / initial sound speed ε',value:.01,min:.0001,max:.3,step:.001,unit:'ε'},
+ {key:'pistonFrequency',label:'Piston frequency',value:100,min:.1,max:10000,step:1,unit:'Hz'},
+ {key:'pistonCycles',label:'Number of cycles',value:1,min:1,max:20,step:1,unit:'cycles'}
+];
+
+export function sinusoidalPosition(motion,t){
+ const phase=motion.omega*Math.min(Math.max(0,t),motion.duration);
+ return motion.amplitude/motion.omega*(1-Math.cos(phase));
+}
+
+export function sinusoidalVelocity(motion,t){
+ return t>0&&t<motion.duration?motion.amplitude*Math.sin(motion.omega*t):0;
+}
+
+export function sinusoidalReference(r,x,t){
+ const retarded=t-x/r.a1;
+ const u=sinusoidalVelocity(r.motion,retarded);
+ return {u,p:r.initialPressure+r.initialDensity*r.a1*u};
+}
+
 // C− characteristics are straight in the initial centered simple wave.
 export function expansionRaySpeeds({head,tail}){
  return Array.from({length:6},(_,i)=>head+(tail-head)*(i+1)/7);
@@ -58,13 +80,13 @@ function simulate(x,left,right,end,gamma,R,motion){
  };
  const initial=totals(U), frames=[];
  let t=0,steps=0;
- const intervals=end>10?300:120;
+ const intervals=motion?.sinusoidal?240:end>10?300:120;
  for(let frame=0;frame<=intervals;frame++){
   const target=end*(frame/intervals);
   while(t<target){
    requireValue(++steps<=40000,'Simulation exceeds the step budget. Reduce the end time or grid resolution.');
-   const wallSpeed=motion?(t<motion.delay?motion.speed1:motion.speed2):0;
-   const switchTime=motion&&t<motion.delay?motion.delay:Infinity;
+   let wallSpeed=motion?.sinusoidal?sinusoidalVelocity(motion,t):motion?(t<motion.delay?motion.speed1:motion.speed2):0;
+   const switchTime=motion?.sinusoidal?(t<motion.duration?motion.duration:Infinity):motion&&t<motion.delay?motion.delay:Infinity;
    const stepEnd=Math.min(target,switchTime);
    let maxSpeed=0;
    for(let i=0;i<n;i++){
@@ -72,6 +94,8 @@ function simulate(x,left,right,end,gamma,R,motion){
     a[i]=Math.sqrt(gamma*p[i]/rho[i]);
     maxSpeed=Math.max(maxSpeed,Math.abs(u[i]-wallSpeed*(1-i/n))+a[i]);
    }
+   const plannedDt=motion?.sinusoidal?Math.min(.4*dx/(maxSpeed+2*motion.amplitude),stepEnd-t,Math.PI/(100*motion.omega)):null;
+   if(motion?.sinusoidal)wallSpeed=(sinusoidalPosition(motion,t+plannedDt)-sinusoidalPosition(motion,t))/plannedDt;
    for(let j=0;j<=n;j++){
     const l=Math.max(0,j-1), r=Math.min(n-1,j), k=3*j;
     const w=wallSpeed*(1-j/n),dL=rho[l],dR=rho[r];
@@ -109,7 +133,7 @@ function simulate(x,left,right,end,gamma,R,motion){
      flux[k+1]+=w*flux[k];
     }
    }
-   let dt=Math.min(.45*dx/maxSpeed,stepEnd-t),valid=false,nextDx=dx;
+   let dt=plannedDt??Math.min(.45*dx/maxSpeed,stepEnd-t),valid=false,nextDx=dx;
    for(let attempt=0;attempt<12;attempt++){
     nextDx=dx-wallSpeed*dt/n;
     const scale=dt/dx,volumeRatio=dx/nextDx;
@@ -282,6 +306,51 @@ export function solveClosedValve(x){
   valveSpeed:valve.speed,valveEncounter:encounter,motion,stoppedAtGap:end===gapLimit,...domain},rows};
 }
 
+export function solveSinusoidalPiston(x){
+ const {gamma,R,cp}=gas(x.gamma,x.R);
+ for(const [value,label] of [[x.p1,'Initial pressure'],[x.T1,'Initial temperature'],[x.pistonTubeLength,'Tube length'],
+  [x.pistonFrequency,'Frequency'],[x.pistonEpsilon,'Velocity amplitude'],[x.finiteEndTime,'End time']])positive(value,label);
+ requireValue(x.pistonEpsilon<=.3,'Use ε ≤ 0.3.');
+ requireValue(Number.isInteger(x.pistonCycles)&&x.pistonCycles>=1&&x.pistonCycles<=20,'Use 1 to 20 complete cycles.');
+ requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use 160 to 1200 integer cells.');
+ requireValue(x.finiteEndTime<=100000,'Use an end time up to 100000 ms.');
+ const a1=Math.sqrt(gamma*R*x.T1),omega=2*Math.PI*x.pistonFrequency;
+ const motion={sinusoidal:true,amplitude:x.pistonEpsilon*a1,omega,duration:x.pistonCycles/x.pistonFrequency};
+ const length=x.pistonTubeLength,end=x.finiteEndTime/1000;
+ requireValue(2*motion.amplitude/omega<.9*length,'Reduce the amplitude or increase the tube length to retain a gas gap.');
+ const domain=simulate({...x,p4:x.p1,T4:x.T1,tubeInitialVelocity:0},0,length,end,gamma,R,motion);
+ const initialPressure=x.p1*1000,initialDensity=initialPressure/(R*x.T1);
+ const r={status:'ok',finiteTube:true,movingPiston:true,sinusoidal:true,left:0,right:length,end,gamma,R,cp,a1,
+  initialPressure,initialDensity,motion,comparisonTime:Math.min(.75/x.pistonFrequency,.8*length/a1,end),...domain};
+ // Compare only cells that cannot yet have received a wave reflected by the far wall.
+ const frame=finiteTubeFrame(r,r.comparisonTime),dx=(length-frame.left)/x.finiteCells;
+ let velocityError=0,pressureError=0,count=0;
+ for(let i=0;i<x.finiteCells;i++){
+  const position=frame.left+(i+.5)*dx;
+  if(frame.time>=(2*length-position)/a1)continue;
+  const exact=sinusoidalReference(r,position,frame.time);
+  velocityError+=(frame.velocity[i]-exact.u)**2;
+  pressureError+=(frame.pressure[i]-exact.p)**2;
+  count++;
+ }
+ const rows=[
+  ['Peak piston velocity',motion.amplitude,'m/s'],['Period',1000/x.pistonFrequency,'ms'],
+  ['Piston stops after',motion.duration*1000,'ms'],['Maximum piston displacement',2*motion.amplitude/omega,'m'],
+  ['Linear wavelength · Example 10',a1/x.pistonFrequency,'m'],['Initial sound speed',a1,'m/s'],
+  ['First acoustic arrival at fixed wall',length/a1*1000,'ms'],['Comparison time',frame.time*1000,'ms'],
+  ['Velocity RMS error / peak piston velocity',Math.sqrt(velocityError/count)/motion.amplitude],
+  ['Pressure RMS error / linear pressure amplitude',Math.sqrt(pressureError/count)/(initialDensity*a1*motion.amplitude)],
+  ['Piston work per tube area',domain.pistonWork/1000,'kJ/m²'],['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
+ ];
+ r.chart={title:'Sinusoidal piston · wave reflections in the x–t plane',xlabel:'Position from initial piston face x (m)',ylabel:'Time t (ms)',
+  series:[
+   {name:'Domain',width:0,hideLegend:true,points:[[0,0],[length,end*1000]]},
+   {name:'Moving piston',color:'#192737',points:r.frames.map(f=>[f.left,f.time*1000])},
+   {name:'Fixed wall',color:'#192737',points:[[length,0],[length,end*1000]]}
+  ]};
+ return {inputs:x,result:r,rows};
+}
+
 export function finiteTubeFrame(r,time){
  return r.frames[Math.round(Math.max(0,Math.min(1,time/r.end))*(r.frames.length-1))];
 }
@@ -299,6 +368,10 @@ export function finiteTubeScale(frames,property){
 }
 
 function pistonShockMarks(r,t,X){
+ if(r.sinusoidal){
+  const velocity=sinusoidalVelocity(r.motion,t),position=sinusoidalPosition(r.motion,t);
+  return `<text x="320" y="60" text-anchor="middle" font-size="11">Piston · u = ${velocity.toFixed(2)} m/s · x = ${position.toFixed(4)} m</text>`;
+ }
  if(r.closedValve){
   if(t>=r.valveEncounter)return '';
   const x=X(r.right-r.valveSpeed*t);
