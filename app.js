@@ -158,6 +158,11 @@ function arrangeCollisionOutput(){
 function arrangePropertyPanels(){
  arrangeCollisionOutput();
  const table=$('regionTablePanel'),chart=$('chart').closest('.chart-card');
+ const results=$('results').closest('.results');
+ results.classList.toggle('unsteady-results',id==='tube');
+ if(id==='tube')chart.after(results);
+ else $('examplesPanel').after(results);
+
  if(id==='fanno'){if(chart.nextElementSibling!==table)table.before(chart);}
  else if(table.nextElementSibling!==chart)chart.before(table);
 }
