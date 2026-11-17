@@ -1,9 +1,11 @@
 import {normalShock,state,conservation} from './physics.js';
 import {gas,positive,requireValue} from './numerics.js';
 
+import {valveExperiment} from './valve-closure.js';
+
 export const pistonExperiment='Two-stage piston';
 export const pistonFields=[
- {key:'unsteadyExperiment',label:'Experiment',value:'Shock tube',options:['Shock tube',pistonExperiment]},
+ {key:'unsteadyExperiment',label:'Experiment',value:'Shock tube',options:['Shock tube',pistonExperiment,valveExperiment]},
  {key:'pistonSpeed1',label:'First piston speed',value:25,min:.001,max:10000,step:1,unit:'m/s'},
  {key:'pistonSpeed2',label:'Second piston speed',value:50,min:.001,max:10000,step:1,unit:'m/s'},
  {key:'pistonDelay',label:'Time of second speed increase',value:1,min:.000001,max:10000,step:.1,unit:'s'}

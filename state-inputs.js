@@ -1,3 +1,4 @@
+import {valveExperiment} from './valve-closure.js';
 import {isentropic,nozzle} from './physics.js';
 const total=type=>String(type).startsWith('Stagnation');
 export const stateInputDefaults={nozzlePressureType:'Stagnation pressure',nozzleTemperatureType:'Stagnation temperature',driverPressureType:'Static pressure',driverTemperatureType:'Static temperature',supplyTemperatureType:'Stagnation temperature',inverseTemperatureType:'Stagnation temperature',outletTemperatureType:'Stagnation temperature',outletPressureType:'Static pressure'};
@@ -39,6 +40,13 @@ export function normalizeStateInputs(id,raw){
   if(x.nozzlePressureType==='Static pressure')x.p0*=iso.p0p;
   if(x.nozzleTemperatureType==='Static temperature')x.T0*=iso.T0T;
   x.nozzlePressureType='Stagnation pressure';x.nozzleTemperatureType='Stagnation temperature';return x;
+ }
+ if(id==='tube'&&x.unsteadyExperiment===valveExperiment){
+  const R=x.R??287;
+  if(total(x.temperatureInput))x.T1-=(g-1)*x.valveInletSpeed**2/(2*g*R);
+  if(total(x.inletPressureType)&&x.T1>0)x.p1/=isentropic(x.valveInletSpeed/Math.sqrt(g*R*x.T1),g).p0p;
+  x.inletPressureType='Static pressure';x.temperatureInput='Static temperature';
+  return x;
  }
  const M=id==='tube'?0:['foundations','airfoil','cone','linear'].includes(id)?x.M:x.M1;
  if(Number.isFinite(M)){

@@ -1,11 +1,12 @@
-import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-two-stage-piston';
+import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
+import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-tube-speed';
 import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot} from './multi-ramp-inlet.js?v=20261117-inlet-solutions';
 import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261114-final-view';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
-import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261112-state-inputs';
+import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261117-valve-closure';
 import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261114-conditional-duct';
 import {ductInputs} from './duct-input.js?v=20261112-state-inputs';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
@@ -99,7 +100,7 @@ export const labs={
  M('M1',3),T,{...P,value:100},input('thetaUpper','First corner turn',10,.1,30,.1,'°'),input('thetaLower','Second corner turn',10,.1,30,.1,'°'),
  input('channelHeight','Channel height / upper clearance',2,.01,100,.01,'m'),input('cornerSpacing','Axial corner separation',1,0,100,.01,'m'),g
  ],model:'Steady planar perfect-gas flow · weak attached shocks and centered expansions · pressure and direction matching',equation:'p₄ = p₅ · θ₄ = θ₅ = φ',limitations:'Angles are positive upward. In opposing mode, the first corner is on the lower wall and the second on the upper wall. In same-direction mode both turns are additional upward turns on the lower wall. The view ends before the first downstream wall encounter; later reflections, Mach reflection, detached shocks and mixing are not solved. Dimensions are in metres. If a wall encounter precedes the direct interaction, use Custom wall / Channel / Shock–Expansion in Supersonic Wave Lab.'},
- tube:{chapter:7,title:'Shock tube',tag:'MOVING-WAVE SYSTEM',description:'Enter chamber pressures, the initial pressure ratio p₄/p₁, the incident-shock pressure ratio p₂/p₁, or the induced gas speed. Explore the shock, contact surface and expansion fan.',inputs:[...pistonFields,...tubeFields,input('p1','Driven pressure',5,.1,200,1,'kPa'),input('p4','Driver pressure',200,1,2000,1,'kPa'),input('T1','Driven temperature',298.15,100,1500,1,'K'),input('T4','Driver temperature',293.15,100,1500,1,'K'),g],model:'Selected ideal gas on both sides · initially at rest · before any end-wall reflection',equation:'p₂ = p₃   ·   u₂ = u₃',limitations:'Time animation shows the infinite-tube similarity solution. End walls and reflected waves are not included. The selected gas applies to both sides; different driver and driven gases are outside this interface.'},
+ tube:{chapter:7,title:'Shock tube',tag:'MOVING-WAVE SYSTEM',description:'Enter chamber pressures, the initial pressure ratio p₄/p₁, the incident-shock pressure ratio p₂/p₁, or the induced gas speed. Explore the shock, contact surface and expansion fan.',inputs:[...pistonFields,input('valveInletSpeed','Initial gas speed',60,.001,10000,1,'m/s'),...tubeFields,input('p1','Driven pressure',5,.1,200,1,'kPa'),input('p4','Driver pressure',200,1,2000,1,'kPa'),input('T1','Driven temperature',298.15,100,1500,1,'K'),input('T4','Driver temperature',293.15,100,1500,1,'K'),g],model:'Selected ideal gas on both sides · initially at rest · before any end-wall reflection',equation:'p₂ = p₃   ·   u₂ = u₃',limitations:'Time animation shows the infinite-tube similarity solution. End walls and reflected waves are not included. The selected gas applies to both sides; different driver and driven gases are outside this interface.'},
  nozzle:{chapter:8,title:'Nozzle flow laboratory',tag:'QUASI-1D FLOW',description:'Choose a converging, diverging or converging–diverging passage and inspect its flow regime.',inputs:[
   {key:'nozzleView',label:'Nozzle view',value:'Internal flow',options:['Nozzle + external waves','Internal flow','External waves']},
   {key:'nozzleType',label:'Nozzle geometry',value:'Converging–diverging',options:['Converging–diverging','Converging','Diverging']},
@@ -134,8 +135,9 @@ export const labs={
  cone:{chapter:10,title:'Wedge & Cone Lab',tag:'AXISYMMETRIC SIMILARITY',description:'Compare two-dimensional wedge flow with axisymmetric cone flow; inspect shock angles and surface properties.',inputs:[{key:'bodyGeometry',label:'Geometry',value:'Cone',options:['Cone','Wedge','Compare both']},{key:'nearbyWall',label:'Nearby wall',value:'None',options:['None','Below wedge','Above wedge','Both walls']},input('wallDistance','Tip-to-wall distance',1,.001,100,.01,'m'),input('wedgeAlpha','Wedge angle of attack α',0,-20,20,.1,'°'),input('M','Freestream Mach',2,1.2,6,.0001,'M∞'),input('thetaCone','Cone half-angle',10,1,35,.1,'°'),T,P,g],model:'Steady, inviscid, axisymmetric sharp cone · zero angle of attack',equation:'dVᵣ/dθ = Vθ   ·   Vθ(θc) = 0',limitations:'Adaptive RK4 step doubling and a bracketed shock-angle search. Strong branches and detached cones are outside this release. Full book-example acceptance is pending.'}
 };
 function experimentInputs(id,x={}){
+ if(id==='tube'&&x.unsteadyExperiment===valveExperiment)return labs.tube.inputs.filter(f=>['unsteadyExperiment','valveInletSpeed','p1','T1'].includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:f);
  if(id==='tube'&&x.unsteadyExperiment===pistonExperiment)return labs.tube.inputs.filter(f=>['unsteadyExperiment','pistonSpeed1','pistonSpeed2','pistonDelay','p1','T1'].includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:f);
- if(id==='tube')return labs.tube.inputs.filter(f=>!['pistonSpeed1','pistonSpeed2','pistonDelay'].includes(f.key)).filter(f=>f.key==='p4'?(x.tubeInput??tubeModes[0])===tubeModes[0]:f.key==='driverRatio'?x.tubeInput===tubeModes[1]:f.key==='shockRatio'?x.tubeInput===tubeModes[2]:f.key==='inducedSpeed'?x.tubeInput===tubeModes[3]:true);
+ if(id==='tube')return labs.tube.inputs.filter(f=>!['pistonSpeed1','pistonSpeed2','pistonDelay','valveInletSpeed'].includes(f.key)).filter(f=>f.key==='p4'?(x.tubeInput??tubeModes[0])===tubeModes[0]:f.key==='driverRatio'?x.tubeInput===tubeModes[1]:f.key==='shockRatio'?x.tubeInput===tubeModes[2]:f.key==='inducedSpeed'?x.tubeInput===tubeModes[3]:true);
  if(['rayleigh','fanno'].includes(id)&&(x.ductProblem??'Single duct')!=='Single duct')return systemFields(id,x); 
  const inverseFields=[input('inletT0','Inlet stagnation temperature',350,1,100000,.1,'K'),...(id==='rayleigh'?[input('outletT0','Outlet stagnation temperature',400,1,100000,.1,'K')]:[]),...(x.targetMach===1?[{key:'inletBranch',label:'Inlet branch (sonic outlet)',value:'Subsonic',options:['Subsonic','Supersonic']}]:[])];
  if(id==='fanno'){const mode=x.fannoInput??'Friction length';return [{key:'fannoInput',label:'Solve from',value:'Friction length',options:['Friction length','Outlet Mach','Outlet Mach + friction length']},...labs.fanno.inputs.filter(f=>(f.key!=='lambda'||mode!=='Outlet Mach')&&(!['M1','T1'].includes(f.key)||mode!=='Outlet Mach + friction length')),...(mode!=='Friction length'?[input('targetMach','Outlet Mach',.8,.00001,100,.01,'M₂')]:[]),...(mode==='Outlet Mach + friction length'?inverseFields:[])];}
@@ -199,6 +201,19 @@ export function nozzleInfo(x){
 
 export function defaults(id){return {...(id==='wall'?{customInteraction:'',inletSolutionVersion:2,inletReference:2,inletHeightRatio:.5,inletCowlRatio:1,inletTerminal:'Wall reflections',inletLowerSegments:multiRampPreset.inletLowerSegments.map(p=>({...p})),inletUpperWallRatio:1,inletLowerWallRatio:1}:{}),...(id==='wall'?{fanShockAngle:10,fanExpansionAngle:10}:{}),...(id==='wall'?{ramjetOrientation:ramjetOrientations[0]}:{}),...(['fanno','wall','tube'].includes(id)?{bookExample:''}:{}),...stateInputDefaults,...systemDefaults,...Object.fromEntries(labs[id].inputs.map(x=>[x.key,x.value])),...(id==='rayleigh'?{rayleighInput:'Heat transfer + Inlet Mach',targetMach:.8,targetPressure:80}:{}),...(id==='balances'?controlVolumePreset():{}),inletT0:350,outletT0:400,inletBranch:'Subsonic',targetMach:.8,fannoInput:'Friction length',fluid:'Air',gamma:1.4,R:287,...(['oblique','expansion'].includes(id)?{cornerView:'Analytical contours',cornerColorVersion:1}:{})};}
 export function calculate(id,x){x=normalizeStateInputs(id,x);
+ if(id==='tube'&&x.unsteadyExperiment===valveExperiment){
+  const result=solveValveClosure(x),rows=[
+   row('Shock speed · upstream',result.speed,'m/s'),
+   row('Pressure behind shock',result.downstream.p/1000,'kPa'),
+   row('Temperature behind shock',result.downstream.T,'K'),
+   row('Gas speed behind shock',result.downstream.u,'m/s'),
+   row('Upstream Mach · shock frame',result.mach),
+   row('Downstream Mach · shock frame',result.ratios.M2),
+   row('Shock pressure ratio',result.ratios.p,'p₂/p₁')
+  ];
+  for(const r of result.referenceTable.rows)r.values.forEach((v,i)=>rows.push({...row(`${result.referenceTable.columns[i]} · ${r.label}`,v),panel:'reference'}));
+  return {id,inputs:x,gas:gasInfo(x),model:valveInfo.model,result,rows,chart:result.chart,scene:{kind:'valveClosure',...result},checks:result.checks,shockDetails:[],notice:valveInfo.limitations,version:'0.1.0'};
+ }
  if(id==='tube'&&x.unsteadyExperiment===pistonExperiment){
   const result=solvePistonShocks(x),rows=[row('Shock 1 speed · laboratory',result.first.speed,'m/s'),row('Shock 2 speed · laboratory',result.second.speed,'m/s'),row('Shock 1 Mach · relative to region 1',result.first.relativeMach),row('Shock 2 Mach · relative to region 2',result.second.relativeMach),row('Catch-up time · from initial motion',result.catchTime,'s'),row('Catch-up position · from initial piston',result.catchX,'m'),row('Time after second speed increase',result.catchTime-result.delay,'s'),row('Second-shock launch position',result.launchX,'m'),row('Shock 1 pressure ratio',result.first.ratios.p,'p₂/p₁'),row('Shock 2 pressure ratio',result.second.ratios.p,'p₃/p₂')];
   for(const r of result.referenceTable.rows)r.values.forEach((v,i)=>rows.push({...row(`${result.referenceTable.columns[i]} · ${r.label}`,v),panel:'reference'}));
