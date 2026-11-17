@@ -1,11 +1,11 @@
-import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-inlet-solutions';
+import {solveInletReflections} from './multi-ramp-reflection.js?v=20261117-upper-wall-start';
 import {state,normalShock,obliqueShock,expansion,shockLimit,rad,deg} from './physics.js';
 import {requireValue} from './numerics.js';
 import {clipPolygon} from './wave-interaction.js';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js';
 import {regionLabelPosition} from './region-labels.js';
 export const multiRampMode='Ramjet inlet · multiple ramps';
-export const multiRampProblemPreset={wallShape:'Custom wall',customInteraction:multiRampMode,inletSolutionVersion:2,inletReference:1,inletHeightRatio:.3,inletCowlRatio:1,inletTerminal:'Normal shock',inletLowerSegments:[{angle:7,length:.5},{angle:15,length:.5}],inletUpperWallRatio:1,inletLowerWallRatio:1,M1:2.5,T1:216.65,p1:11.6,inletPressureType:'Static pressure',temperatureInput:'Static temperature',bookExample:'6–P1b'};
+export const multiRampProblemPreset={wallShape:'Custom wall',customInteraction:multiRampMode,inletSolutionVersion:2,inletReference:1,inletHeightRatio:.3,inletCowlRatio:1,inletTerminal:'Normal shock',inletLowerSegments:[{angle:7,length:.5},{angle:15,length:.5}],inletUpperWallRatio:1,inletUpperStartRatio:0,M1:2.5,T1:216.65,p1:11.6,inletPressureType:'Static pressure',temperatureInput:'Static temperature',bookExample:'6–P1b'};
 export const multiRampPreset={...multiRampProblemPreset,inletTerminal:'Wall reflections',inletReference:2,inletHeightRatio:.5,M1:2,inletLowerSegments:[{angle:8,length:1}],p1:101.325,T1:300,bookExample:'6–9'};
 export function inletPanels(segments,L,start){
  requireValue(Array.isArray(segments)&&segments.length>0&&segments.length<=8,'Use 1–8 segments per inlet wall.');
@@ -15,12 +15,12 @@ export function inletPanels(segments,L,start){
 export function solveMultiRamp(x){
  const L=x.inletReference,H=L*x.inletHeightRatio,terminal=x.inletTerminal==='Normal shock',reflect=x.inletTerminal==='Wall reflections'||!x.inletTerminal,cowl=L*(terminal?x.inletCowlRatio:1),g=x.gamma??1.4,R=x.R??287;
  requireValue([L,H,cowl,x.M1,x.T1,x.p1].every(Number.isFinite)&&L>0&&H>0&&cowl>0&&x.M1>1&&x.T1>0&&x.p1>0,'Require positive reference length, height, cowl position, pressure and temperature, and M > 1.');
- const lower=inletPanels(x.inletLowerSegments,L,[0,0]),tip=lower.at(-1).b,wedgeLength=x.inletLowerSegments.reduce((sum,p)=>sum+p.length*L,0),upperRatio=x.inletUpperWallRatio??1,lowerRatio=x.inletLowerWallRatio??1;
- requireValue([upperRatio,lowerRatio].every(n=>Number.isFinite(n)&&n>0&&n<=100),'Upper and lower horizontal wall length ratios must be positive and ≤ 100.');
+ const lower=inletPanels(x.inletLowerSegments,L,[0,0]),tip=lower.at(-1).b,wedgeLength=x.inletLowerSegments.reduce((sum,p)=>sum+p.length*L,0),upperRatio=x.inletUpperWallRatio??1,startRatio=x.inletUpperStartRatio??0;
+ requireValue(Number.isFinite(upperRatio)&&upperRatio>0&&upperRatio<=100&&Number.isFinite(startRatio)&&startRatio>=0&&startRatio<=100,'Upper-wall length must be positive; its start ratio must be between 0 and 100.');
  if(terminal)requireValue(cowl>=tip[0]-1e-9,'Place the inlet lip at or beyond the wedge end. Increase cowl x/Lref or shorten the wedge segments.');
  if(terminal)requireValue(H>Math.max(...lower.map(p=>p.b[1])),'The horizontal upper wall intersects the wedge. Increase channel height.');
- const upperWall={a:[0,H],b:[upperRatio*wedgeLength,H]},lowerWall={a:[0,0],b:[lowerRatio*wedgeLength,0]},upper=[{...upperWall,theta:0}],end=Math.max(upperWall.b[0],lowerWall.b[0],tip[0]+.15*wedgeLength),last=lower.at(-1),bottom=xx=>xx>=tip[0]?tip[1]:last.a[1]+Math.tan(last.theta)*(xx-last.a[0]);
- const ymax=H+.22*wedgeLength,start=-.18*wedgeLength,domain=[[start,0],[0,0],...lower.map(p=>p.b),[end,tip[1]],[end,H],[0,H],[0,ymax],[start,ymax]],geometry={L,H,cowl,lower,upper,upperWall,lowerWall,wedgeLength,tip,start,end,ymax,domain,shockFoot:null};
+ const upperWall={a:[startRatio*wedgeLength,H],b:[(startRatio+upperRatio)*wedgeLength,H]},upper=[{...upperWall,theta:0}],end=Math.max(upperWall.b[0],tip[0]+.15*wedgeLength),last=lower.at(-1),bottom=xx=>xx>=tip[0]?tip[1]:last.a[1]+Math.tan(last.theta)*(xx-last.a[0]);
+ const ymax=H+.22*wedgeLength,start=-.18*wedgeLength,domain=[[start,0],[0,0],...lower.map(p=>p.b),[end,tip[1]],[end,H],[upperWall.a[0],H],[upperWall.a[0],ymax],[start,ymax]],geometry={L,H,cowl,lower,upper,upperWall,wedgeLength,tip,start,end,ymax,domain,shockFoot:null};
  if(reflect)return solveInletReflections({...x,gamma:g,R},geometry);
  const s1={...state(x.M1,x.T1,x.p1*1000,g,R),theta:0},regions={1:s1},waves=[];let before=s1;
  for(const [i,p] of lower.entries()){
@@ -71,13 +71,13 @@ export function multiRampDrawing(r,x,quantity='pressure'){
  const pad=.055*g.wedgeLength;
  // Horizontal walls are independent of the compression surface mounted on the lower wall.
  let walls=`<g data-solid="upper-horizontal-wall">${poly([g.upperWall.a,g.upperWall.b,[g.upperWall.b[0],g.H+pad],[g.upperWall.a[0],g.H+pad]],'#a8adb3')}${line(g.upperWall.a,g.upperWall.b,'#56616a',3)}</g>`;
- walls+=`<g data-solid="lower-horizontal-wall">${poly([g.lowerWall.a,g.lowerWall.b,[g.lowerWall.b[0],-pad],[0,-pad]],'#a8adb3')}${line(g.lowerWall.a,g.lowerWall.b,'#56616a',3)}</g>`;
+
  walls+=`<g data-solid="segmented-wedge">${poly([[0,0],...g.lower.map(p=>p.b),[g.end,g.tip[1]],[g.end,0]],'#d5b488')}`;
  for(const p of g.lower)walls+=line(p.a,p.b,'#4c5964',3);
  walls+=line(g.tip,[g.end,g.tip[1]],'#4c5964',2)+`<text x="${V([g.tip[0]*.7,g.tip[1]*.3])[0]}" y="${V([g.tip[0]*.7,g.tip[1]*.3])[1]}" fill="#24313c" font-size="17" text-anchor="middle">Wedge</text></g>`;
- walls+=line(g.lowerWall.a,g.lowerWall.b,'#56616a',2);
+
  for(const [i,p] of g.lower.entries()){const q=[(p.a[0]+p.b[0])/2,(p.a[1]+p.b[1])/2+.04*g.wedgeLength];walls+=text(q,`θ${i+1} = ${deg(p.theta).toFixed(1)}°`);}
 
- const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 330" role="img" aria-label="Custom multi-ramp ramjet inlet"><defs><clipPath id="multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#multiInletGas)">${content}</g>${walls}<text x="35" y="25" fill="#24313c" font-size="17">M₁ = ${x.M1} · Lupper/Lw = ${x.inletUpperWallRatio??1} · Llower/Lw = ${x.inletLowerWallRatio??1}</text><text x="35" y="320" fill="#24313c" font-size="15">${r.wallReflections?'Computed wall reflections · no terminal normal shock':r.normal?'Terminal normal shock · diffuser-entry state':'Compression only · no terminal normal shock'}</text></svg>`;
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 330" role="img" aria-label="Custom multi-ramp ramjet inlet"><defs><clipPath id="multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#multiInletGas)">${content}</g>${walls}<text x="35" y="25" fill="#24313c" font-size="17">M₁ = ${x.M1} · Lupper/Lw = ${x.inletUpperWallRatio??1} · xupper/Lw = ${x.inletUpperStartRatio??0}</text><text x="35" y="320" fill="#24313c" font-size="15">${r.wallReflections?'Computed wall reflections · no terminal normal shock':r.normal?'Terminal normal shock · diffuser-entry state':'Compression only · no terminal normal shock'}</text></svg>`;
  return {svg,label:r.wallReflections?'Computed inlet wall-wave field':'Multi-ramp inlet · sequential wave states',meta:r.wallReflections?'Computed regular reflections and supported wave interactions':'Independent wall waves; schematic spatial field',field:{quantity:key,label,min,max,units,options:Object.keys(q),palette:cornerPalette,note:r.wallReflections?r.note:'Sequential compression estimate; normal shock is optional. Reflections and subsonic diffuser evolution are not included in this mode.'}};
 }

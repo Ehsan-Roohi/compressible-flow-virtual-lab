@@ -81,6 +81,9 @@ function trackCore(x){
  const wallTheta=(side,xx)=>{const panels=g[side].panels;return (panels.find(p=>xx<p.b.x-eps)??panels.at(-1)).theta;};
  const corners=[];
  for(const side of ['lower','upper']){let previous=0;for(const p of g[side].panels){if(p.a.x>=g.end-eps)break;if(Math.abs(p.theta-previous)>1e-10)corners.push({x:p.a.x,side});previous=p.theta;}}
+ const upperOpenUntil=Number(x.upperOpenUntil??0);
+ requireValue(Number.isFinite(upperOpenUntil)&&upperOpenUntil>=0,'Upper-wall start must be finite and non-negative.');
+ if(upperOpenUntil>0&&upperOpenUntil<g.end)corners.push({x:upperOpenUntil,side:'upper'});
  corners.sort((a,b)=>a.x-b.x);
  let ci=0;
  const install=fronts=>{for(const f of fronts){f.start={...f.origin};traces.push(f);}return fronts;};
@@ -94,14 +97,14 @@ function trackCore(x){
    // Solve before changing the accepted active list: failed events leave the
    // valid incoming solution available right up to this station.
   }
-  const theta=wallTheta(side,xx),w=turn(before,theta,lower?1:-1,gamma,R);allocate(w.after);
+  const open=!lower&&xx<upperOpenUntil-eps,theta=open?before.theta:wallTheta(side,xx),w=turn(before,theta,lower?1:-1,gamma,R);allocate(w.after);
   const approximate=!!before.approximate||(reflection&&(lower?active.slice(0,remove):active.slice(-remove)).some(f=>f.kind==='Expansion front'));
   if(approximate){w.after={...w.after,stateId:undefined,approximate:true};allocate(w.after);}
   const fronts=bundle(w,point,step,gamma,R,allocate);
   const consumed=reflection?(lower?active.splice(0,remove):active.splice(active.length-remove,remove)):[];
   consumed.forEach(f=>endFront(f,point));install(fronts);
   if(lower){active.unshift(...fronts);lowState=w.after;}else{active.push(...fronts);highState=w.after;}
-  const e={index:events.length+1,type:reflection?'Wall reflection':'Wall corner',side,x:xx,y:point.y,before,after:w.after,waves:[w],incoming:consumed.map(f=>f.kind),theta,pressure:w.after.p,approximate};events.push(e);
+  const e={index:events.length+1,type:open?'Open boundary exit':!lower&&upperOpenUntil>0&&Math.abs(xx-upperOpenUntil)<eps?'Wall leading edge':reflection?'Wall reflection':'Wall corner',side,x:xx,y:point.y,before,after:w.after,waves:[w],incoming:consumed.map(f=>f.kind),theta,pressure:w.after.p,approximate};events.push(e);
   surfaces[side].push({x:xx,state:w.after});
  };
  const recordSlab=right=>{
@@ -110,7 +113,8 @@ function trackCore(x){
   for(let i=0;i<states.length;i++)requireValue(bottoms[i+1]>=bottoms[i]-yEps&&tops[i+1]>=tops[i]-yEps*5,'Wave ordering failed; the accepted field stops before crossing fronts.','tracking-limit');
   requireValue(cellCount+states.length<=80000,'The display-cell budget was reached. Increase expansion-front width or shorten the channel.','tracking-budget');
   const flux=states.reduce((v,z,i)=>v+z.rho*z.u*Math.cos(z.theta)*Math.max(0,tops[i+1]-tops[i]),0),inlet=s1.rho*s1.u*g.height;
-  requireValue(Math.abs(flux-inlet)/inlet<.005,'The mass-flow discrepancy exceeds 0.5%. Refine the expansion fronts; the downstream field is withheld.','tracking-accuracy');
+  // Mass can leave through the open upper boundary before the finite wall starts.
+  requireValue(upperOpenUntil>0||Math.abs(flux-inlet)/inlet<.005,'The mass-flow discrepancy exceeds 0.5%. Refine the expansion fronts; the downstream field is withheld.','tracking-accuracy');
   slabs.push({left:xNow,right,bottoms,tops,states});cellCount+=states.length;
  };
  try{

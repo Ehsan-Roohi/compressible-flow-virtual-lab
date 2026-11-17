@@ -11,22 +11,22 @@ test('Problem 6–1 inlet sequences use absolute wall angles and normal shock co
  near(b.waves[1].turn*180/Math.PI,8);assert.ok(b.final.p0>b.s1.p0*.74&&b.final.p0>a.final.p0);
  for(const r of [a,b]){near(r.final.T0,r.s1.T0);near(r.pre.rho*r.pre.u,r.final.rho*r.final.u);near(r.pre.p+r.pre.rho*r.pre.u**2,r.final.p+r.final.rho*r.final.u**2);assert.ok(r.final.M<1);}
 });
-test('relative lengths scale geometry while upper and lower segment chains remain editable',()=>{
- const a=solveMultiRamp(x()),b=solveMultiRamp({...x(),inletReference:3,inletUpperWallRatio:.5,inletLowerWallRatio:2});
- near(b.geometry.cowl,3*a.geometry.cowl);near(b.geometry.lower[1].a[0],3*a.geometry.lower[1].a[0]);near(b.final.M,a.final.M);near(b.geometry.upperWall.a[1],b.geometry.upperWall.b[1]);near(b.geometry.lowerWall.a[1],b.geometry.lowerWall.b[1]);near(b.geometry.upperWall.b[0]-b.geometry.upperWall.a[0],.5*b.geometry.wedgeLength);near(b.geometry.lowerWall.b[0]-b.geometry.lowerWall.a[0],2*b.geometry.wedgeLength);assert.ok(b.geometry.end>=6);
+test('relative lengths scale geometry while wedge segments remain editable',()=>{
+ const a=solveMultiRamp(x()),b=solveMultiRamp({...x(),inletReference:3,inletUpperWallRatio:.5,inletUpperStartRatio:.5});
+ near(b.geometry.cowl,3*a.geometry.cowl);near(b.geometry.lower[1].a[0],3*a.geometry.lower[1].a[0]);near(b.final.M,a.final.M);near(b.geometry.upperWall.a[1],b.geometry.upperWall.b[1]);near(b.geometry.upperWall.b[0]-b.geometry.upperWall.a[0],.5*b.geometry.wedgeLength);near(b.geometry.upperWall.a[0],.5*b.geometry.wedgeLength);
  const c=solveMultiRamp({...x(),inletLowerSegments:[{angle:5,length:.3},{angle:10,length:.3},{angle:15,length:.4}]});assert.equal(c.waves.length,3);assert.equal(Object.keys(c.regions).length,5);
 });
 test('invalid cowl clearance, crossed walls, detached shocks and invalid lengths fail explicitly',()=>{
- for(const patch of [{inletLowerWallRatio:0},{inletUpperWallRatio:-1},{inletHeightRatio:.1},{inletHeightRatio:2},{inletCowlRatio:.1},{inletLowerSegments:[{angle:70,length:1}]},{inletLowerSegments:[{angle:7,length:0}]}])assert.throws(()=>solveMultiRamp({...x(),...patch}));
+ for(const patch of [{inletUpperStartRatio:-1},{inletUpperWallRatio:-1},{inletHeightRatio:.1},{inletHeightRatio:2},{inletCowlRatio:.1},{inletLowerSegments:[{angle:70,length:1}]},{inletLowerSegments:[{angle:7,length:0}]}])assert.throws(()=>solveMultiRamp({...x(),...patch}));
 });
 test('integration exposes ratio editors and only a numbered pressure–theta plot',()=>{
  const d=calculate('wall',x()),plots=plotOptions(d);assert.ok(d.result.multiRamp);assert.equal(plots.length,1);assert.equal(plots[0].chart.markers.length,4);assert.equal(d.shockDetails.length,3);
- const fields=inputDefinitions('wall',x());assert.ok(fields.some(f=>f.key==='inletLowerSegments'));assert.ok(fields.some(f=>f.key==='inletUpperWallRatio'));assert.ok(fields.some(f=>f.key==='inletLowerWallRatio'));assert.ok(!fields.some(f=>f.key==='inletUpperSegments'));assert.ok(!fields.some(f=>f.key==='wallSegments'));
+ const fields=inputDefinitions('wall',x());assert.ok(fields.some(f=>f.key==='inletLowerSegments'));assert.ok(fields.some(f=>f.key==='inletUpperWallRatio'));assert.ok(fields.some(f=>f.key==='inletUpperStartRatio'));assert.ok(!fields.some(f=>f.key==='inletLowerWallRatio'));assert.ok(!fields.some(f=>f.key==='inletUpperSegments'));assert.ok(!fields.some(f=>f.key==='wallSegments'));
  for(const q of ['pressure','mach','temperature','density','speed'])assert.doesNotMatch(multiRampDrawing(d.result,x(),q).svg,/NaN|undefined|Infinity/);
  const r=solveMultiRamp({...x(),inletTerminal:'None'});assert.equal(r.normal,null);assert.equal(Object.keys(r.regions).length,3);
 });
 
-test('horizontal walls accept half/equal/double wedge length and remain independent of wedge breaks',()=>{for(const a of [.5,1,2])for(const b of [.5,1,2]){const r=solveMultiRamp({...x(),inletUpperWallRatio:a,inletLowerWallRatio:b}),g=r.geometry;near(g.upperWall.b[0]-g.upperWall.a[0],a*g.wedgeLength);near(g.lowerWall.b[0]-g.lowerWall.a[0],b*g.wedgeLength);near(g.upperWall.a[0],0);near(g.upperWall.a[1],g.upperWall.b[1]);near(g.lowerWall.a[1],g.lowerWall.b[1]);const svg=multiRampDrawing(r,x()).svg;assert.match(svg,/data-solid="segmented-wedge"/);assert.match(svg,/data-solid="upper-horizontal-wall"/);assert.doesNotMatch(svg,/NaN|undefined|Infinity/);}});
+test('single upper wall length and start are independent and the lower wall is absent',()=>{for(const length of [.5,1,2])for(const start of [0,.5,1]){const x1={...x(),inletUpperWallRatio:length,inletUpperStartRatio:start},r=solveMultiRamp(x1),g=r.geometry;near(g.upperWall.b[0]-g.upperWall.a[0],length*g.wedgeLength);near(g.upperWall.a[0],start*g.wedgeLength);near(g.upperWall.a[1],g.upperWall.b[1]);const svg=multiRampDrawing(r,x1).svg;assert.match(svg,/data-solid="segmented-wedge"/);assert.match(svg,/data-solid="upper-horizontal-wall"/);assert.doesNotMatch(svg,/lower-horizontal-wall|NaN|undefined|Infinity/);}});
 
 test('Example 6–9 in the common inlet mode computes the regular reflected shock without a normal shock',()=>{
  const x={...defaults('wall'),...multiRampPreset},d=calculate('wall',x),r=d.result;
@@ -43,7 +43,7 @@ test('obsolete normal-shock position cannot block a no-normal solution, includin
  const d=calculate('wall',{...defaults('wall'),...multiRampProblemPreset});assert.ok(inputDefinitions('wall',d.inputs).some(f=>f.key==='inletCowlRatio'));
 });
 test('short finite walls still return the incident solution instead of failing a missing-reflection condition',()=>{
- const r=solveMultiRamp({...multiRampPreset,inletUpperWallRatio:.5});assert.equal(r.normal,null);assert.equal(r.reflectionLocation,null);assert.ok(r.regions[2]);assert.match(r.note,/wall ends/);
+ const r=solveMultiRamp({...multiRampPreset,inletUpperWallRatio:.5});assert.equal(r.normal,null);assert.equal(r.reflectionLocation,null);assert.ok(r.regions[2]);assert.match(r.note,/No reflection/);
 });
 test('multi-corner inlet wall solver follows accepted reflections and preserves admissible results',()=>{
  const x={...multiRampPreset,M1:3,inletLowerSegments:[{angle:3,length:.5},{angle:6,length:.5}],inletHeightRatio:.2},r=solveMultiRamp(x);
@@ -51,3 +51,5 @@ test('multi-corner inlet wall solver follows accepted reflections and preserves 
 });
 
 test('a half-length upper wall cutting just beyond a wedge break solves its short final segment',()=>{const x={...multiRampProblemPreset,inletTerminal:'Wall reflections',inletUpperWallRatio:.5},r=solveMultiRamp(x);assert.ok(r.reflectionField.cells.length>0);assert.ok(r.regions[2]);assert.doesNotMatch(multiRampDrawing(r,x).svg,/NaN|undefined|Infinity/);});
+
+test('wall start changes the actual reflection location and does not reflect at the removed upstream wall',()=>{const base=solveMultiRamp(multiRampPreset),late=solveMultiRamp({...multiRampPreset,inletUpperStartRatio:.75}),beyond=solveMultiRamp({...multiRampPreset,inletUpperStartRatio:1});near(base.reflectionLocation,1.3169674970779564);near(late.reflectionLocation,1.5);near(late.regions[3].M,base.regions[3].M);assert.equal(beyond.reflectionLocation,null);near(beyond.final.M,base.regions[2].M);assert.ok(!late.reflectionField.partial);assert.ok(!beyond.reflectionField.partial);});
