@@ -1,3 +1,4 @@
+import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
 import {pressureTurningPlot} from './pressure-turning.js?v=20261115-airfoil-regions';
@@ -15,6 +16,7 @@ import {sonicRelations} from './reference-relations.js?v=20261109-wedge-cone';
 import {linspace,deg,rad,isentropic,isentropicRelations,state,normalShock,obliqueShock,expansion,rayleighRatios,fannoRatios,linearAirfoil} from './physics.js';
 // Each selectable property has its own units and axis. Unavailable states are omitted.
 function basePlotOptions(d,time=.001){
+ if(d.result.multiRamp)return [{key:'multi-inlet-p-theta',label:'Pressure–deflection diagram',chart:multiRampPlot(d.result),note:'θ is absolute to horizontal. A normal shock increases pressure without changing flow direction.'}];
  if(d.result.ramjet)return ramjetPlots(d.result).filter(p=>p.key==='inlet-p-theta');
  if(d.result.ductSystem)return d.result.plots;
  const {id,inputs:x,result:r}=d,g=x.gamma??1.4,R=x.R??287,options=[];
@@ -94,6 +96,6 @@ function basePlotOptions(d,time=.001){
  return options.filter(o=>id!=='normal'||['normal-M','normal-p','normal-rho','normal-T','normal-p0','normal-dsR'].includes(o.key)).filter(o=>o.chart.series.some(s=>s.points.length));
 }
 
-export function plotOptions(d,time=.001){if(d.id==='airfoil'||d.id==='cone'&&d.inputs.bodyGeometry==='Wedge')return [];if(d.id==='collision'||d.result.shockFan||d.result.tracking){let source=d;if(d.result.finalStreamMatch)source={...d,result:d.result.finalStreamMatch};else if(d.result.tracking){const result={...d.result};selectTrackingEvent(result,defaultTrackingEvent(result));source={...d,result};}const turning=pressureTurningPlot(source);return turning?[annotateTurningRegions(source,turning)]:[];}const plots=basePlotOptions(d,time),turning=pressureTurningPlot(d);const expansion=d.id==='expansion'||d.result.simpleCorner&&d.result.cornerKind==='expansion';
+export function plotOptions(d,time=.001){if(d.result.multiRamp)return basePlotOptions(d,time);if(d.id==='airfoil'||d.id==='cone'&&d.inputs.bodyGeometry==='Wedge')return [];if(d.id==='collision'||d.result.shockFan||d.result.tracking){let source=d;if(d.result.finalStreamMatch)source={...d,result:d.result.finalStreamMatch};else if(d.result.tracking){const result={...d.result};selectTrackingEvent(result,defaultTrackingEvent(result));source={...d,result};}const turning=pressureTurningPlot(source);return turning?[annotateTurningRegions(source,turning)]:[];}const plots=basePlotOptions(d,time),turning=pressureTurningPlot(d);const expansion=d.id==='expansion'||d.result.simpleCorner&&d.result.cornerKind==='expansion';
  const formulas={overview:'ν(M) = √((γ+1)/(γ−1)) atan√((γ−1)(M²−1)/(γ+1)) − atan√(M²−1)\nν(M₂) = ν(M₁) + |θ₂ − θ₁|', 'wave-p':'p₂/p₁ = [(1 + (γ−1)M₁²/2)/(1 + (γ−1)M₂²/2)]^(γ/(γ−1))','wave-T':'T₂/T₁ = (1 + (γ−1)M₁²/2)/(1 + (γ−1)M₂²/2)','wave-rho':'ρ₂/ρ₁ = (T₂/T₁)^(1/(γ−1))','wave-p0':'p₀₂/p₀₁ = 1 (isentropic expansion)','wave-speed':'u₂/u₁ = (M₂/M₁) √(T₂/T₁)','pressure-turning':'p/p₁ = [(1 + (γ−1)M₁²/2)/(1 + (γ−1)M(θ)²/2)]^(γ/(γ−1)); ν(M(θ)) − ν(M₁) = |θ − θ₁|'};
  return (turning?[...plots,turning]:plots).filter(p=>!expansion||p.key!=='wave-M'&&!p.key.startsWith('wave-dimensional-')).map(p=>annotateTurningRegions(d,expansion?{...p,formula:formulas[p.key]}:p));}
