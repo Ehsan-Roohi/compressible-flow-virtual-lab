@@ -1,5 +1,5 @@
 {
-  "name": "gas-dynamics-virtual-lab",
+  "name": "compressible-flow-virtual-lab",
   "version": "0.1.0",
   "private": true,
   "type": "module",
