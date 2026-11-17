@@ -1,3 +1,4 @@
+import {finiteTubeFrame,finiteTubeColors} from './finite-tube.js';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
@@ -85,7 +86,27 @@ function basePlotOptions(d,time=.001){
   options.filter(o=>o.key.startsWith('regions-')).forEach(o=>{o.chart.scatter=true;o.note='Independent uniform regions are compared; points do not represent a spatial path.';});
  }else if(id==='tube'){
   let samples, profileNote;
-  if(r.valveClosure){
+  if(r.finiteTube){
+   options.length=0;
+   for(const [property,label,scale,unit] of [['pressure','Pressure',1000,'kPa'],['density','Density',1,'kg/m³']]){
+    const {colors,index,min,max}=finiteTubeColors(r.frames,property),columns=Math.min(120,r.centers.length);
+    const values=r.frames.map(frame=>Array.from({length:columns},(_,i)=>index(frame[property][Math.floor((i+.5)*r.centers.length/columns)])));
+    const title=`${label} map · wave reflections in the x–t plane`;
+    options.push({key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,colors,values}},
+     note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. White lines are first-wave analytical references. The colored field continues through subsequent reflections.`});
+   }
+   if(r.sample>0){
+    const cell=Math.min(r.centers.length-1,Math.floor((r.sample-r.left)/(r.right-r.left)*r.centers.length));
+    add('finite-sample-p','Pressure history at sample','Time t (ms)','p (kPa)',r.frames.map(frame=>[frame.time*1000,frame.pressure[cell]/1000]));
+    options.at(-1).note=`Numerical history at the cell containing x = ${r.sample} m. Sharp fronts span several cells.`;
+   }
+   const frame=finiteTubeFrame(r,time);
+   samples=r.centers.map((x,i)=>{
+    const p=frame.pressure[i],rho=frame.density[i],u=frame.velocity[i],T=p/(rho*R);
+    return [x,{p,rho,u,T,M:Math.abs(u)/Math.sqrt(g*R*T)}];
+   });
+   profileNote=`Numerical cell averages at t = ${(frame.time*1000).toFixed(2)} ms. The diaphragm was at x = 0.`;
+  }else if(r.valveClosure){
    const t=Math.min(1,Math.max(1e-6,time)), shock=-r.speed*t;
    samples=[[shock*1.2,r.upstream],[shock,r.upstream],[shock,r.downstream],[0,r.downstream]];
    options.splice(0,1,...r.plots);
