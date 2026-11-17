@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
 import {calculate,defaults,inputDefinitions} from './labs.js';
 import {chartSVG,sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
@@ -49,13 +51,12 @@ test('Example 7–13 reproduces the first-wave solution and evolves the flow aft
 test('finite geometry is conditional and simulation duration and geometry are validated',()=>{
  const keys=x=>inputDefinitions('tube',x).map(f=>f.key);
  assert.ok(keys(base).includes('finiteEndTime'));
- assert.ok(!keys(base).includes('tubeInitialVelocity'));
+ assert.ok(keys(base).includes('tubeInitialVelocity'));
  assert.ok(!keys(defaults('tube')).includes('finiteEndTime'));
  assert.ok(!keys({...base,unsteadyExperiment:'Two-stage piston'}).includes('tubeDomain'));
  assert.ok(keys(base).every(key=>!/sample/i.test(key)));
  assert.throws(()=>calculate('tube',{...base,finiteEndTime:101}),/100 ms/);
- const short=calculate('tube',{...base,finiteEndTime:2,tubeInitialVelocity:-200});
- assert.equal(short.result.incident.initialVelocity,0);
+ const short=calculate('tube',{...base,finiteEndTime:2});
  assert.equal(short.result.frames.at(-1).time,.002);
  assert.equal(short.chart.series.find(s=>s.name==='Reflected shock').points.length,0);
 });
@@ -138,5 +139,58 @@ test('expansion characteristics are shown in the flow visualization of each tube
   assert.match(finiteTubeDrawing(finite.result,.004).svg,/data-expansion-characteristics="6"/);
   assert.doesNotMatch(finiteTubeDrawing(finite.result,.03).svg,/data-expansion-characteristics/);
   assert.match(sceneSVG(analytical.scene,analytical.inputs,.001,'pressure').svg,/data-expansion-characteristics="6"/);
+ }
+});
+
+test('closed Example 7–7 retains its moving-gas reference and simulates the wall response',()=>{
+ const d=calculate('tube',{...base,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,tubeInitialVelocity:-200,p1:100,T1:300,T4:300});
+ const r=d.result;
+ near(r.incident.shockSpeed,824.9,.001);
+ near(r.incident.u,556.07377,.001);
+ assert.ok(r.frames[0].velocity.every(u=>u===-200));
+ assert.ok(Math.abs(r.frames.at(-1).velocity[0]+200)>50);
+ assert.ok(r.checks.mass<1e-10&&r.checks.energy<1e-10);
+ assert.equal(r.reflected,null);
+});
+
+test('closing the valve retains Example 7–4 shock values and reflects the wave at the upstream piston',()=>{
+ const d=calculate('tube',{...base,unsteadyExperiment:'Sudden valve closure',valveInletSpeed:60,p1:101,T1:300});
+ const r=d.result;
+ assert.ok(r.closedValve&&r.finiteTube);
+ near(r.valveSpeed,325.05014,1e-5);
+ assert.ok(r.frames[0].velocity.every(u=>Math.abs(u-60)<1e-10));
+ assert.ok(r.frames.at(-1).pressure[0]>150000);
+ assert.ok(r.checks.mass<1e-10&&r.checks.energy<1e-10);
+ assert.match(finiteTubeDrawing(r,.004).svg,/Closed valve/);
+});
+
+test('closed Example 7–3 preserves the helium merger result and reaches the wall later',()=>{
+ const d=calculate('tube',{...base,unsteadyExperiment:'Two-stage piston',pistonDomain:'Finite tube · closed far end',
+  gamma:1.667,R:2077,p1:100,T1:300,pistonDelay:1,pistonTubeLength:40000,finiteCells:1200,finiteEndTime:90000});
+ const r=d.result;
+ near(r.initialShocks.mergeTime,31.325464,1e-6);
+ near(d.rows.find(row=>row.label==='Launch shocks merge · analytical position').value,32452.402,.001);
+ assert.equal(r.frames.at(-1).time,90);
+ near(finiteTubeFrame(r,30).pressure.at(-1),100000,1);
+ assert.ok(r.frames.at(-1).pressure.at(-1)>110000);
+ assert.ok(r.checks.mass<1e-10&&r.checks.energy<1e-10);
+});
+
+test('every browser example opens the closed model and the separate demo is gone',()=>{
+ const source=readFileSync(new URL('./app.js',import.meta.url),'utf8');
+ const elements=new Map();
+ const context=vm.createContext({id:'tube',experimentDefaults:defaults,inputs:{},finiteTubeMode,closedPistonMode:'Finite tube · closed far end',
+  valveExperiment:'Sudden valve closure',request:0,
+  $:key=>{if(!elements.has(key))elements.set(key,{});return elements.get(key);},
+  stopAnimation(){},stopSweep(){},renderInputs(){},solve(){}});
+ vm.runInContext(source.slice(source.indexOf('function defaults(id)'),source.indexOf('const $=')),context);
+ vm.runInContext(source.slice(source.indexOf('function renderExamples(){'),source.indexOf('function knownRayleighData')),context);
+ context.renderExamples();
+ assert.doesNotMatch(elements.get('examplesPanel').innerHTML,/closed-piston-demo/);
+ for(const code of ['7–1','7–2','7–3','7–4','7–7','7–12','7–13']){
+  assert.ok(elements.get('examplesPanel').innerHTML.includes(`value="${code}"`));
+  elements.get('exampleSelect').onchange({target:{value:code}});
+  assert.equal(context.inputs.tubeDomain,finiteTubeMode);
+  assert.equal(calculate('tube',context.inputs).result.finiteTube,true);
  }
 });

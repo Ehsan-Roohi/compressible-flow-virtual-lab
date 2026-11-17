@@ -1,4 +1,4 @@
-import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-fan-scene';
+import {finiteTubeFrame,finiteTubeScale} from './finite-tube.js?v=20261117-closed-unsteady';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
@@ -24,7 +24,7 @@ function finiteMapOptions(r){
   const rows=r.frames.map(frame=>Float32Array.from(frame[property],normalize));
   const title=`${label} map · wave reflections in the x–t plane`;
   return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows,leftFractions:r.movingPiston?r.frames.map(frame=>frame.left/r.right):undefined}},
-   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted and dash-dot lines mark the fan’s leading and trailing edges. The flow visualization above marks the six C− positions at the selected time before interactions. Later waves appear in the colored numerical field. '} The horizontal cursor shows the selected time.`};
+   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.closedValve?'The dark sloping boundary is the piston, and the fixed boundary is the closed valve. The white line traces the initial valve shock until it reaches the piston. Later reflections appear in the colored field.':r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':r.referenceEnd===0?'The closed walls produce waves from t = 0 in the moving gas. The colored field shows the resulting waves and interactions.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted and dash-dot lines mark the fan’s leading and trailing edges. The flow visualization above marks the six C− positions at the selected time before interactions. Later waves appear in the colored numerical field. '} The horizontal cursor shows the selected time.`};
  });
  finiteMaps.set(r,options);
  return options;
@@ -103,10 +103,10 @@ function basePlotOptions(d,time=.001){
   if(r.finiteTube){
    options.splice(0,1,...finiteMapOptions(r));
    if(r.movingPiston){
-    const title='Pressure history at the piston and fixed wall';
+    const title=r.closedValve?'Pressure history at the piston and valve':'Pressure history at the piston and fixed wall';
     options.push({key:'piston-wall-pressure',label:title,chart:{title,xlabel:'Time t (ms)',ylabel:'p (kPa)',series:[
      {name:'Cell next to piston',points:r.frames.map(frame=>[frame.time*1000,frame.pressure[0]/1000])},
-     {name:'Cell next to fixed wall',points:r.frames.map(frame=>[frame.time*1000,frame.pressure.at(-1)/1000])}
+     {name:r.closedValve?'Cell next to closed valve':'Cell next to fixed wall',points:r.frames.map(frame=>[frame.time*1000,frame.pressure.at(-1)/1000])}
     ]},note:'Numerical pressure adjacent to each reflecting boundary.'});
    }
    const frame=finiteTubeFrame(r,time);

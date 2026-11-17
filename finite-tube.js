@@ -2,6 +2,7 @@ import {contourColor} from './contour-raster.js?v=20261117-closed-piston';
 import {gas, positive, requireValue} from './numerics.js';
 import {normalShock} from './physics.js';
 import {solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
+import {solveValveClosure} from './valve-closure.js';
 import {solveTube} from './tube-input.js?v=20261117-moving-tube';
 
 export const finiteTubeMode = 'Finite tube · closed ends';
@@ -10,6 +11,7 @@ export const finiteTubeFields = [
  {key:'finiteDriverLength',label:'Driver length · left of diaphragm',value:4,min:.1,max:20,step:.1,unit:'m'},
  {key:'finiteDrivenLength',label:'Driven length · right of diaphragm',value:6,min:.1,max:20,step:.1,unit:'m'},
  {key:'finiteDiameter',label:'Tube diameter',value:.3,min:.01,max:2,step:.01,unit:'m',help:'Sets area and total gas mass. The tube has constant area.'},
+ {key:'finiteValveLength',label:'Initial valve tube length',value:6,min:.1,max:100000,sliderMax:30,step:.1,unit:'m'},
  {key:'finiteEndTime',label:'Simulation end time',value:30,min:1,max:100,step:1,unit:'ms'},
  {key:'finiteCells',label:'Computational cells',value:600,min:160,max:1200,step:20,unit:'cells',help:'Number of cells used to divide the gas along the tube. More cells resolve wave fronts more sharply and take longer to compute.'}
 ];
@@ -48,6 +50,7 @@ function wallReflection(incident,gamma,R){
 function simulate(x,left,right,end,gamma,R,motion){
  const n=x.finiteCells, size=3*n, gm=gamma-1;
  let dx=(right-left)/n, pistonWork=0;
+ const initialVelocity=x.tubeInitialVelocity??0;
  let U=new Float64Array(size), next=new Float64Array(size);
  const flux=new Float64Array(size+3), rho=new Float64Array(n), u=new Float64Array(n);
  const p=new Float64Array(n), a=new Float64Array(n);
@@ -56,7 +59,8 @@ function simulate(x,left,right,end,gamma,R,motion){
  for(let i=0;i<n;i++){
   const fraction=Math.min(1,Math.max(0,-(left+i*dx)/dx));
   U[3*i]=fraction*rhoL+(1-fraction)*rhoR;
-  U[3*i+2]=(fraction*x.p4+(1-fraction)*x.p1)*1000/gm;
+  U[3*i+1]=U[3*i]*initialVelocity;
+  U[3*i+2]=(fraction*x.p4+(1-fraction)*x.p1)*1000/gm+.5*U[3*i]*initialVelocity**2;
  }
  const totals=V=>{
   let mass=0,energy=0;
@@ -65,8 +69,9 @@ function simulate(x,left,right,end,gamma,R,motion){
  };
  const initial=totals(U), frames=[];
  let t=0,steps=0;
- for(let frame=0;frame<=120;frame++){
-  const target=end*(frame/120);
+ const intervals=end>10?300:120;
+ for(let frame=0;frame<=intervals;frame++){
+  const target=end*(frame/intervals);
   while(t<target){
    requireValue(++steps<=40000,'Simulation exceeds the step budget. Reduce the end time or grid resolution.');
    const wallSpeed=motion?(t<motion.delay?motion.speed1:motion.speed2):0;
@@ -144,52 +149,64 @@ function simulate(x,left,right,end,gamma,R,motion){
 }
 
 export function solveFiniteTube(raw){
- const {inputs:x,result:incident}=solveTube({...raw,tubeInitialVelocity:0});
+ const {inputs:x,result:incident}=solveTube(raw);
  const {gamma,R,cp}=gas(x.gamma??1.4,x.R??287);
  for(const [v,label] of [[x.finiteDriverLength,'Driver length'],[x.finiteDrivenLength,'Driven length'],[x.finiteDiameter,'Diameter'],[x.finiteEndTime,'End time']])positive(v,label);
  requireValue(x.finiteEndTime<=100,'Set the simulation end time to 100 ms or less.');
  requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use an integer grid size from 160 to 1200 cells.');
  const left=-x.finiteDriverLength,right=x.finiteDrivenLength,end=x.finiteEndTime/1000;
- const reflected=wallReflection(incident,gamma,R);
- const wallTime=right/incident.shockSpeed, driverWallTime=left/incident.head;
- const contactTime=(right+reflected.speed*wallTime)/(incident.u+reflected.speed);
+ const stationary=incident.initialVelocity===0;
+ const reflected=stationary?wallReflection(incident,gamma,R):null;
+ const wallTime=stationary?right/incident.shockSpeed:null, driverWallTime=stationary?left/incident.head:null;
+ const contactTime=stationary?(right+reflected.speed*wallTime)/(incident.u+reflected.speed):null;
  const domain=simulate(x,left,right,end,gamma,R);
  const trajectory=(name,t0,x0,speed,stop,color,dash)=>{
   const last=Math.min(end,stop);
   return {name,color,legendColor:color==='#fff'?'#627586':color,dash,hideLegend:last<t0,points:last>=t0?[[x0,t0*1000],[x0+(last-t0)*speed,last*1000]]:[]};
  };
- const referenceEnd=Math.min(contactTime,driverWallTime);
+ const referenceEnd=stationary?Math.min(contactTime,driverWallTime):0;
  const chart={title:'Wave reflections · pressure in the x–t plane',xlabel:'Position from diaphragm x (m)',ylabel:'Time t (ms)',
   series:[
    {name:'Domain',hideLegend:true,points:[[left,0],[right,end*1000]],width:0},
-   trajectory('Incident shock',0,0,incident.shockSpeed,Math.min(wallTime,driverWallTime),'#fff'),
+   ...(stationary?[trajectory('Incident shock',0,0,incident.shockSpeed,Math.min(wallTime,driverWallTime),'#fff'),
    trajectory('Contact surface',0,0,incident.u,referenceEnd,'#fff','8 4'),
    trajectory('Reflected shock',wallTime,right,-reflected.speed,referenceEnd,'#fff'),
    trajectory('Expansion head',0,0,incident.head,referenceEnd,'#fff','1 4'),
-   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3')
+   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3')]:[])
   ]};
  const rows=[
   ['Incident shock speed',incident.shockSpeed,'m/s'],['Incident pressure ratio',incident.p2p1,'p₂/p₁'],
   ['Incident temperature ratio',incident.T2/x.T1,'T₂/T₁'],
   ['Incident density ratio',incident.rho2/(x.p1*1000/(R*x.T1)),'ρ₂/ρ₁'],
   ['Contact surface speed',incident.u,'m/s'],['Mach behind incident shock · laboratory',incident.u/Math.sqrt(gamma*R*incident.T2)],
-  ['Reflected shock speed · upstream',reflected.speed,'m/s'],['Reflected shock Mach · relative to zone 2',reflected.mach],
-  ['Reflected pressure ratio',reflected.pressureRatio,'p₅/p₂'],['Pressure behind reflected shock',reflected.p/1000,'kPa'],
-  ['Temperature behind reflected shock',reflected.T,'K'],['Expansion pressure ratio',incident.p/(x.p4*1000),'p₃/p₄'],
+  ['Initial gas velocity · laboratory',incident.initialVelocity,'m/s'],
+  ['Gas velocity behind incident shock',incident.u,'m/s'],['Temperature behind incident shock',incident.T2,'K'],
+  ['Incident shock Mach · relative to upstream gas',incident.Ms],
+  ...(stationary?[
+   ['Reflected shock speed · upstream',reflected.speed,'m/s'],['Reflected shock Mach · relative to zone 2',reflected.mach],
+   ['Reflected pressure ratio',reflected.pressureRatio,'p₅/p₂'],['Pressure behind reflected shock',reflected.p/1000,'kPa'],
+   ['Temperature behind reflected shock',reflected.T,'K']
+  ]:[]),
+  ['Expansion pressure ratio',incident.p/(x.p4*1000),'p₃/p₄'],
   ['Expansion temperature ratio',incident.T3/x.T4,'T₃/T₄'],
   ['Expansion density ratio',incident.rho3/(x.p4*1000/(R*x.T4)),'ρ₃/ρ₄'],
-  ['Incident shock reaches driven wall · estimate',wallTime*1000,'ms'],['Expansion head reaches driver wall',driverWallTime*1000,'ms'],
-  ['Reflected shock meets contact · first-wave estimate',contactTime*1000,'ms'],
+  ...(stationary?[
+   ['Incident shock reaches driven wall · estimate',wallTime*1000,'ms'],['Expansion head reaches driver wall',driverWallTime*1000,'ms'],
+   ['Reflected shock meets contact · first-wave estimate',contactTime*1000,'ms']
+  ]:[]),
   ['Initial gas mass',domain.massPerArea*Math.PI*x.finiteDiameter**2/4,'kg'],
   ['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
  ];
  const h02=(cp*incident.T2+.5*incident.u**2)/1000;
- const h01=cp*x.T1/1000,h05=cp*reflected.T/1000;
+ const h01=(cp*x.T1+.5*incident.initialVelocity**2)/1000;
+ const h05=reflected?cp*reflected.T/1000:0;
  rows.push(
   ['Incident shock · h₀ ahead',h01,'kJ/kg'],['Incident shock · h₀ behind',h02,'kJ/kg'],
   ['Incident shock · Δh₀',h02-h01,'kJ/kg'],
-  ['First reflected shock · h₀ ahead',h02,'kJ/kg'],['First reflected shock · h₀ behind',h05,'kJ/kg'],
-  ['First reflected shock · Δh₀',h05-h02,'kJ/kg']
+  ...(stationary?[
+   ['First reflected shock · h₀ ahead',h02,'kJ/kg'],['First reflected shock · h₀ behind',h05,'kJ/kg'],
+   ['First reflected shock · Δh₀',h05-h02,'kJ/kg']
+  ]:[])
  );
  return {inputs:x,result:{status:'ok',finiteTube:true,left,right,end,gamma,R,cp,incident,reflected,
   wallTime,driverWallTime,contactTime,referenceEnd,chart,...domain},rows};
@@ -199,7 +216,7 @@ export function solveClosedPiston(x){
  const free=solvePistonShocks(x),{gamma,R,cp}=free;
  const length=x.pistonTubeLength;
  positive(length,'Initial piston tube length');positive(x.finiteEndTime,'End time');
- requireValue(x.finiteEndTime<=10000,'Set the piston simulation end time to 10000 ms or less.');
+ requireValue(x.finiteEndTime<=100000,'Set the piston simulation end time to 100000 ms or less.');
  requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use an integer grid size from 160 to 1200 cells.');
  const motion={delay:x.pistonDelay,speed1:x.pistonSpeed1,speed2:x.pistonSpeed2};
  const pistonAt=t=>motion.speed1*Math.min(t,motion.delay)+motion.speed2*Math.max(0,t-motion.delay);
@@ -228,7 +245,11 @@ export function solveClosedPiston(x){
   ['Piston work per tube area',domain.pistonWork/1000,'kJ/m²'],
   ['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
  ];
- if(free.catchTime<=isolatedEnd)rows.splice(2,0,['Launch shocks merge · analytical estimate',free.catchTime*1000,'ms']);
+ if(free.catchTime<=Math.min(firstHit,secondHit))rows.splice(2,0,
+  ['Launch shocks merge · analytical time',free.catchTime,'s'],
+  ['Launch shocks merge · analytical position',free.catchX,'m'],
+  ['Time from second speed increase to merger',free.catchTime-free.delay,'s']);
+ if(isolatedEnd>motion.delay)rows.splice(1,0,['Second shock launch speed',free.second.speed,'m/s']);
  if(firstHit<=isolatedEnd)rows.splice(1,0,['First shock reaches fixed wall · analytical',firstHit*1000,'ms']);
  const h0=s=>(cp*s.T+.5*s.u*s.u)/1000;
  for(const [name,shock] of [['First launch shock',free.first],...(isolatedEnd>motion.delay?[['Second launch shock',free.second]]:[])]){
@@ -239,6 +260,37 @@ export function solveClosedPiston(x){
   motion,initialShocks:{firstSpeed:free.first.speed,secondSpeed:free.second.speed,
    launchX:free.launchX,end:isolatedEnd,mergeTime:free.catchTime<=isolatedEnd?free.catchTime:null},
   stoppedAtGap:end===gapLimit,...domain},rows};
+}
+
+export function solveClosedValve(x){
+ const valve=solveValveClosure(x),{gamma,R,cp}=gas(x.gamma,x.R);
+ const length=x.finiteValveLength;
+ positive(length,'Initial valve tube length');positive(x.finiteEndTime,'End time');
+ requireValue(x.finiteEndTime<=10000,'Set the valve simulation end time to 10000 ms or less.');
+ requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use an integer grid size from 160 to 1200 cells.');
+ const speed=x.valveInletSpeed,motion={delay:0,speed1:speed,speed2:speed};
+ const gapLimit=.9*length/speed,end=Math.min(x.finiteEndTime/1000,gapLimit);
+ const domain=simulate({...x,p4:x.p1,T4:x.T1,tubeInitialVelocity:speed},0,length,end,gamma,R,motion);
+ const encounter=length/(valve.speed+speed),last=Math.min(encounter,end);
+ const chart={title:'Valve closure and wave reflections in the x–t plane',xlabel:'Position from initial piston face x (m)',ylabel:'Time t (ms)',series:[
+  {name:'Domain',hideLegend:true,width:0,points:[[0,0],[length,end*1000]]},
+  {name:'Moving piston',color:'#192737',points:[[0,0],[speed*end,end*1000]]},
+  {name:'Closed valve',color:'#192737',points:[[length,0],[length,end*1000]]},
+  {name:'Valve shock · analytical',color:'#fff',legendColor:'#627586',points:[[length,0],[length-valve.speed*last,last*1000]]}
+ ]};
+ const h0=state=>(cp*state.T+.5*state.u**2)/1000;
+ const before=h0(valve.upstream),after=h0(valve.downstream);
+ const rows=[
+  ['Shock speed · upstream',valve.speed,'m/s'],['Pressure behind shock',valve.downstream.p/1000,'kPa'],
+  ['Temperature behind shock',valve.downstream.T,'K'],['Static temperature ratio',valve.ratios.T,'T₂/T₁'],
+  ['Gas speed behind shock',valve.downstream.u,'m/s'],['Upstream Mach · shock frame',valve.mach],
+  ['Downstream Mach · shock frame',valve.ratios.M2],['Shock pressure ratio',valve.ratios.p,'p₂/p₁'],
+  ['Valve shock · h₀ ahead',before,'kJ/kg'],['Valve shock · h₀ behind',after,'kJ/kg'],['Valve shock · Δh₀',after-before,'kJ/kg'],
+  ['First shock reaches piston · estimate',encounter*1000,'ms'],
+  ['Simulated time',end*1000,'ms'],['Final gas gap',length-speed*end,'m']
+ ];
+ return {inputs:x,result:{status:'ok',finiteTube:true,movingPiston:true,closedValve:true,left:0,right:length,end,gamma,R,cp,chart,
+  valveSpeed:valve.speed,valveEncounter:encounter,motion,stoppedAtGap:end===gapLimit,...domain},rows};
 }
 
 export function finiteTubeFrame(r,time){
@@ -258,6 +310,12 @@ export function finiteTubeScale(frames,property){
 }
 
 function pistonShockMarks(r,t,X){
+ if(r.closedValve){
+  if(t>=r.valveEncounter)return '';
+  const x=X(r.right-r.valveSpeed*t);
+  return `<g data-valve-shock=""><path d="M${x} 77V197" stroke="#20394a" stroke-width="1.25"/>
+  <text x="${x}" y="70" text-anchor="end" fill="#20394a" font-size="11">Valve shock</text></g>`;
+ }
  const shocks=r.initialShocks;
  if(t===0)return '';
  if(t>=shocks.end){
@@ -283,6 +341,6 @@ export function finiteTubeDrawing(r,time){
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
  ${cells}${r.movingPiston?pistonShockMarks(r,frame.time,X):frame.time<r.referenceEnd?expansionContourMarks(r.incident,frame.time,X,105,193):''}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
- <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.movingPiston?'Fixed wall':'Driven wall'}</text>
+ <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};
 }

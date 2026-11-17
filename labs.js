@@ -1,4 +1,4 @@
-import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,expansionRaySpeeds} from './finite-tube.js?v=20261117-fan-scene';
+import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds} from './finite-tube.js?v=20261117-closed-unsteady';
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
@@ -145,18 +145,23 @@ export const labs={
  cone:{chapter:10,title:'Wedge & Cone Lab',tag:'AXISYMMETRIC SIMILARITY',description:'Compare two-dimensional wedge flow with axisymmetric cone flow; inspect shock angles and surface properties.',inputs:[{key:'bodyGeometry',label:'Geometry',value:'Cone',options:['Cone','Wedge','Compare both']},{key:'nearbyWall',label:'Nearby wall',value:'None',options:['None','Below wedge','Above wedge','Both walls']},input('wallDistance','Tip-to-wall distance',1,.001,100,.01,'m'),input('wedgeAlpha','Wedge angle of attack α',0,-20,20,.1,'°'),input('M','Freestream Mach',2,1.2,6,.0001,'M∞'),input('thetaCone','Cone half-angle',10,1,35,.1,'°'),T,P,g],model:'Steady, inviscid, axisymmetric sharp cone · zero angle of attack',equation:'dVᵣ/dθ = Vθ   ·   Vθ(θc) = 0',limitations:'Adaptive RK4 step doubling and a bracketed shock-angle search. Strong branches and detached cones are outside this release. Full book-example acceptance is pending.'}
 };
 function experimentInputs(id,x={}){
- if(id==='tube'&&x.unsteadyExperiment===valveExperiment)return labs.tube.inputs.filter(f=>['unsteadyExperiment','valveInletSpeed','p1','T1'].includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:f);
+ if(id==='tube'&&x.unsteadyExperiment===valveExperiment){
+  const keys=['unsteadyExperiment','valveInletSpeed','p1','T1'];
+  if(x.tubeDomain===finiteTubeMode)keys.push('finiteValveLength','finiteEndTime','finiteCells');
+  return labs.tube.inputs.filter(f=>keys.includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:
+   f.key==='T1'?{...f,label:'Initial gas temperature'}:f.key==='finiteEndTime'?{...f,max:10000,sliderMax:100}:f);
+ }
  if(id==='tube'&&x.unsteadyExperiment===pistonExperiment){
   const closed=x.pistonDomain===closedPistonMode;
   const keys=['unsteadyExperiment','pistonDomain','pistonSpeed1','pistonSpeed2','pistonDelay','p1','T1'];
   if(closed)keys.push('pistonTubeLength','finiteEndTime','finiteCells');
   return labs.tube.inputs.filter(f=>keys.includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:
-   f.key==='finiteEndTime'?{...f,max:10000,sliderMax:100}:f.key==='pistonDelay'&&closed?{...f,step:.001,sliderMax:1}:f);
+   f.key==='finiteEndTime'?{...f,max:100000,sliderMax:Math.max(100,x.finiteEndTime??0)}:f.key==='pistonDelay'&&closed?{...f,step:.001,sliderMax:1}:f);
  }
  if(id==='tube'){
   const finite=x.tubeDomain===finiteTubeMode;
-  return labs.tube.inputs.filter(f=>!['pistonSpeed1','pistonSpeed2','pistonDelay','valveInletSpeed','pistonDomain','pistonTubeLength'].includes(f.key))
-   .filter(f=>finite?f.key!=='tubeInitialVelocity':!f.key.startsWith('finite')).filter(f=>f.key==='p4'?(x.tubeInput??tubeModes[0])===tubeModes[0]:f.key==='driverRatio'?x.tubeInput===tubeModes[1]:f.key==='shockRatio'?x.tubeInput===tubeModes[2]:f.key==='inducedSpeed'?x.tubeInput===tubeModes[3]:true);
+  return labs.tube.inputs.filter(f=>!['pistonSpeed1','pistonSpeed2','pistonDelay','valveInletSpeed','pistonDomain','pistonTubeLength','finiteValveLength'].includes(f.key))
+   .filter(f=>finite||!f.key.startsWith('finite')).filter(f=>f.key==='p4'?(x.tubeInput??tubeModes[0])===tubeModes[0]:f.key==='driverRatio'?x.tubeInput===tubeModes[1]:f.key==='shockRatio'?x.tubeInput===tubeModes[2]:f.key==='inducedSpeed'?x.tubeInput===tubeModes[3]:true);
  }
  if(['rayleigh','fanno'].includes(id)&&(x.ductProblem??'Single duct')!=='Single duct')return systemFields(id,x); 
  const inverseFields=[input('inletT0','Inlet stagnation temperature',350,1,100000,.1,'K'),...(id==='rayleigh'?[input('outletT0','Outlet stagnation temperature',400,1,100000,.1,'K')]:[]),...(x.targetMach===1?[{key:'inletBranch',label:'Inlet branch (sonic outlet)',value:'Subsonic',options:['Subsonic','Supersonic']}]:[])];
@@ -222,15 +227,20 @@ export function nozzleInfo(x){
 export function defaults(id){return {...(id==='wall'?{customInteraction:'',inletSolutionVersion:2,inletReference:2,inletHeightRatio:.5,inletCowlRatio:1,inletTerminal:'Wall reflections',inletLowerSegments:multiRampPreset.inletLowerSegments.map(p=>({...p})),inletUpperWallRatio:1,inletLowerWallRatio:1}:{}),...(id==='wall'?{fanShockAngle:10,fanExpansionAngle:10}:{}),...(id==='wall'?{ramjetOrientation:ramjetOrientations[0]}:{}),...(['fanno','wall','tube'].includes(id)?{bookExample:''}:{}),...stateInputDefaults,...systemDefaults,...Object.fromEntries(labs[id].inputs.map(x=>[x.key,x.value])),...(id==='rayleigh'?{rayleighInput:'Heat transfer + Inlet Mach',targetMach:.8,targetPressure:80}:{}),...(id==='balances'?controlVolumePreset():{}),inletT0:350,outletT0:400,inletBranch:'Subsonic',targetMach:.8,fannoInput:'Friction length',fluid:'Air',gamma:1.4,R:287,...(['oblique','expansion'].includes(id)?{cornerView:'Analytical contours',cornerColorVersion:1}:{})};}
 export function calculate(id,x){
  const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,valveExperiment].includes(x.unsteadyExperiment);
- x=normalizeStateInputs(id,finite?{...x,tubeInitialVelocity:0}:x);
+ x=normalizeStateInputs(id,x);
  const closed=id==='tube'&&x.unsteadyExperiment===pistonExperiment&&x.pistonDomain===closedPistonMode;
- if(finite||closed){
-  const solved=closed?solveClosedPiston(x):solveFiniteTube(x),result=solved.result;
-  const notice=closed?'Reflections are computed at the fixed wall and the moving piston.'+
-   (result.stoppedAtGap?' The solve stops at 10% of the initial gas gap to avoid full closure.':'')+
-   (result.end<result.motion.delay?' The second speed change is after the simulated interval.':''):'First-wave values use the analytical incident and reflected shocks. The numerical profiles and x–t maps include later interactions at both closed walls.';
+ const closedValve=id==='tube'&&x.unsteadyExperiment===valveExperiment&&x.tubeDomain===finiteTubeMode;
+ if(finite||closed||closedValve){
+  const solved=closedValve?solveClosedValve(x):closed?solveClosedPiston(x):solveFiniteTube(x),result=solved.result;
+  const notice=result.movingPiston
+   ?(closedValve?'The upstream piston continues at the initial gas speed after the valve closes. Initial shock values are analytical; the field includes later reflections.':'Reflections are computed at the fixed wall and the moving piston.')+
+    (result.stoppedAtGap?' The solve stops at 10% of the initial gas gap to avoid full closure.':'')+
+    (closed&&result.end<result.motion.delay?' The second speed change is after the simulated interval.':'')
+   :result.incident.initialVelocity===0
+    ?'First-wave values use the analytical incident and reflected shocks. The numerical profiles and x–t maps include later interactions at both closed walls.'
+    :'Incident values describe the analytical diaphragm wave before wall influence. The closed walls also produce waves from t = 0 because the gas starts in motion. The numerical field includes all these waves.';
   return {id,inputs:solved.inputs,gas:gasInfo(x),result,rows:solved.rows.map(([label,value,unit])=>row(label,value,unit)),
-   chart:result.chart,scene:{kind:'finiteTube'},model:closed?'One-dimensional Euler equations · moving piston and reflecting wall':'One-dimensional Euler equations · two reflecting walls',notice,
+   chart:result.chart,scene:{kind:'finiteTube'},model:result.movingPiston?'One-dimensional Euler equations · moving piston and reflecting wall':'One-dimensional Euler equations · two reflecting walls',notice,
    checks:result.checks,shockDetails:[],version:'0.1.0'};
  }
  if(id==='tube'&&x.unsteadyExperiment===valveExperiment){
