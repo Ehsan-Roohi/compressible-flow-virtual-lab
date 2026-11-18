@@ -25,7 +25,7 @@ test('Cp-only models do not offer a density-gradient mode',()=>{
  assert.equal(schlierenView({svg:'<svg><text>No spatial field</text></svg>',field:{options:[]}}),null);
 });
 
-test('all three nozzle views offer the simplified body and shock view',()=>{
+test('all three nozzle views fall back to pressure for a previous schlieren selection',()=>{
  for (const nozzleView of ['Internal flow','External waves','Nozzle + external waves']){
   const inputs={...defaults('nozzle'),areaRatio:3,backRatio:nozzleView==='Internal flow'?.8:.05,nozzleView};
   const data=calculate('nozzle',inputs);
@@ -33,11 +33,9 @@ test('all three nozzle views offer the simplified body and shock view',()=>{
   const image=sceneSVG(data.scene,data.inputs,0,'schlieren');
   assert.equal(density.field.quantity,'density');
   assert.ok(density.field.max>density.field.min);
-  assert.equal(image.field.quantity,'schlieren');
-  assert.match(image.svg,/data-schlieren-outline="true"/);
-  assert.doesNotMatch(image.svg,/nozzleAxialSchlieren|feConvolveMatrix|<text/);
-  assert.equal(image.field.showScale,false);
-  assert.doesNotMatch(image.svg,/NaN|undefined|Infinity/);
+  assert.equal(image.field.quantity,'pressure');
+  assert.ok(!image.field.options.includes('schlieren'));
+  assert.doesNotMatch(image.svg,/data-schlieren-outline/);
  }
 });
 
