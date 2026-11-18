@@ -24,12 +24,17 @@ export function schlierenLayers(svg,palette){
   if(t!==null||isGradient){count++;tag=replaceAttr(tag,'fill',isGradient?c:`rgb(${Array(3).fill(Math.round(255*t)).join(',')})`);}else tag=replaceAttr(tag,'fill','none');
   return replaceAttr(replaceAttr(tag,'stroke','none'),'shape-rendering','crispEdges');
  });
- const overlay=svg.replace(/<(?:path|polygon|rect|circle|ellipse|polyline|line)\b[^>]*>/g,tag=>{const c=tag.match(/\bfill="([^"]+)"/)?.[1];return c&&(coordinate(c)!==null||gradients.has(c.match(/^url\(#([^)]*)\)$/)?.[1]))?replaceAttr(tag,'fill','none'):tag;}).replace(/<text\b[^>]*>/g,tag=>tag.replace(/fill="(?:white|#fff(?:fff)?)"/gi,'fill="#24313c"'));
+ const overlay=svg.replace(/<(?:path|polygon|rect|circle|ellipse|polyline|line)\b[^>]*>/g,tag=>{const c=tag.match(/\bfill="([^"]+)"/)?.[1];return c&&(coordinate(c)!==null||gradients.has(c.match(/^url\(#([^)]*)\)$/)?.[1]))?replaceAttr(tag,'fill','none'):tag;});
  const body=s=>s.replace(/^<svg[^>]*>/,'').replace(/<\/svg>\s*$/,'');
  const density=body(source).replace(/\bid="([^"]+)"/g,'id="schSource-$1"').replace(/url\(#([^)]*)\)/g,'url(#schSource-$1)');
  let foregroundDefs=0;
  const foreground=body(overlay).replace(/<\/?[\w:-]+\b[^>]*>/g,tag=>{if(/^<defs\b/.test(tag)){foregroundDefs++;return tag;}if(/^<\/defs/.test(tag)){foregroundDefs--;return tag;}if(foregroundDefs||!/^<(?:path|polygon|rect|circle|ellipse|polyline)\b/.test(tag))return tag;return replaceAttr(tag,'fill','none');});
- return {density,overlay:body(overlay),foreground,count};
+ const darkenContext=markup=>markup.split(/(<clipPath\b[\s\S]*?<\/clipPath>)/g).map(part=>part.startsWith('<clipPath')?part:part
+  .replace(/\bfill="(?:white|#fff(?:fff)?|#fcfdfc|#f8fbf6|#eef1f2|#edf0f0)"/gi,'fill="#263748"')
+  .replace(/\bstroke="#d3dadd"/gi,'stroke="#46576a"')
+  .replace(/\bstroke="(?:black|#000(?:000)?)"/gi,'stroke="#8bb6c5"')
+  .replace(/<text\b[^>]*>/g,tag=>replaceAttr(tag,'fill','#c8dae8'))).join('');
+ return {density,overlay:darkenContext(body(overlay)),foreground:darkenContext(foreground.replace(/<defs\b[\s\S]*?<\/defs>/g,'')),count};
 }
 export function schlierenView(view){
  const layers=schlierenLayers(view.svg,view.field?.palette);if(!layers.count)return null;
@@ -45,8 +50,8 @@ export function schlierenView(view){
  <feComposite in="ax" in2="ax" operator="arithmetic" k1="1" result="xx"/><feComposite in="ay" in2="ay" operator="arithmetic" k1="1" result="yy"/>
  <feComposite in="xx" in2="yy" operator="arithmetic" k2="1" k3="1" result="sum"/>
  <feComponentTransfer in="sum" result="strength"><feFuncR type="gamma" amplitude="1" exponent="0.5" offset="0"/><feFuncG type="gamma" amplitude="1" exponent="0.5" offset="0"/><feFuncB type="gamma" amplitude="1" exponent="0.5" offset="0"/></feComponentTransfer>
- <feComponentTransfer in="strength" result="grey"><feFuncR type="linear" slope="-1" intercept="1"/><feFuncG type="linear" slope="-1" intercept="1"/><feFuncB type="linear" slope="-1" intercept="1"/></feComponentTransfer>
- <feMorphology in="SourceAlpha" operator="erode" radius="2.5" result="interior"/><feComposite in="grey" in2="interior" operator="in"/>
+ <feComponentTransfer in="strength" result="tone"><feFuncR type="table" tableValues="0.047 0.36"/><feFuncG type="table" tableValues="0.078 0.84"/><feFuncB type="table" tableValues="0.125 0.90"/></feComponentTransfer>
+ <feMorphology in="SourceAlpha" operator="erode" radius="2.5" result="interior"/><feComposite in="tone" in2="interior" operator="in"/>
  </filter>`;
- return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:'Synthetic schlieren |∇ρ|',options:[...new Set([...view.field.options,'schlieren'])],min:0,max:1,units:'relative',palette:['#ffffff','#000000'],note:'White: uniform density; black: strong density changes. Display-space gradient of normalized density with fixed contrast and smoothing; not a dimensional gradient, shock thickness or optical simulation. '+(view.field.note??'')}};
+ return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="#0c1420"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:'Synthetic schlieren |∇ρ|',options:[...new Set([...view.field.options,'schlieren'])],min:0,max:1,units:'relative',palette:['#0c1420','#5cd6e6'],note:'Dark navy: uniform density. Brighter cyan: stronger density changes. Display-space gradient of normalized density with fixed contrast and smoothing; not a dimensional gradient, shock thickness or optical simulation. '+(view.field.note??'')}};
 }
