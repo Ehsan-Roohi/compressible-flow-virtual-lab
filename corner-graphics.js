@@ -8,19 +8,21 @@ export function cornerDrawing(s,inputs,{txt,line,poly,shade,fmt}){
  const x=245,y=shock?242:154,L=Math.min(365,(shock?140:105)/Math.max(1e-12,Math.abs(Math.tan(angle)))),right=x+L;
  const wallY=y-L*Math.tan(angle),domain=[[20,52],[right,52],[right,wallY],[x,y],[20,y]];
  const end=a=>{const dx=Math.cos(a),dy=-Math.sin(a),times=[];if(dx>1e-12)times.push((right-x)/dx);if(dy< -1e-12)times.push((52-y)/dy);if(dy>1e-12)times.push((292-y)/dy);const t=Math.min(...times.filter(t=>t>=0));return [x+t*dx,y+t*dy];};
+ const densityCells=[];
+ const paint=(points,value)=>{if(inputs._cornerQuantity==='density')densityCells.push({points,rho:value,mask:domain});return poly(points,shade(value));};
  const region=(cx,cy,n)=>!shock?txt(cx,cy+5,n,colored?'#ffffff':'#17212b',17,'middle'):`<circle cx="${cx}" cy="${cy}" r="11" fill="${colored?'#ffffff':'#f8fbf6'}" stroke="#263c4d" stroke-width="1.1"/>`+txt(cx,cy+5,n,'#17212b',15,'middle');
  const annotation=colored?'#ffffff':'#263c4d';
  const arc=(a,b,r,label)=>{if(Math.abs(b-a)<1e-7)return '';const points=linspace(a,b,28).map(t=>[x+r*Math.cos(t),y-r*Math.sin(t)]),mid=(a+b)/2;return `<polyline points="${points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${annotation}" stroke-width="1"/>`+txt(x+(r+10)*Math.cos(mid),y-(r+10)*Math.sin(mid)+4,label,annotation,14,'middle');};
  let inner=`<defs><clipPath id="cornerGas"><polygon points="${domain.map(p=>p.join(',')).join(' ')}"/></clipPath></defs>`;
  inner+=`<g clip-path="url(#cornerGas)" data-corner-fluid="true">`;
- if(colored)inner+=poly(domain,shade(inputs._cornerUp));
+ if(colored)inner+=paint(domain,inputs._cornerUp);
  const streamlineColor='#376451';
  // Arrowheads follow the local tangent of each analytical streamline.
  const arrows=points=>{let out='';const lengths=points.slice(1).map((b,i)=>Math.hypot(b[0]-points[i][0],b[1]-points[i][1])),total=lengths.reduce((a,b)=>a+b,0);for(const fraction of [.23,.78]){let distance=total*fraction;for(let i=0;i<lengths.length;i++){const length=lengths[i];if(distance>length){distance-=length;continue;}if(length<1e-9)continue;const a=points[i],b=points[i+1],dx=(b[0]-a[0])/length,dy=(b[1]-a[1])/length,cx=a[0]+dx*distance,cy=a[1]+dy*distance;out+=`<polygon data-stream-arrow="true" points="${cx+4*dx},${cy+4*dy} ${cx-4*dx-2.8*dy},${cy-4*dy+2.8*dx} ${cx-4*dx+2.8*dy},${cy-4*dy-2.8*dx}" fill="${streamlineColor}"/>`;break;}}return out;};
  let waveMarkup='';
  if(shock){
   const e=end(s.beta),m=Math.tan(s.beta);
-  if(colored)inner+=poly([[x,y],e,[right,e[1]],[right,wallY]],shade(inputs._cornerDown));
+  if(colored)inner+=paint([[x,y],e,[right,e[1]],[right,wallY]],inputs._cornerDown);
   for(const h of [24,49,74,99,124,149]){
    const yy=y-h,xs=m>1e-12?x+h/m:Infinity;
    const points=xs<right?[[20,yy],[xs,yy],[right,yy-(right-xs)*Math.tan(turn)]]:[[20,yy],[right,yy]];
@@ -30,7 +32,7 @@ export function cornerDrawing(s,inputs,{txt,line,poly,shade,fmt}){
  }else{
   const samples=linspace(s.M,s.M2,49).map(M=>{const omega=prandtlMeyer(M,g)-s.nu1;return {M,omega,phi:Math.asin(1/M)-omega};});
   let previous=null;
-  if(colored){for(const z of samples){const e=end(z.phi);if(previous){const tr=(1+(g-1)*s.M*s.M/2)/(1+(g-1)*z.M*z.M/2),value=inputs._cornerQuantity==='mach'?z.M:inputs._cornerQuantity==='temperature'?tr:inputs._cornerQuantity==='density'?tr**(1/(g-1)):inputs._cornerQuantity==='speed'?(z.M/s.M)*Math.sqrt(tr):tr**(g/(g-1));inner+=poly([[x,y],previous,e],shade(value));}previous=e;}const tail=end(samples.at(-1).phi);inner+=poly([[x,y],tail,[right,tail[1]],[right,wallY]],shade(inputs._cornerQuantity==='mach'?s.M2:inputs._cornerQuantity==='temperature'?s.T:inputs._cornerQuantity==='density'?s.rho:inputs._cornerQuantity==='speed'?(s.M2/s.M)*Math.sqrt(s.T):s.p));}
+  if(colored){for(const z of samples){const e=end(z.phi);if(previous){const tr=(1+(g-1)*s.M*s.M/2)/(1+(g-1)*z.M*z.M/2),value=inputs._cornerQuantity==='mach'?z.M:inputs._cornerQuantity==='temperature'?tr:inputs._cornerQuantity==='density'?tr**(1/(g-1)):inputs._cornerQuantity==='speed'?(z.M/s.M)*Math.sqrt(tr):tr**(g/(g-1));inner+=paint([[x,y],previous,e],value);}previous=e;}const tail=end(samples.at(-1).phi);inner+=paint([[x,y],tail,[right,tail[1]],[right,wallY]],inputs._cornerQuantity==='mach'?s.M2:inputs._cornerQuantity==='temperature'?s.T:inputs._cornerQuantity==='density'?s.rho:inputs._cornerQuantity==='speed'?(s.M2/s.M)*Math.sqrt(s.T):s.p);}
   for(const h of [22,45,68,91,114]){
    const radius=h/Math.sin(samples[0].phi),points=[[20,y-h]];
    for(const z of samples){const ratio=((1+(g-1)*z.M*z.M/2)/(1+(g-1)*s.M*s.M/2))**((g+1)/(2*(g-1))),r=radius*ratio;points.push([x+r*Math.cos(z.phi),y-r*Math.sin(z.phi)]);}
@@ -58,5 +60,5 @@ export function cornerDrawing(s,inputs,{txt,line,poly,shade,fmt}){
  if(!shock)inner+=`<g data-view-frame="flow-aligned">${txt(120,y-65,`M₁ = ${fmt(s.M,4)}`,annotation,15,'middle')}</g>`;
  else inner+=`<g data-view-frame="flow-aligned"><g data-flow-angle="0">${line(ix,iy,ix+58,iy,'#344e61',1.8)}${poly([[ix+58,iy],[ix+50,iy-4],[ix+50,iy+4]],'#344e61')}</g>${txt(ix+67,iy+5,`M₁ = ${fmt(s.M,4)}`,'#263c4d',15)}`;
  if(shock)inner+='</g>';
- return {inner,label:shock?'Oblique shock · horizontal surface and compression ramp':'Prandtl–Meyer fan · horizontal surface and opening corner',meta:'Flow-aligned view · angles to scale · analytical streamlines'};
+ return {inner,densityCells,label:shock?'Oblique shock · horizontal surface and compression ramp':'Prandtl–Meyer fan · horizontal surface and opening corner',meta:'Flow-aligned view · angles to scale · analytical streamlines'};
 }

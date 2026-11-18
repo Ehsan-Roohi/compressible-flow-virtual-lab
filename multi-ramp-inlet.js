@@ -73,22 +73,25 @@ export function multiRampDrawing(r,x,quantity='pressure',frame=null){
  const q={pressure:['Static pressure','kPa',s=>s.p/1000],mach:['Mach number','M',s=>s.M],temperature:['Static temperature','K',s=>s.T],density:['Density','kg/m³',s=>s.rho],speed:['Flow speed','m/s',s=>s.u]},key=q[quantity]?quantity:'pressure',[label,units,read]=q[key],vals=Object.values(r.regions).map(read),min=frame?.min??Math.min(...vals),max=frame?.max??Math.max(...vals),g=inletDisplayGeometry(r),f=frame??inletFrame([{display:g,sign:1}]),V=p=>[f.ox+p[0]*f.scaleX,f.oy+(f.mirror?1:-1)*p[1]*f.scaleY],color=s=>cornerContourColor((read(s)-min)/(max-min||1));
  const path=p=>p.length<3?'':`M${p.map(V).map(p=>p.map(v=>+v.toFixed(6)).join(',')).join('L')}Z`,poly=(p,fill)=>`<path d="${path(p)}" fill="${fill}"/>`,line=(a,b,c='#101820',width=2)=>`<path d="M${V(a).join(',')} L${V(b).join(',')}" fill="none" stroke="${c}" stroke-width="${width}"/>`,text=(p,t)=>`<text x="${V(p)[0]}" y="${V(p)[1]}" fill="white" font-size="18" font-weight="600" text-anchor="middle">${t}</text>`;
  const half=(p,w,a)=>p[1]-w.origin[1]-Math.tan(a)*(p[0]-w.origin[0]);
+ const densityCells=[],mask=g.domain.map(V);
+ const record=(points,z)=>{if(key==='density')densityCells.push({points:points.map(V),rho:z.rho,mask});};
+ const paint=(points,z)=>{record(points,z);return poly(points,color(z));};
  let content='',cells=[{poly:g.domain,state:r.s1,region:1}];
  if(r.wallReflections){
   cells=[{poly:[[g.start,0],[0,0],[0,g.H],[g.start,g.H]],state:r.s1,region:'1'},...r.reflectionField.cells];
   // Batch adjacent cells in one path per colour, avoiding hairline background seams.
-  const paths=new Map();for(const c of cells){const fill=color(c.state);paths.set(fill,(paths.get(fill)??'')+path(c.poly));}
+  const paths=new Map();for(const c of cells){record(c.poly,c.state);const fill=color(c.state);paths.set(fill,(paths.get(fill)??'')+path(c.poly));}
   for(const [fill,d] of paths)content+=`<path d="${d}" fill="${fill}" shape-rendering="crispEdges"/>`;
  }else{
-  content=poly(g.domain,color(r.s1));
+  content=paint(g.domain,r.s1);
   for(const w of r.waves){if(!w.rays.length)continue;const a=w.rays.at(-1);cells=cells.map(c=>({...c,poly:clipPolygon(c.poly,p=>half(p,w,a))}));const p=clipPolygon(g.domain,p=>-half(p,w,a));cells.push({poly:p,state:w.after,region:w.id});
-   content+=poly(p,color(w.after));
+   content+=paint(p,w.after);
    if(w.kind==='Expansion fan'){
-    const N=100;for(let i=0;i<N;i++){const d=Math.abs(w.turn)*(i+.5)/N,n=expansion(w.before.M,d,r.gamma),s={...state(n.M2,w.before.T*n.T,w.before.p*n.p,r.gamma,r.R),theta:w.before.theta-d},a1=w.before.theta-Math.abs(w.turn)*i/N+Math.asin(1/(i?expansion(w.before.M,Math.abs(w.turn)*i/N,r.gamma).M2:w.before.M)),a2=w.before.theta-Math.abs(w.turn)*(i+1)/N+Math.asin(1/expansion(w.before.M,Math.abs(w.turn)*(i+1)/N,r.gamma).M2);content+=`<g data-expansion-band="${i}">`+poly(clipPolygon(clipPolygon(g.domain,p=>-half(p,w,a1)),p=>half(p,w,a2)),color(s))+'</g>';}
+    const N=100;for(let i=0;i<N;i++){const d=Math.abs(w.turn)*(i+.5)/N,n=expansion(w.before.M,d,r.gamma),s={...state(n.M2,w.before.T*n.T,w.before.p*n.p,r.gamma,r.R),theta:w.before.theta-d},a1=w.before.theta-Math.abs(w.turn)*i/N+Math.asin(1/(i?expansion(w.before.M,Math.abs(w.turn)*i/N,r.gamma).M2:w.before.M)),a2=w.before.theta-Math.abs(w.turn)*(i+1)/N+Math.asin(1/expansion(w.before.M,Math.abs(w.turn)*(i+1)/N,r.gamma).M2);content+=`<g data-expansion-band="${i}">`+paint(clipPolygon(clipPolygon(g.domain,p=>-half(p,w,a1)),p=>half(p,w,a2)),s)+'</g>';}
    }
   }
   const normalSide=p=>(p[0]-g.cowl)*Math.cos(r.pre.theta)+(p[1]-g.H)*Math.sin(r.pre.theta);
-  if(r.normal){for(const c of cells)c.poly=clipPolygon(c.poly,p=>-normalSide(p));const p=clipPolygon([[g.cowl,g.H],[g.end,g.H],[g.end,g.tip[1]],g.shockFoot],normalSide);cells.push({poly:p,state:r.final,region:r.terminalRegion});content+=poly(p,color(r.final));}
+  if(r.normal){for(const c of cells)c.poly=clipPolygon(c.poly,p=>-normalSide(p));const p=clipPolygon([[g.cowl,g.H],[g.end,g.H],[g.end,g.tip[1]],g.shockFoot],normalSide);cells.push({poly:p,state:r.final,region:r.terminalRegion});content+=paint(p,r.final);}
  }
  if(r.wallReflections)for(const w of r.reflectionField.traces)content+=line([w.origin.x,w.origin.y],[w.end.x,w.end.y],w.kind==='Oblique shock'?'black':'#8dc6dd',w.kind==='Oblique shock'?2:.45);
  if(!r.wallReflections)for(const w of r.waves)for(const a of w.rays)content+=line(w.origin,[g.end,w.origin[1]+Math.tan(a)*(g.end-w.origin[0])],w.kind==='Oblique shock'?'black':'#a5d4e8',w.kind==='Oblique shock'?2:.65);
@@ -109,7 +112,7 @@ export function multiRampDrawing(r,x,quantity='pressure',frame=null){
  const clip=f.prefix??'',extent=`Computed field: x ≤ ${g.end.toPrecision(4)} m`,fitNote=f.fitted?'Display axes fitted independently; labelled angles are physical values.':'Geometry shown to scale.';
  const svg=`<svg xmlns="http://www.w3.org/2000/svg" data-custom-wall="inlet" viewBox="0 0 800 ${f.height}" data-display-end="${g.end}" data-scale-x="${f.scaleX}" data-scale-y="${f.scaleY}" role="img" aria-label="Custom multi-ramp ramjet inlet">${frame?'':inletUncomputedBackdrop(f,clip)}<defs><clipPath id="${clip}multiInletGas">${poly(g.domain,'white')}</clipPath></defs><g clip-path="url(#${clip}multiInletGas)">${content}</g>${walls}${frame?'':`<text x="35" y="24" fill="#24313c" font-size="16">M₁ = ${x.M1} · ${extent}</text><text x="35" y="${f.height-10}" fill="#24313c" font-size="14">${fitNote}</text>`}</svg>`;
  const note=[r.wallReflections?r.note:'Sequential compression estimate; wall interactions and diffuser evolution are not included.',r.reflectionField?.partial?'The view ends at the last accepted station; no downstream state is invented.':'',fitNote].filter(Boolean).join(' ')+' Hatched areas are outside the computed flow (including an unmatched trailing-edge wake); they have no reported contour value.';
- return {svg,label:r.wallReflections?'Computed inlet wall-wave field':'Multi-ramp inlet · sequential wave states',meta:r.wallReflections?'Computed regular reflections and supported wave interactions':'Independent wall waves; schematic spatial field',field:{quantity:key,label,min,max,units,options:Object.keys(q),palette:cornerPalette,note},display:{...g,...f}};
+ return {svg,densityCells,label:r.wallReflections?'Computed inlet wall-wave field':'Multi-ramp inlet · sequential wave states',meta:r.wallReflections?'Computed regular reflections and supported wave interactions':'Independent wall waves; schematic spatial field',field:{quantity:key,label,min,max,units,options:Object.keys(q),palette:cornerPalette,note},display:{...g,...f}};
 }
 
 export const inletFlowSides=['Flow above wedge','Flow below wedge','Both sides'];
@@ -137,5 +140,5 @@ function inletSidesDrawing(r,x,quantity){
  const read={pressure:s=>s.p/1000,mach:s=>s.M,temperature:s=>s.T,density:s=>s.rho,speed:s=>s.u},key=read[quantity]?quantity:'pressure',values=Object.values(r.regions).map(read[key]),min=Math.min(...values),max=Math.max(...values);
  const views=parts.map(p=>multiRampDrawing(p.canonical,p.inputs,key,{...frame,mirror:p.sign<0,prefix:p.prefix,min,max}));
  const inner=views.map(v=>v.svg.replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'' )).join(''),fitNote=frame.fitted?'Display axes fitted independently; labelled angles are physical values.':'Geometry shown to scale.';
- return {...views[0],svg:`<svg xmlns="http://www.w3.org/2000/svg" data-custom-wall="inlet" viewBox="0 0 800 ${frame.height}" data-scale-x="${frame.scaleX}" data-scale-y="${frame.scaleY}" role="img" aria-label="${both?'Both wedge sides':'Flow below wedge'} with reflecting walls">${inletUncomputedBackdrop(frame,'shared')}${inner}<text x="35" y="24" fill="#24313c" font-size="17">${both?'Upper (U) and lower (L) flow':'Lower flow (L)'} · M₁ = ${x.M1}</text><text x="35" y="${frame.height-10}" fill="#24313c" font-size="14">${fitNote}</text></svg>`,field:{...views[0].field,min,max,note:r.note+' '+fitNote+' Each side ends at its last computed station; downstream fields are not extrapolated. Hatched areas, including the unmatched wake, are outside the computed flow and carry no contour value.'},display:frame};
+ return {...views[0],densityCells:views.flatMap(v=>v.densityCells),svg:`<svg xmlns="http://www.w3.org/2000/svg" data-custom-wall="inlet" viewBox="0 0 800 ${frame.height}" data-scale-x="${frame.scaleX}" data-scale-y="${frame.scaleY}" role="img" aria-label="${both?'Both wedge sides':'Flow below wedge'} with reflecting walls">${inletUncomputedBackdrop(frame,'shared')}${inner}<text x="35" y="24" fill="#24313c" font-size="17">${both?'Upper (U) and lower (L) flow':'Lower flow (L)'} · M₁ = ${x.M1}</text><text x="35" y="${frame.height-10}" fill="#24313c" font-size="14">${fitNote}</text></svg>`,field:{...views[0].field,min,max,note:r.note+' '+fitNote+' Each side ends at its last computed station; downstream fields are not extrapolated. Hatched areas, including the unmatched wake, are outside the computed flow and carry no contour value.'},display:frame};
 }

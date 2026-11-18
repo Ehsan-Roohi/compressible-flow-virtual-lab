@@ -12,6 +12,8 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
  let min=Infinity,max=-Infinity;for(const row of rows)for(const p of row.parts)for(const z of p.z){const a=get(fittedState(s,z));min=Math.min(min,a);max=Math.max(max,a);}
  if(range){min=range.min;max=range.max;}
  const color=z=>cornerContourColor((get(z)-min)/(max-min||1)),boundary=wall=>[{x:start,y:channelOrdinate(wall,0)},...wall.points.filter(p=>p.x<end-1e-9),{x:end,y:channelOrdinate(wall,end)}],lower=boundary(g.lower),upper=boundary(g.upper),points=p=>p.map(q=>[X(q.x),Y(q.y)]);
+ const densityCells=[];
+ const paint=(points,color,rho,width)=>{if(key==='density')densityCells.push({points,rho});return poly(points,color,color,width);};
  let inner='<rect width="640" height="300" fill="#fcfdfc"/>';
  inner+='<defs><clipPath id="fitted-domain">'+poly([...points(lower),...points(upper.slice().reverse())],'#fff')+'</clipPath></defs>';
  inner+=poly([...points(lower),[X(end),245],[X(start),245]],'#edf0f2')+poly([...points(upper),[X(end),44],[X(start),44]],'#edf0f2');
@@ -23,7 +25,7 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
  for(let i=0;i<rows.length-1;i+=strideX){
   const a=rows[i],b=rows[Math.min(rows.length-1,i+strideX)];if(b.x-a.x<1e-12||a.parts.length!==b.parts.length||a.shock?.id!==b.shock?.id)continue;
   for(let q=0;q<a.parts.length;q++){const p=a.parts[q],r=b.parts[q],N=p.z.length,y=(p,j)=>p.lo+(p.hi-p.lo)*j/(N-1);
-   for(let j=0;j<N-1;j+=strideY){const k=Math.min(N-1,j+strideY),z=fittedState(s,p.z[Math.floor((j+k)/2)]),c=color(z);inner+=poly([[X(a.x),Y(y(p,j))],[X(b.x),Y(y(r,j))],[X(b.x),Y(y(r,k))],[X(a.x),Y(y(p,k))]],c,c,.1);}
+   for(let j=0;j<N-1;j+=strideY){const k=Math.min(N-1,j+strideY),z=fittedState(s,p.z[Math.floor((j+k)/2)]),c=color(z);inner+=paint([[X(a.x),Y(y(p,j))],[X(b.x),Y(y(r,j))],[X(b.x),Y(y(r,k))],[X(a.x),Y(y(p,k))]],c,z.rho,.1);}
   }
  }
  inner+='</g>';
@@ -37,5 +39,5 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
  for(const t of s.moc.traces){const p=t.points;inner+=`<polyline data-fitted-shock="${t.id}" points="${p.map(p=>[X(p.x),Y(p.y)].join(',')).join(' ')}" fill="none" stroke="#000" stroke-width="2"/>`;const m=p[Math.floor(p.length/2)];inner+=txt(X(m.x)+5,Y(m.y)-7,'S'+t.id,'#17212b',12);}
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(X(wall[i].x),Y(wall[i].y),X(wall[i+1].x),Y(wall[i+1].y),'#000',1.5);
  if(last.x<end-1e-8){inner+=line(X(last.x),43,X(last.x),245,'#8e6d42',1.2,'4 4')+txt(616,270,'Partial field · downstream not solved','#8e6d42',12,'end');}
- return {inner,label:'Rotational characteristic field · fitted shocks',meta:'Black: fitted shocks · arrows: flow · refine characteristic resolution',field:{quantity:key,options,label:labels[key],min,max,units:units[key],palette:cornerPalette,note:'Numerical MOC · separate one-sided shock states'}};
+ return {inner,densityCells,label:'Rotational characteristic field · fitted shocks',meta:'Black: fitted shocks · arrows: flow · refine characteristic resolution',field:{quantity:key,options,label:labels[key],min,max,units:units[key],palette:cornerPalette,note:'Numerical MOC · separate one-sided shock states'}};
 }

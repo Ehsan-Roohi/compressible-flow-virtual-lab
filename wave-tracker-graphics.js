@@ -19,9 +19,12 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'}
  let inner=`<rect width="640" height="${height}" fill="#fcfdfc"/>`+txt(24,27,'SHOCK–EXPANSION','#263c4d',14);if(s.finalStreamMatch)inner+=txt(616,27,`Final-stream φ = ${fmt(s.finalStreamMatch.slipAngle,6)}°`,'#263c4d',14,'end');
  inner+=poly([...lower.map(V),[X(end),height-54],[X(start),height-54]],'#edf0f2')+poly([...upper.map(V),[X(end),43],[X(start),43]],'#edf0f2');
  inner+='<defs><clipPath id="tracking-domain">'+poly([...lower.map(V),...upper.slice().reverse().map(V)],'#fff')+'</clipPath></defs><g clip-path="url(#tracking-domain)">';
+ const densityCells=[];
+ if(key==='density')densityCells.push({points:[[X(start),Y(0)],[X(0),Y(0)],[X(0),Y(g.height)],[X(start),Y(g.height)]],rho:s.s1.rho});
  inner+=poly([[X(start),Y(0)],[X(0),Y(0)],[X(0),Y(g.height)],[X(start),Y(g.height)]],color(value(s.s1)));
  const paths=new Map();for(const slab of t.slabs)for(let i=0;i<slab.states.length;i++){
   const bucket=Math.round((max-min<1e-10?.5:(value(slab.states[i])-min)/(max-min))*255),d=`M${point(slab.left,slab.bottoms[i])}L${point(slab.right,slab.tops[i])}L${point(slab.right,slab.tops[i+1])}L${point(slab.left,slab.bottoms[i+1])}Z`;
+  if(key==='density')densityCells.push({points:[[X(slab.left),Y(slab.bottoms[i])],[X(slab.right),Y(slab.tops[i])],[X(slab.right),Y(slab.tops[i+1])],[X(slab.left),Y(slab.bottoms[i+1])]],rho:slab.states[i].rho});
   paths.set(bucket,(paths.get(bucket)??'')+d);
  }
  for(const [bucket,d]of paths)inner+=`<path d="${d}" fill="${cornerContourColor(bucket/255)}" shape-rendering="crispEdges"/>`;
@@ -39,5 +42,5 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'}
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(...V(wall[i]),...V(wall[i+1]),'#111',1.6);
  if(s.limitX!==null)inner+=line(X(t.endX),43,X(t.endX),height-54,'#8e6d42',1,'4 4');
  inner+=txt(24,height-31,`Solved distance from inlet: ${fmt(t.endX,5)} m`,'#53616b',12)+txt(616,height-31,`Channel length: ${fmt(end,5)} m`,'#53616b',12,'end')+txt(24,height-8,t.hasFanApproximation?'Direct relations + approximate fan interactions':'Direct shock relations · inspect events below','#53616b',12);
- return {inner,label:'Attached shocks, expansion fronts and slip-line interactions',meta:'Computed event-driven field · region properties are listed in the table',field:{quantity:key,options,label,min,max,units,note:t.hasFanApproximation?'Direct relations + finite-fan approximation':'Direct shock–expansion states',palette:cornerPalette}};
+ return {inner,densityCells,label:'Attached shocks, expansion fronts and slip-line interactions',meta:'Computed event-driven field · region properties are listed in the table',field:{quantity:key,options,label,min,max,units,note:t.hasFanApproximation?'Direct relations + finite-fan approximation':'Direct shock–expansion states',palette:cornerPalette}};
 }

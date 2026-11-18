@@ -1,24 +1,24 @@
-import {schlierenView} from './schlieren.js?v=20261118-axial-schlieren';
+import {schlierenView} from './schlieren.js?v=20261118-wave-density';
 import {finiteTubeDrawing,finiteTubeFrame,tubeSampleMark} from './finite-tube.js?v=20261118-restore-sample';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
-import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261117-inlet-contour-fit3';
-import {shockFanDrawing} from './shock-fan-example.js?v=20261117-example-numbers';
+import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261118-wave-density';
+import {shockFanDrawing} from './shock-fan-example.js?v=20261118-wave-density';
 import {wedgeWallDrawing} from './wedge-wall.js?v=20261114-region-markers';
-import {ramjetInletDrawing} from './ramjet-inlet-graphics.js?v=20261114-region-markers';
+import {ramjetInletDrawing} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
 import {fannoSystemDrawing} from './fanno-system-graphics.js?v=20261114-region-markers';
 import {ductContourDrawing} from './duct-contours.js?v=20261113-rainbow-physical';
 import {uniformDiagramText} from './diagram-typography.js?v=20261112-diagram-labels';
 import {ductSystemSVG,rayleighBoundarySVG} from './duct-system-graphics.js?v=20261114-region-markers';
 import {coneAnnotations} from './cone-annotations.js?v=20261110-cone-conditions';
 import {wedgeDrawing} from './wedge-graphics.js?v=20261114-region-markers';
-import {trackingDrawing,trackingCoordinates} from './wave-tracker-graphics.js?v=20261115-event-no-numbers';
-import {wallDrawing} from './wave-wall-graphics.js?v=20261114-region-markers';
+import {trackingDrawing,trackingCoordinates} from './wave-tracker-graphics.js?v=20261118-wave-density';
+import {wallDrawing} from './wave-wall-graphics.js?v=20261118-wave-density';
 import {airfoilDrawing} from './airfoil-graphics.js?v=20261115-connected-plates';
 import {coneGeometry} from './cone-probe.js?v=20261110-cone-conditions';
 import {diagramFontFamily,diagramFontStyle} from './diagram-font.js?v=20261109-wedge-cone';
-import {cornerDrawing,cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261114-expansion-labels';
+import {cornerDrawing,cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261118-wave-density';
 import {regionLabelPosition,calloutSlot} from './region-labels.js?v=20261109-wedge-cone';
 import {readableSceneLabels} from './scene-labels.js?v=20261112-diagram-labels';
 import {rad,deg,linspace,prandtlMeyer} from './physics.js?v=20261110-rayleigh-audit';
@@ -109,8 +109,19 @@ if(s.comparison){
  const fields=views.map(v=>v?.field).filter(Boolean),range=fields.length?{min:Math.min(...fields.map(f=>f.min)),max:Math.max(...fields.map(f=>f.max))}:null;
  views=[c.se,c.moc].map(z=>valid(z)?sceneSVG({kind:'wall',...z},{...inputs,comparisonRange:range},time,quantity):null);
  const cards=views.map((v,i)=>{const label=i?'Method of characteristics':'Shock–Expansion';let svg=v?.svg??`<svg viewBox="0 0 640 300">${txt(25,130,'No accepted downstream field')}</svg>`;svg=svg.replace('<svg ','<svg width="640" height="300" ').replaceAll(/id="([^"]+)"/g,(_,id)=>`id="compare${i}-${id}"`).replaceAll(/url\(#([^)]*)\)/g,(_,id)=>`url(#compare${i}-${id})`);return `<g transform="translate(${i*640},30)">${txt(320,-8,label,undefined,17,'middle')}${svg}</g>`;}).join('');
- return {label:'Shock–Expansion vs method of characteristics',meta:'Same geometry and color scale · quantitative comparison uses only the common accepted domain',field:fields.length?{...fields[0],...range,note:'Shared range across both accepted fields'}:null,svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 330" role="img" aria-label="Two methods on the same geometry">${diagramFontStyle}${cards}</svg>`};
- }let inner='',label='Schematic geometry · analytical states',meta='Ideal gas · no CFD',field=null,nozzleAxial=null;
+ const densityCells=views.flatMap((v,i)=>{
+  const box=v?.svg.match(/\bviewBox="([^"]+)"/)?.[1].split(/\s+/).map(Number);
+  if(!box)return [];
+  const [x0,y0,w,h]=box,scale=Math.min(640/w,300/h);
+  const translate=points=>points.map(([x,y])=>[i*640+(640-w*scale)/2+(x-x0)*scale,30+(300-h*scale)/2+(y-y0)*scale]);
+  const masks=new Map();
+  return (v?.densityCells??[]).map(c=>{
+   if(c.mask&&!masks.has(c.mask))masks.set(c.mask,translate(c.mask));
+   return {...c,points:translate(c.points),mask:masks.get(c.mask)};
+  });
+ });
+ return {densityCells,label:'Shock–Expansion vs method of characteristics',meta:'Same geometry and color scale · quantitative comparison uses only the common accepted domain',field:fields.length?{...fields[0],...range,note:'Shared range across both accepted fields'}:null,svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 330" role="img" aria-label="Two methods on the same geometry">${diagramFontStyle}${cards}</svg>`};
+ }let inner='',label='Schematic geometry · analytical states',meta='Ideal gas · no CFD',field=null,nozzleAxial=null,densityCells=null;
  const f=regionalField(s,inputs,quantity);quantity=f.key;const vals=f.values.filter(Number.isFinite),lo=Math.min(...vals),hi=Math.max(...vals),shade=v=>(['oblique','expansion','collision'].includes(s.kind)?cornerContourColor:contourColor)(hi-lo<1e-14?.5:(v-lo)/(hi-lo));if(vals.length)field={quantity,options:f.options,label:quantity==='cp'?'Surface pressure coefficient':quantity,units:f.units,min:lo,max:hi,note:f.note};
  const W=640,H=s.kind==='wall'&&s.tracking?trackingCoordinates(s).height:300;let flow=(angle=0)=>{let r='';for(let y of [85,125,165,205])r+=directedArrow(27,y,56,angle,'#ffffff');return r;};
  if(s.kind==='balance'){
@@ -131,7 +142,13 @@ if(s.comparison){
  else if(s.kind==='normal'){inner+=poly([[20,70],[315,70],[315,230],[20,230]],'#d8e8e6')+poly([[315,70],[620,70],[620,230],[315,230]],'#eddfca');inner+=flow()+line(315,53,315,245,'#000000',3)+txt(315,45,'NORMAL SHOCK','#17383b',11,'middle');inner+=txt(110,118,'UPSTREAM','#17383b',9)+txt(110,151,`M₁ = ${fmt(s.s1.M)}`,'#17383b',22)+txt(110,184,`p₁ = ${fmt(s.s1.p/1000)} kPa`,'#17383b',12)+txt(375,118,'DOWNSTREAM','#17383b',9)+txt(375,151,`M₂ = ${fmt(s.s2.M)}`,'#17383b',22)+txt(375,184,`p₂ = ${fmt(s.s2.p/1000)} kPa`,'#17383b',12);label='Uniform analytical regions · pressure jump';}
  else if(s.kind==='duct'){inner+=poly([[40,85],[600,85],[600,215],[40,215]],'#e5efe2');if(s.s2){inner+=poly([[40,86],[320,86],[320,214],[40,214]],['rayleigh','fanno'].includes(s.process)?'#d8e8e6':shade(f.values[0]))+poly([[320,86],[600,86],[600,214],[320,214]],['rayleigh','fanno'].includes(s.process)?'#eddfca':shade(f.values[1]));inner+=txt(68,130,'INLET',undefined,9)+txt(68,158,`M₁ = ${fmt(s.s1.M)}`,undefined,19)+txt(398,130,'OUTLET',undefined,9)+txt(398,158,`M₂ = ${fmt(s.s2.M)}`,undefined,19);for(let x=90;x<590;x+=80)inner+=arrow(x,187,35)+dot(x+10,187,x);if(s.process==='rayleigh'){for(let x=220;x<420;x+=42)inner+=line(x,44,x,77,'#cb9b60',1.4)+((s.q??inputs.q)>=0?poly([[x,79],[x-3,73],[x+3,73]],'#cb9b60'):poly([[x,42],[x-3,48],[x+3,48]],'#cb9b60'));inner+=txt(320,33,`${(s.q??inputs.q)>=0?'HEATING':'COOLING'}  q = ${fmt(s.q??inputs.q)} kJ/kg`,'#a77944',10,'middle');}else inner+=txt(320,50,`WALL FRICTION · fᴅL/D = ${fmt(inputs.lambda)}`,'#8a7862',10,'middle');label='Illustration of endpoint states · shading is schematic';}else inner+=txt(320,152,'NO STEADY OUTLET FOR THIS INLET','#a3784c',14,'middle');inner+=line(40,85,600,85,'#819a85',3)+line(40,215,600,215,'#819a85',3);}
  else if(s.kind==='oblique'||s.kind==='expansion'){
-  const view=cornerDrawing(s,{...inputs,_cornerQuantity:quantity,_cornerUp:f.values[0],_cornerDown:f.values.at(-1)},{txt,line,poly,shade,fmt});inner+=s.mirrorCorner?`<g transform="translate(0 300) scale(1 -1)">${view.inner.replace(/<text ([^>]*?)x="([^"]+)" y="([^"]+)"([^>]*)>/g,(_,pre,x,y,post)=>`<text ${pre}x="${x}" y="${y}"${post} transform="translate(${x} ${y}) scale(1 -1) translate(${-Number(x)} ${-Number(y)})">`)}</g>`:view.inner;label=view.label;meta=view.meta;
+  const view=cornerDrawing(s,{...inputs,_cornerQuantity:quantity,_cornerUp:f.values[0],_cornerDown:f.values.at(-1)},{txt,line,poly,shade,fmt});if(view.densityCells.length){
+   const mirror=points=>points.map(([x,y])=>[x,300-y]);
+   const mask=view.densityCells[0].mask;
+   densityCells=s.mirrorCorner?view.densityCells.map(c=>({...c,points:mirror(c.points),mask:null})):view.densityCells;
+   if(s.mirrorCorner){const mirroredMask=mirror(mask);for(const cell of densityCells)cell.mask=mirroredMask;}
+  }
+  inner+=s.mirrorCorner?`<g transform="translate(0 300) scale(1 -1)">${view.inner.replace(/<text ([^>]*?)x="([^"]+)" y="([^"]+)"([^>]*)>/g,(_,pre,x,y,post)=>`<text ${pre}x="${x}" y="${y}"${post} transform="translate(${x} ${y}) scale(1 -1) translate(${-Number(x)} ${-Number(y)})">`)}</g>`:view.inner;label=view.label;meta=view.meta;
   if(inputs.cornerView==='Textbook schematic')field=null;
  }
  else if(s.kind==='nozzle'){
@@ -224,12 +241,13 @@ if(s.comparison){
   inner+=poly([[35,92],[X(head),92],[X(head),213],[35,213]],shade(inputs.p4*1000));for(let i=0;i<50;i++){let a=head+(tail-head)*i/50,b=head+(tail-head)*(i+1)/50,xi=(a+b)/(2*time)-(s.initialVelocity??0),sound=2*s.a4/(inputs.gamma+1)-(inputs.gamma-1)*xi/(inputs.gamma+1),pressure=inputs.p4*1000*(sound/s.a4)**(2*inputs.gamma/(inputs.gamma-1));inner+=poly([[X(a),92],[X(b),92],[X(b),213],[X(a),213]],shade(pressure)).replace('<polygon ','<polygon data-expansion-band ');}inner+=poly([[X(tail),92],[X(shock),92],[X(shock),213],[X(tail),213]],shade(s.p))+poly([[X(shock),92],[605,92],[605,213],[X(shock),213]],shade(inputs.p1*1000));for(let [x,name,col,dash] of [[head,'head','#7a9a80',''],[tail,'tail','#7a9a80',''],[contact,'contact','#62858e','5 4'],[shock,'shock','#000000','']]){inner+=line(X(x),83,X(x),223,col,1.5,dash)+txt(X(x),name==='contact'?250:69,name,col,9,'middle');}inner+=line(35,92,605,92,'#819783',2)+line(35,213,605,213,'#819783',2)+txt(320,34,`t = ${fmt(time*1000,3)} ms · before wall reflection`,undefined,11,'middle')+txt(320,162,`u₂ = u₃ = ${fmt(s.u)} m/s`,'#ffffff',14,'middle')+txt(35,281,`x = ${fmt(xmin)} m`,undefined,9)+txt(605,281,`x = ${fmt(xmax)} m`,undefined,9,'end');if(s.closedBounds)inner+=line(35,92,35,213,'#20394a',2)+line(605,92,605,213,'#20394a',2);
   if(s.sample!=null)inner+=tubeSampleMark(X(s.sample),92,213);
   label='Analytical similarity field · pressure shading';meta='Expansion fan + uniform regions';}
- else if(s.kind==='wall'){const view=(s.tracking?trackingDrawing:wallDrawing)(s,{txt,line,poly,fmt,quantity,range:inputs.comparisonRange,showCharacteristics:inputs.mocLines!=='Hidden'});inner+=view.inner;label=view.label;meta=view.meta;field=view.field;}
+ else if(s.kind==='wall'){const view=(s.tracking?trackingDrawing:wallDrawing)(s,{txt,line,poly,fmt,quantity,range:inputs.comparisonRange,showCharacteristics:inputs.mocLines!=='Hidden'});inner+=view.inner;label=view.label;meta=view.meta;field=view.field;densityCells=view.densityCells;}
  else if(s.kind==='airfoil'){const view=airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity});inner+=view.inner;label=view.label;meta=view.meta;field=view.field;}
  else if(s.kind==='linear'){let t=inputs.thickness*440/2,x=90,y=150;inner+=poly([[x,y],[x+220,y-t],[x+440,y],[x+220,y+t]],'#b4c7ad','#66806a',2);for(const [a,b,v] of [[[x,y],[x+220,y-t],s.CpUF],[[x+220,y-t],[x+440,y],s.CpUR],[[x,y],[x+220,y+t],s.CpLF],[[x+220,y+t],[x+440,y],s.CpLR]])inner+=line(...a,...b,shade(v),9);inner+=incidenceGlyph(rad(inputs.alpha??0),20,150,60)+txt(320,65,`UPPER  Cₚ,f ${fmt(s.CpUF)}   Cₚ,r ${fmt(s.CpUR)}`,undefined,11,'middle')+txt(320,234,`LOWER  Cₚ,f ${fmt(s.CpLF)}   Cₚ,r ${fmt(s.CpLR)}`,undefined,11,'middle')+txt(320,267,`α = ${inputs.alpha}° · t/c = ${inputs.thickness}`,undefined,10,'middle');label='Linearized surface Cp · specified angle of attack';meta='Body-fixed chord · incident arrows at α · linearized theory';}
  else if(s.kind==='collision'){
   const z=s.geometry,points=z.domain,x0=z.startX,x1=z.endX,y0=Math.min(...points.map(p=>p[1])),y1=Math.max(...points.map(p=>p[1])),scale=Math.min(500/(x1-x0),190/(y1-y0));
   const ox=285-(x0+x1)*scale/2,oy=153+(y0+y1)*scale/2,V=([x,y])=>[ox+x*scale,oy-y*scale];
+  if(quantity==='density')densityCells=z.fields.map(c=>({points:c.poly.map(V),rho:c.state.rho}));
   for(const c of z.fields){const color=shade(f.read(c.state));inner+=poly(c.poly.map(V),color,color,.35);}
   for(const wall of Object.values(z.walls))for(let i=1;i<wall.length;i++)inner+=line(...V(wall[i-1]),...V(wall[i]),'#52616c',3);
   for(const w of z.incident)inner+=line(...V(w.origin),...V(w.end),'#000000',2.2);
@@ -261,7 +279,7 @@ if(s.comparison){
  if(s.kind!=='airfoil'&&(s.kind!=='expansion'||inputs.cornerView==='Textbook schematic'))inner=readableSceneLabels(inner);
  if(s.kind==='cone')inner+='<circle id="fieldProbePoint" r="3.5" fill="#17212b" stroke="white" stroke-width="1.5" visibility="hidden" pointer-events="none"/>';
  if(field){if(['oblique','expansion','collision'].includes(s.kind))field.palette=cornerPalette;field.options??=f.options;field.note??='Range scaled to this solution';}
- return {label,meta,field,nozzleAxial,svg:`<svg xmlns="http://www.w3.org/2000/svg" ${s.tracking?'data-custom-wall="true"':''} viewBox="${s.kind==='state'?'0 65 640 170':`0 0 ${W} ${H}`}" role="img" aria-label="${esc(label)}"><title>${esc(label)}</title>${diagramFontStyle}<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e4ece1" stroke-width=".5"/></pattern></defs><rect width="640" height="${H}" fill="#f8fbf6"/><rect width="640" height="${H}" fill="url(#grid)"/>${inner}</svg>`};
+ return {label,meta,field,nozzleAxial,densityCells,svg:`<svg xmlns="http://www.w3.org/2000/svg" ${s.tracking?'data-custom-wall="true"':''} viewBox="${s.kind==='state'?'0 65 640 170':`0 0 ${W} ${H}`}" role="img" aria-label="${esc(label)}"><title>${esc(label)}</title>${diagramFontStyle}<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e4ece1" stroke-width=".5"/></pattern></defs><rect width="640" height="${H}" fill="#f8fbf6"/><rect width="640" height="${H}" fill="url(#grid)"/>${inner}</svg>`};
 }
 function chartHeatmap(map,X,Y){
  if(!map)return '';

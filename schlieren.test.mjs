@@ -18,7 +18,7 @@ test('Signed vertical Sobel gradient uses mid-gray and masks domain edges',()=>{
 });
 test('schlieren is available on supported density fields and changes the inlet scene without changing states',()=>{
  const x={...defaults('wall'),...multiRampPreset,inletFlowSide:'Both sides'},d=calculate('wall',x),before=JSON.stringify(d.result.regions),normal=sceneSVG(d.scene,x,0,'pressure'),v=sceneSVG(d.scene,x,0,'schlieren');
- assert.ok(normal.field.options.includes('schlieren'));assert.equal(v.field.quantity,'schlieren');assert.match(v.svg,/data-schlieren="true"/);assert.match(v.svg,/>U2<\/text>/);assert.match(v.svg,/>L2<\/text>/);assert.equal(JSON.stringify(d.result.regions),before);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);
+ assert.ok(normal.field.options.includes('schlieren'));assert.equal(v.field.quantity,'schlieren');assert.match(v.svg,/data-density-schlieren="resolved-samples"/);assert.doesNotMatch(v.svg,/feConvolveMatrix/);assert.match(v.svg,/>U2<\/text>/);assert.match(v.svg,/>L2<\/text>/);assert.equal(JSON.stringify(d.result.regions),before);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);
 });
 test('Cp-only models do not offer a density-gradient mode',()=>{
  const x={...defaults('airfoil'),airfoilMethod:'Linearized theory'},d=calculate('airfoil',x),v=sceneSVG(d.scene,x,0,'pressure');assert.ok(!v.field?.options.includes('density'));assert.ok(!v.field?.options.includes('schlieren'));
@@ -44,4 +44,13 @@ test('all three nozzle views use density for schlieren, with axial sensitivity i
   assert.match(image.svg,new RegExp('result="'+({'Internal flow':'dx','External waves':'dy','Nozzle + external waves':'diagonal'}[nozzleView])+'"'));
   assert.doesNotMatch(image.svg,/NaN|undefined|Infinity/);
  }
+});
+
+test('numerical schlieren shows signed density jumps and ignores masked edges',()=>{
+ const triangle=(y,rho)=>({points:[[0,y],[20,y],[20,y+10],[0,y+10]],rho});
+ const base=simple(),paint=(cells)=>schlierenView({...base,densityCells:cells}).svg.match(/<g data-density-schlieren[\s\S]*?<\/g>/)[0];
+ assert.doesNotMatch(paint([triangle(0,2),triangle(10,2)]),/rgb\((?!144,)/);
+ assert.match(paint([triangle(0,2),triangle(10,1)]),/rgb\(28,28,28\)/);
+ assert.match(paint([triangle(0,1),triangle(10,2)]),/rgb\(232,232,232\)/);
+ assert.doesNotMatch(paint([triangle(0,1),triangle(13,2)]),/rgb\((?!144,)/);
 });

@@ -1,3 +1,4 @@
+import {densitySchlierenMarkup} from './density-schlieren.js?v=20261118-wave-density';
 // Synthetic, display-space signed vertical density gradient. No optical ray tracing
 // and no physical shock thickness are inferred from the piecewise inviscid field.
 const ramps=[['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'],['#1834b8','#007fff','#00c9e8','#20c75a','#e6e529','#ff961f','#db2525']];
@@ -48,7 +49,9 @@ export function schlierenView(view,direction='vertical',{lightSurround=false}={}
   diagonal:{kernel:'0 -2 -2 2 0 -2 2 2 0',divisor:16,result:'diagonal',label:'diagonal'},
   vertical:{kernel:'-1 -2 -1 0 0 0 1 2 1',divisor:8,result:'dy',label:'vertical'},
  }[direction];
- const layers=schlierenLayers(view.svg,view.field?.palette,{lightSurround});if(!layers.count)return null;
+ const layers=schlierenLayers(view.svg,view.field?.palette,{lightSurround});
+ const sampled=densitySchlierenMarkup(view.svg,view.densityCells??[]);
+ if(!layers.count&&!sampled)return null;
  const root=view.svg.match(/^<svg[^>]*>/)?.[0];if(!root)return null;
  // The Sobel kernel projects the signed gradient onto the selected direction.
  // Alpha erosion suppresses false gradients at the fluid mask.
@@ -62,5 +65,5 @@ export function schlierenView(view,direction='vertical',{lightSurround=false}={}
  </feComponentTransfer>
  <feMorphology in="SourceAlpha" operator="erode" radius="2.5" result="interior"/><feComposite in="tone" in2="interior" operator="in"/>
  </filter>`;
- return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="${lightSurround?'#f2f5f0':'#909090'}"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${view.nozzleAxial??''}${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:view.nozzleAxial?'Synthetic schlieren · axial density gradient inside nozzle':`Synthetic schlieren · signed ${sensitivity.label} density gradient`,options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:(view.nozzleAxial?`Inside nozzle: signed axial derivative of the solved density samples, with separate relative contrast. ${direction==='diagonal'?'Outside nozzle: signed diagonal density gradient. ':''}Mid-gray indicates zero gradient. `:`Mid-gray: uniform density. Light and dark indicate opposite signs of the ${sensitivity.label} density gradient. Relative display contrast. `)+(view.field.note??'')}};
+ return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="${lightSurround?'#f2f5f0':'#909090'}"/>${layers.overlay}${sampled||`<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>`}${view.nozzleAxial??''}${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:view.nozzleAxial?'Synthetic schlieren · axial density gradient inside nozzle':`Synthetic schlieren · signed ${sensitivity.label} density gradient`,options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:(sampled?'Signed vertical density differences sampled from the solved states. Mid-gray indicates zero gradient. Relative display contrast. ':view.nozzleAxial?`Inside nozzle: signed axial derivative of the solved density samples, with separate relative contrast. ${direction==='diagonal'?'Outside nozzle: signed diagonal density gradient. ':''}Mid-gray indicates zero gradient. `:`Mid-gray: uniform density. Light and dark indicate opposite signs of the ${sensitivity.label} density gradient. Relative display contrast. `)+(view.field.note??'')}};
 }
