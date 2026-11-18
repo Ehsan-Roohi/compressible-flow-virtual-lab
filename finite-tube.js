@@ -419,13 +419,13 @@ function resolvedShockMarks(r,frame,X){
 function pistonShockMarks(r,t,X){
  if(r.sinusoidal){
   const velocity=sinusoidalVelocity(r.motion,t),position=sinusoidalPosition(r.motion,t);
-  return `<text x="320" y="60" text-anchor="middle" font-size="11">Piston · u = ${velocity.toFixed(2)} m/s · x = ${position.toFixed(4)} m</text>`;
+  return `<text x="320" y="245" text-anchor="middle" font-size="11">Piston · u = ${velocity.toFixed(2)} m/s · x = ${position.toFixed(4)} m</text>`;
  }
  if(r.closedValve){
   if(t>=r.valveEncounter)return '';
   const x=X(r.right-r.valveSpeed*t);
   return `<g data-valve-shock=""><path d="M${x} 77V197" stroke="#20394a" stroke-width="1.25"/>
-  <text x="${x}" y="70" text-anchor="end" fill="#20394a" font-size="11">Valve shock</text></g>`;
+  <text x="${x}" y="70" text-anchor="end" fill="#20394a" font-size="11">Valve shock ←</text></g>`;
  }
  const shocks=r.initialShocks;
  if(t===0)return '';
@@ -436,7 +436,7 @@ function pistonShockMarks(r,t,X){
  const marker=(position,number,offset)=>{
   const x=X(position),labelX=Math.max(29,Math.min(611,x+offset));
   return `<g data-launch-shock="${number}"><path d="M${labelX} 59L${x} 85V197" fill="none" stroke="#20394a" stroke-width="1.25"/>
-  <text x="${labelX}" y="55" text-anchor="middle" fill="#20394a" font-size="11">Shock ${number}</text></g>`;
+  <text x="${labelX}" y="55" text-anchor="middle" fill="#20394a" font-size="11">Shock ${number} →</text></g>`;
  };
  const first=marker(shocks.firstSpeed*t,1,16);
  return t<r.motion.delay?first:first+marker(shocks.launchX+shocks.secondSpeed*(t-r.motion.delay),2,-16);
@@ -462,31 +462,44 @@ function initialTubePressure(r,t,X,color){
  return band(r.left,head,driverPressure)+expansion.join('')+band(tail,shock,incident.p)+band(shock,r.right,drivenPressure);
 }
 
-function reflectedExpansionFan(r,frame,X,color){
- if(r.movingPiston||r.driverWallTime==null||frame.time<=r.driverWallTime)return '';
- const {pressure,density,velocity}=frame,n=pressure.length;
- const dx=(r.right-frame.left)/n,bands=[];
- // The right-running family can overlap the incoming expansion.
- // Project the local slope onto the right-running acoustic family.
+function expansionArrow(X,left,right,direction,label,y=51){
+ const x=X((left+right)/2),labelX=Math.max(90,Math.min(550,x));
+ const start=x-12*direction,tip=x+12*direction,back=tip-5*direction;
+ return `<g data-wave-direction="${direction}"><path d="M${labelX} ${y+4}L${x} 75 M${start} 84H${tip} M${back} 80L${tip} 84L${back} 88" fill="none" stroke="#111" stroke-width="1.5"/>
+ <text x="${labelX}" y="${y}" text-anchor="middle" font-size="11" fill="#111">${label} ${direction>0?'→':'←'}</text></g>`;
+}
+
+function numericalExpansionFans(r,frame,X,color){
+ if(frame.time<=0)return '';
+ const {pressure,density,velocity}=frame,n=pressure.length,dx=(r.right-frame.left)/n;
+ const families=[[],[]];
  for(let i=1;i<n;i++){
   const dp=pressure[i]-pressure[i-1],du=velocity[i]-velocity[i-1];
   const rho=(density[i]+density[i-1])/2,a=Math.sqrt(r.gamma*(pressure[i]+pressure[i-1])/(2*rho));
-  if((dp+rho*a*du)/pressure[i]<.0003)continue;
-  if(bands.at(-1)?.end===i-1)bands.at(-1).end=i;
-  else bands.push({start:i-1,end:i});
+  const u=(velocity[i]+velocity[i-1])/2;
+  // Project onto each acoustic family, so overlapping fans can be marked independently.
+  for(const [index,sign] of [[0,-1],[1,1]]){
+   const strength=(sign*dp+rho*a*du)/pressure[i];
+   if(strength<(r.sinusoidal?.000025:.0003))continue;
+   const direction=Math.sign(u+sign*a);
+   if(!direction)continue;
+   const bands=families[index],previous=bands.at(-1);
+   if(previous?.end===i-1&&previous.direction===direction){previous.end=i;previous.strength+=strength;}
+   else bands.push({start:i-1,end:i,direction,strength});
+  }
  }
- return bands.filter(({start,end})=>end-start>=5).slice(0,1)
-  .map(({start,end})=>{
+ return families.flat().filter(({start,end,strength})=>end-start>=5&&strength>=(r.sinusoidal?.001:.004))
+  .sort((a,b)=>a.start-b.start)
+  .map(({start,end,direction},index)=>{
    const left=frame.left+(start+.5)*dx,right=frame.left+(end+.5)*dx;
    const stripes=Array.from({length:50},(_,i)=>{
     const a=X(left+(right-left)*i/50),b=X(left+(right-left)*(i+1)/50);
-    const position=start+(end-start)*(i+.5)/50;
-    const j=Math.floor(position),p=pressure[j]+(position-j)*(pressure[j+1]-pressure[j]);
+    const position=start+(end-start)*(i+.5)/50,j=Math.floor(position);
+    const p=pressure[j]+(position-j)*(pressure[j+1]-pressure[j]);
     return `<polygon points="${a},92 ${b},92 ${b},197 ${a},197" fill="${color(p)}"/>`;
    }).join('');
-   const x=X((left+right)/2),label=Math.max(90,Math.min(550,x));
-   return `<g data-reflected-expansion="">${stripes}<path d="M${label} 53L${x} 70v17 M${x-12} 80h24l-5 -4 m5 4l-5 4" fill="none" stroke="#111" stroke-width="1.5"/>
-    <text x="${label}" y="50" text-anchor="middle" font-size="11" fill="#111">Reflected expansion →</text></g>`;
+   const reflected=!r.movingPiston&&r.driverWallTime!=null&&frame.time>r.driverWallTime&&direction>0&&left<0;
+   return `<g data-${reflected?'reflected':'numerical'}-expansion="">${stripes}${expansionArrow(X,left,right,direction,reflected?'Reflected expansion':'Expansion',index%2?69:51)}</g>`;
   }).join('');
 }
 
@@ -498,12 +511,16 @@ export function finiteTubeDrawing(r,time){
  const stops=analytical?'':frame.pressure.map((p,i)=>`<stop offset="${(i+.5)/frame.pressure.length}" stop-color="${color(p)}"/>`).join('');
  const gasX=r.movingPiston?X(frame.left):40;
  const initial=r.movingPiston&&!r.sinusoidal&&(r.closedValve?frame.time<r.valveEncounter:frame.time<r.initialShocks.end);
- const overlay=initial?pistonShockMarks(r,frame.time,X):resolvedShockMarks(r,frame,X);
+ const shockX=analytical?X(r.incident.shockSpeed*frame.time):null;
+ const overlay=analytical?`<g data-incident-shock=""><path d="M${shockX} 76V197" stroke="#111" stroke-width="1.7"/><text x="${Math.min(566,shockX)}" y="72" font-size="11" text-anchor="middle">Shock →</text></g>`
+  :initial?pistonShockMarks(r,frame.time,X):resolvedShockMarks(r,frame,X);
+ const expansion=analytical?expansionArrow(X,r.incident.head*frame.time,r.incident.tail*frame.time,-1,'Expansion')
+  :numericalExpansionFans(r,frame,X,color);
  const motionCaption=r.sinusoidal?pistonShockMarks(r,frame.time,X):'';
  const cells=analytical?initialTubePressure(r,frame.time,X,color):`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
- ${cells}${reflectedExpansionFan(r,frame,X,color)}${motionCaption}${overlay}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
+ ${cells}${expansion}${motionCaption}${overlay}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
  <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};
