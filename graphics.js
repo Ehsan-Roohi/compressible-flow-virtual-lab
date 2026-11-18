@@ -1,5 +1,5 @@
 import {schlierenView} from './schlieren.js?v=20261118-wave-density';
-import {finiteTubeDrawing,finiteTubeFrame,tubeSampleMark} from './finite-tube.js?v=20261118-restore-sample';
+import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261118-unified-tube';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
@@ -313,12 +313,7 @@ export function sceneSVG(...args){const schlieren=args[3]==='schlieren';if(schli
 export function chartSVG(...args){const view=renderChartSVG(...args);return {...view,svg:uniformDiagramText(view.svg)};}
 
 
-export function finiteTubeFlowView(result,inputs,time){
- const t=finiteTubeFrame(result,time).time;
- if(!result.movingPiston&&t>0&&t<Math.min(result.wallTime,result.driverWallTime)){
-  const view=sceneSVG({kind:'tube',...result.incident,closedBounds:[result.left,result.right],sample:result.sample},inputs,t,'pressure');
-  return {svg:view.svg,label:view.label,meta:view.meta};
- }
+export function finiteTubeFlowView(result,_inputs,time){
  return finiteTubeDrawing(result,time);
 }
 

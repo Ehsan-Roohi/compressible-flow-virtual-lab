@@ -141,6 +141,10 @@ test('finite tube uses the original 50 expansion bands before the first wall ref
   assert.doesNotMatch(before,/data-expansion-characteristics/);
   assert.doesNotMatch(after,/data-expansion-band/);
   assert.match(after,/id="finitePressure"/);
+  for(const svg of [before,after]){
+   assert.match(svg,/viewBox="0 0 640 250"/);
+   assert.match(svg,/M40 92H600V197H40Z/);
+  }
  }
 });
 

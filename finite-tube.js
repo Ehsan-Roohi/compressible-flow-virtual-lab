@@ -447,15 +447,32 @@ export function tubeSampleMark(x,top,bottom){
  <text x="${x}" y="${bottom+24}" text-anchor="middle" font-size="11" fill="#7a4921">Sample</text></g>`;
 }
 
+function initialTubePressure(r,t,X,color){
+ const {incident,gamma}=r;
+ const head=incident.head*t,tail=incident.tail*t,shock=incident.shockSpeed*t;
+ const initial=r.frames[0].pressure;
+ const driverPressure=initial[0],drivenPressure=initial.at(-1);
+ const band=(left,right,pressure,fan=false)=>`<polygon ${fan?'data-expansion-band ':''}points="${X(left)},92 ${X(right)},92 ${X(right)},197 ${X(left)},197" fill="${color(pressure)}"/>`;
+ const expansion=Array.from({length:50},(_,i)=>{
+  const a=head+(tail-head)*i/50,b=head+(tail-head)*(i+1)/50;
+  const xi=(a+b)/(2*t);
+  const sound=(2*incident.a4-(gamma-1)*xi)/(gamma+1);
+  return band(a,b,driverPressure*(sound/incident.a4)**(2*gamma/(gamma-1)),true);
+ });
+ return band(r.left,head,driverPressure)+expansion.join('')+band(tail,shock,incident.p)+band(shock,r.right,drivenPressure);
+}
+
 export function finiteTubeDrawing(r,time){
  const frame=finiteTubeFrame(r,time),{normalize}=finiteTubeScale(r.frames,'pressure');
  const X=x=>40+(x-r.left)/(r.right-r.left)*560;
- const stops=frame.pressure.map((p,i)=>`<stop offset="${(i+.5)/frame.pressure.length}" stop-color="rgb(${contourColor(normalize(p)).join(',')})"/>`).join('');
+ const color=p=>`rgb(${contourColor(normalize(p)).join(',')})`;
+ const analytical=!r.movingPiston&&frame.time>0&&frame.time<Math.min(r.wallTime,r.driverWallTime);
+ const stops=analytical?'':frame.pressure.map((p,i)=>`<stop offset="${(i+.5)/frame.pressure.length}" stop-color="${color(p)}"/>`).join('');
  const gasX=r.movingPiston?X(frame.left):40;
  const initial=r.movingPiston&&!r.sinusoidal&&(r.closedValve?frame.time<r.valveEncounter:frame.time<r.initialShocks.end);
  const overlay=initial?pistonShockMarks(r,frame.time,X):resolvedShockMarks(r,frame,X);
  const motionCaption=r.sinusoidal?pistonShockMarks(r,frame.time,X):'';
- const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
+ const cells=analytical?initialTubePressure(r,frame.time,X,color):`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
  ${cells}${motionCaption}${overlay}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
