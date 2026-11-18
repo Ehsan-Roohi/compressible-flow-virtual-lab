@@ -178,6 +178,11 @@ export function solveFiniteTube(raw){
   return {name,color,legendColor:color==='#fff'?'#627586':color,dash,hideLegend:last<t0,points:last>=t0?[[x0,t0*1000],[x0+(last-t0)*speed,last*1000]]:[]};
  };
  const referenceEnd=stationary?Math.min(contactTime,driverWallTime):0;
+ // Example 13 places the sample 3 m downstream of the diaphragm.
+ const sample=x.bookExample==='7–13'&&right>=3?3:null;
+ const shockSample=sample===null?null:sample/incident.shockSpeed;
+ const contactSample=sample===null?null:sample/incident.u;
+ const sampleValid=sample!==null&&stationary&&contactSample<=referenceEnd;
  const chart={title:'Wave reflections · pressure in the x–t plane',xlabel:'Position from diaphragm x (m)',ylabel:'Time t (ms)',
   series:[
    {name:'Domain',hideLegend:true,points:[[left,0],[right,end*1000]],width:0},
@@ -185,7 +190,8 @@ export function solveFiniteTube(raw){
    trajectory('Contact surface',0,0,incident.u,referenceEnd,'#fff','8 4'),
    trajectory('Reflected shock',wallTime,right,-reflected.speed,referenceEnd,'#fff'),
    trajectory('Expansion head',0,0,incident.head,referenceEnd,'#fff','1 4'),
-   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3')]:[])
+   trajectory('Expansion tail',0,0,incident.tail,referenceEnd,'#fff','6 3 1 3')]:[]),
+   ...(sample===null?[]:[trajectory('Sample · 3 m',0,sample,0,end,'#ffd06b','4 3')])
   ]};
  const rows=[
   ['Incident shock speed',incident.shockSpeed,'m/s'],['Incident pressure ratio',incident.p2p1,'p₂/p₁'],
@@ -207,6 +213,12 @@ export function solveFiniteTube(raw){
    ['Incident shock reaches driven wall · estimate',wallTime*1000,'ms'],['Expansion head reaches driver wall',driverWallTime*1000,'ms'],
    ['Reflected shock meets contact · first-wave estimate',contactTime*1000,'ms']
   ]:[]),
+  ...(sample===null?[]:[['Sample position from diaphragm',sample,'m']]),
+  ...(sampleValid?[
+   ['Incident shock reaches sample · analytical',shockSample*1000,'ms'],
+   ['Contact surface reaches sample · analytical',contactSample*1000,'ms'],
+   ['Time between shock and contact at sample',(contactSample-shockSample)*1000,'ms']
+  ]:[]),
   ['Initial gas mass',domain.massPerArea*Math.PI*x.finiteDiameter**2/4,'kg'],
   ['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
  ];
@@ -222,7 +234,7 @@ export function solveFiniteTube(raw){
   ]:[])
  );
  return {inputs:x,result:{status:'ok',finiteTube:true,left,right,end,gamma,R,cp,incident,reflected,
-  wallTime,driverWallTime,contactTime,referenceEnd,chart,...domain},rows};
+  sample,wallTime,driverWallTime,contactTime,referenceEnd,chart,...domain},rows};
 }
 
 export function solveClosedPiston(x){
@@ -430,6 +442,11 @@ function pistonShockMarks(r,t,X){
  return t<r.motion.delay?first:first+marker(shocks.launchX+shocks.secondSpeed*(t-r.motion.delay),2,-16);
 }
 
+export function tubeSampleMark(x,top,bottom){
+ return `<g data-tube-sample=""><path d="M${x} ${top}V${bottom+10}" stroke="#ffd06b" stroke-width="2" stroke-dasharray="4 3"/>
+ <text x="${x}" y="${bottom+24}" text-anchor="middle" font-size="11" fill="#7a4921">Sample</text></g>`;
+}
+
 export function finiteTubeDrawing(r,time){
  const frame=finiteTubeFrame(r,time),{normalize}=finiteTubeScale(r.frames,'pressure');
  const X=x=>40+(x-r.left)/(r.right-r.left)*560;
@@ -441,7 +458,7 @@ export function finiteTubeDrawing(r,time){
  const cells=`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
- ${cells}${motionCaption}${overlay}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
+ ${cells}${motionCaption}${overlay}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
  <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};
