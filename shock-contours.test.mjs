@@ -17,5 +17,5 @@ test('small sinusoidal acoustic waves remain smooth and are not labelled as shoc
  const r=calculate('tube',{...b,unsteadyExperiment:'Sinusoidal piston',pistonEpsilon:.01,pistonFrequency:100,pistonCycles:1,pistonTubeLength:6,
   p1:100,T1:300,finiteEndTime:40,finiteCells:1200}).result;
  for(const time of [.0075,.02,.03])assert.equal(resolvedShockFronts(r,finiteTubeFrame(r,time)).length,0);
- assert.match(finiteTubeDrawing(r,.0075).svg,/no resolved shock front/);
+ assert.doesNotMatch(finiteTubeDrawing(r,.0075).svg,/data-numerical-shock/);
 });

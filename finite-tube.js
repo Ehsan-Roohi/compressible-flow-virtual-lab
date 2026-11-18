@@ -406,14 +406,10 @@ export function resolvedShockFronts(r,frame){
 }
 
 function resolvedShockMarks(r,frame,X){
- const fronts=resolvedShockFronts(r,frame);
- const marks=fronts.map((front,i)=>{
-  const x=X(front.x),labelX=Math.max(64,Math.min(576,x)),y=i%2?78:61;
-  return `<g data-numerical-shock="${i+1}"><path d="M${x} 93V196" stroke="#fff" stroke-width="4" opacity=".8"/>
-   <path d="M${labelX} ${y+4}L${x} 88V197" fill="none" stroke="#111" stroke-width="1.7"/>
-   <text x="${labelX}" y="${y}" text-anchor="middle" font-size="11" fill="#111">Shock</text></g>`;
+ return resolvedShockFronts(r,frame).map((front,i)=>{
+  const x=X(front.x);
+  return `<path data-numerical-shock="${i+1}" d="M${x} 92V197" stroke="#111" stroke-width="1.7"/>`;
  }).join('');
- return marks||(r.sinusoidal?'<text x="320" y="78" text-anchor="middle" font-size="11" fill="#40576a">Smooth wave · no resolved shock front</text>':'');
 }
 
 function pistonShockMarks(r,t,X){
@@ -424,22 +420,13 @@ function pistonShockMarks(r,t,X){
  if(r.closedValve){
   if(t>=r.valveEncounter)return '';
   const x=X(r.right-r.valveSpeed*t);
-  return `<g data-valve-shock=""><path d="M${x} 77V197" stroke="#20394a" stroke-width="1.25"/>
-  <text x="${x}" y="70" text-anchor="end" fill="#20394a" font-size="11">Valve shock</text></g>`;
+  return `<path data-valve-shock="" d="M${x} 92V197" stroke="#20394a" stroke-width="1.25"/>`;
  }
  const shocks=r.initialShocks;
- if(t===0)return '';
- if(t>=shocks.end){
-  const description=shocks.mergeTime?'Launch shocks merge at about '+(shocks.mergeTime*1000).toFixed(2)+' ms. Continue to see reflections.':'Wave reflections and interactions appear in the pressure colors.';
-  return `<text x="320" y="60" text-anchor="middle" font-size="11">${description}</text>`;
- }
- const marker=(position,number,offset)=>{
-  const x=X(position),labelX=Math.max(29,Math.min(611,x+offset));
-  return `<g data-launch-shock="${number}"><path d="M${labelX} 59L${x} 85V197" fill="none" stroke="#20394a" stroke-width="1.25"/>
-  <text x="${labelX}" y="55" text-anchor="middle" fill="#20394a" font-size="11">Shock ${number}</text></g>`;
- };
- const first=marker(shocks.firstSpeed*t,1,16);
- return t<r.motion.delay?first:first+marker(shocks.launchX+shocks.secondSpeed*(t-r.motion.delay),2,-16);
+ if(t===0||t>=shocks.end)return '';
+ const marker=(position,number)=>`<path data-launch-shock="${number}" d="M${X(position)} 92V197" stroke="#20394a" stroke-width="1.25"/>`;
+ const first=marker(shocks.firstSpeed*t,1);
+ return t<r.motion.delay?first:first+marker(shocks.launchX+shocks.secondSpeed*(t-r.motion.delay),2);
 }
 
 export function tubeSampleMark(x,top,bottom){
@@ -460,12 +447,6 @@ function initialTubePressure(r,t,X,color){
   return band(a,b,driverPressure*(sound/incident.a4)**(2*gamma/(gamma-1)),true);
  });
  return band(r.left,head,driverPressure)+expansion.join('')+band(tail,shock,incident.p)+band(shock,r.right,drivenPressure);
-}
-
-function expansionMarker(X,left,right,label,y=51){
- const x=X((left+right)/2),labelX=Math.max(90,Math.min(550,x));
- return `<g data-expansion-marker=""><path d="M${labelX} ${y+4}L${x} 75" fill="none" stroke="#111" stroke-width="1.5"/>
- <text x="${labelX}" y="${y}" text-anchor="middle" font-size="11" fill="#111">${label}</text></g>`;
 }
 
 function numericalExpansionFans(r,frame,X,color){
@@ -489,7 +470,7 @@ function numericalExpansionFans(r,frame,X,color){
  }
  return families.flat().filter(({start,end,strength})=>end-start>=5&&strength>=(r.sinusoidal?.001:.004))
   .sort((a,b)=>a.start-b.start)
-  .map(({start,end,direction},index)=>{
+  .map(({start,end,direction})=>{
    const left=frame.left+(start+.5)*dx,right=frame.left+(end+.5)*dx;
    const stripes=Array.from({length:50},(_,i)=>{
     const a=X(left+(right-left)*i/50),b=X(left+(right-left)*(i+1)/50);
@@ -498,7 +479,7 @@ function numericalExpansionFans(r,frame,X,color){
     return `<polygon points="${a},92 ${b},92 ${b},197 ${a},197" fill="${color(p)}"/>`;
    }).join('');
    const reflected=!r.movingPiston&&r.driverWallTime!=null&&frame.time>r.driverWallTime&&direction>0&&left<0;
-   return `<g data-${reflected?'reflected':'numerical'}-expansion="">${stripes}${expansionMarker(X,left,right,reflected?'Reflected expansion':'Expansion',index%2?69:51)}</g>`;
+   return `<g data-${reflected?'reflected':'numerical'}-expansion="">${stripes}</g>`;
   }).join('');
 }
 
@@ -511,10 +492,9 @@ export function finiteTubeDrawing(r,time){
  const gasX=r.movingPiston?X(frame.left):40;
  const initial=r.movingPiston&&!r.sinusoidal&&(r.closedValve?frame.time<r.valveEncounter:frame.time<r.initialShocks.end);
  const shockX=analytical?X(r.incident.shockSpeed*frame.time):null;
- const overlay=analytical?`<g data-incident-shock=""><path d="M${shockX} 76V197" stroke="#111" stroke-width="1.7"/><text x="${Math.min(566,shockX)}" y="72" font-size="11" text-anchor="middle">Shock</text></g>`
+ const overlay=analytical?`<g data-incident-shock=""><path d="M${shockX} 76V197" stroke="#111" stroke-width="1.7"/></g>`
   :initial?pistonShockMarks(r,frame.time,X):resolvedShockMarks(r,frame,X);
- const expansion=analytical?expansionMarker(X,r.incident.head*frame.time,r.incident.tail*frame.time,'Expansion')
-  :numericalExpansionFans(r,frame,X,color);
+ const expansion=analytical?'':numericalExpansionFans(r,frame,X,color);
  const motionCaption=r.sinusoidal?pistonShockMarks(r,frame.time,X):'';
  const cells=analytical?initialTubePressure(r,frame.time,X,color):`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
