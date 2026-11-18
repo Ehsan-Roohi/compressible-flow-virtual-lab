@@ -198,3 +198,19 @@ main{max-width:none;margin:0;padding:0 clamp(8px,1.2vw,16px) 12px;min-width:0}
  .sidebar nav{margin-top:8px}
  .work-grid:not(:has(>.output-column>:not([hidden]))){grid-template-areas:"controls" "visual"}
 }
+
+/* Georgia typography for the lab interface. Heading sizes adapt on small screens. */
+body{font-family:Georgia,"Times New Roman",serif}
+.lab-header h1{font-size:34px}
+.lab-header p{font-size:17px}
+.input-top label,.field-controls>label,.plot-controls>label{font-size:14px}
+.result-label{font-size:14px}
+.result-value,.isentropic-grid dd{
+ font-family:Georgia,"Times New Roman",serif;
+ font-size:20px;
+ font-variant-numeric:tabular-nums;
+}
+.result-value small{font-family:inherit}
+@media(max-width:800px){
+ .lab-header h1{font-size:28px}
+}
