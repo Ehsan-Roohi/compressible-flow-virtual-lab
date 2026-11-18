@@ -1,4 +1,4 @@
-import {schlierenView} from './schlieren.js?v=20261118-nozzle-smooth';
+import {schlierenView} from './schlieren.js?v=20261118-axial-schlieren';
 import {finiteTubeDrawing,finiteTubeFrame,tubeSampleMark} from './finite-tube.js?v=20261118-restore-sample';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
@@ -77,7 +77,24 @@ function nozzleDensityFill(top,bottom,points,shade){
  return `<defs><linearGradient id="nozzleDensityFill" x2="100%" y2="0%">${stops}</linearGradient></defs>`
   +poly([...top,...bottom.slice().reverse()],'url(#nozzleDensityFill)');
 }
-function renderSceneSVG(s,inputs,time=.001,quantity='pressure'){if((s.kind==='ductSystem'&&s.process==='rayleigh'||s.kind==='duct'&&s.process==='rayleigh'&&inputs.bookExample==='4–5')&&s.system?.stations[0]?.x!==-.2){const view=rayleighBoundarySVG(s,inputs);if(view)return view;}if(s.kind==='ductSystem')return ductSystemSVG(s);if(s.kind==='bodyCompare'){
+// Differentiate the solved density samples in x/L before mapping to display tones.
+function nozzleAxialSchlieren(top,bottom,points){
+ const slopes=points.slice(1).map((right,i)=>{
+  const left=points[i],dx=right.x-left.x;
+  return dx>1e-12?(right.rho-left.rho)/dx:null;
+ });
+ const limit=Math.max(0,...slopes.map(s=>Math.abs(s??0)));
+ const stops=points.map((p,i)=>{
+  const adjacent=[slopes[i-1],slopes[i]].filter(Number.isFinite);
+  const slope=adjacent.length?adjacent.reduce((a,b)=>a+b,0)/adjacent.length:0;
+  const strength=limit>0?Math.sign(slope)*Math.sqrt(Math.abs(slope)/limit):0;
+  const gray=Math.round(144-(strength>=0?118:88)*strength);
+  return `<stop offset="${p.x}" stop-color="rgb(${gray},${gray},${gray})"/>`;
+ }).join('');
+ return `<defs><linearGradient id="nozzleAxialSchlieren" x2="100%" y2="0%">${stops}</linearGradient></defs>`
+  +poly([...top,...bottom.slice().reverse()],'url(#nozzleAxialSchlieren)');
+}
+function renderSceneSVG(s,inputs,time=.001,quantity='pressure',showSchlieren=false){if((s.kind==='ductSystem'&&s.process==='rayleigh'||s.kind==='duct'&&s.process==='rayleigh'&&inputs.bookExample==='4–5')&&s.system?.stations[0]?.x!==-.2){const view=rayleighBoundarySVG(s,inputs);if(view)return view;}if(s.kind==='ductSystem')return ductSystemSVG(s);if(s.kind==='bodyCompare'){
  const states=[{kind:'wedge',wedge:s.wedge},s.cone?.status==='ok'?{kind:'cone',...s.cone}:null],views=states.map(z=>z?sceneSVG(z,inputs,time,quantity):null),fields=views.map(v=>v?.field).filter(Boolean),range={min:Math.min(...fields.map(f=>f.min)),max:Math.max(...fields.map(f=>f.max))};
  const cards=states.map((z,i)=>{const view=z?sceneSVG(z,{...inputs,bodyRange:range},time,quantity):null;let svg=view?.svg??`<svg viewBox="0 0 640 300">${txt(28,145,'Cone: no accepted attached field')}</svg>`;svg=svg.replace('<svg ','<svg width="640" height="300" ').replaceAll(/id="([^"]+)"/g,(_,id)=>`id="body${i}-${id}"`).replaceAll(/url\(#([^)]*)\)/g,(_,id)=>`url(#body${i}-${id})`);return `<g transform="translate(${i*640},30)">${txt(320,-9,i?'Cone · α = 0°':`Wedge · α = ${fmt(deg(s.wedge.alpha))}°`,undefined,16,'middle')}${svg}</g>`;}).join('');
  return {label:'Wedge and cone · matched Mach, gas and half-angle',meta:'Shared freestream ratios and color range · cone incidence is always zero',field:{...fields[0],...range,note:'Common range · each ratio references the same freestream'},svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 330" role="img" aria-label="Wedge and cone comparison">${diagramFontStyle}${cards}</svg>`};
@@ -93,7 +110,7 @@ if(s.comparison){
  views=[c.se,c.moc].map(z=>valid(z)?sceneSVG({kind:'wall',...z},{...inputs,comparisonRange:range},time,quantity):null);
  const cards=views.map((v,i)=>{const label=i?'Method of characteristics':'Shock–Expansion';let svg=v?.svg??`<svg viewBox="0 0 640 300">${txt(25,130,'No accepted downstream field')}</svg>`;svg=svg.replace('<svg ','<svg width="640" height="300" ').replaceAll(/id="([^"]+)"/g,(_,id)=>`id="compare${i}-${id}"`).replaceAll(/url\(#([^)]*)\)/g,(_,id)=>`url(#compare${i}-${id})`);return `<g transform="translate(${i*640},30)">${txt(320,-8,label,undefined,17,'middle')}${svg}</g>`;}).join('');
  return {label:'Shock–Expansion vs method of characteristics',meta:'Same geometry and color scale · quantitative comparison uses only the common accepted domain',field:fields.length?{...fields[0],...range,note:'Shared range across both accepted fields'}:null,svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 330" role="img" aria-label="Two methods on the same geometry">${diagramFontStyle}${cards}</svg>`};
- }let inner='',label='Schematic geometry · analytical states',meta='Ideal gas · no CFD',field=null;
+ }let inner='',label='Schematic geometry · analytical states',meta='Ideal gas · no CFD',field=null,nozzleAxial=null;
  const f=regionalField(s,inputs,quantity);quantity=f.key;const vals=f.values.filter(Number.isFinite),lo=Math.min(...vals),hi=Math.max(...vals),shade=v=>(['oblique','expansion','collision'].includes(s.kind)?cornerContourColor:contourColor)(hi-lo<1e-14?.5:(v-lo)/(hi-lo));if(vals.length)field={quantity,options:f.options,label:quantity==='cp'?'Surface pressure coefficient':quantity,units:f.units,min:lo,max:hi,note:f.note};
  const W=640,H=s.kind==='wall'&&s.tracking?trackingCoordinates(s).height:300;let flow=(angle=0)=>{let r='';for(let y of [85,125,165,205])r+=directedArrow(27,y,56,angle,'#ffffff');return r;};
  if(s.kind==='balance'){
@@ -121,6 +138,7 @@ if(s.comparison){
   const a=s.points,scale=104/Math.max(...a.map(z=>z.h)),top=a.map(z=>[35+570*z.x,150-scale*z.h]),bottom=a.map(z=>[35+570*z.x,150+scale*z.h]);
   const vals=fieldValues(s,'nozzle',quantity),lo=inputs.bodyRange?.min??Math.min(...vals),hi=inputs.bodyRange?.max??Math.max(...vals),norm=v=>hi-lo<1e-14?.5:(v-lo)/(hi-lo);
   field={quantity,label:quantityLabel(quantity,'nozzle'),min:lo,max:hi,units:quantity==='mach'?'M':quantity==='pressure'?'p/p₀':quantity==='temperature'?'T/T₀':'ρ/ρ₀'};
+  if(showSchlieren)nozzleAxial=nozzleAxialSchlieren(top,bottom,a);
   if(quantity==='density')inner+=nozzleDensityFill(top,bottom,a,v=>contourColor(norm(v/(s.p0/(s.R*s.T0)))));
   else for(let i=0;i<a.length-1;i++){let z=a[i],q=a[i+1],v=vals[i];inner+=poly([[35+570*z.x,150-scale*z.h],[35+570*q.x,150-scale*q.h],[35+570*q.x,150+scale*q.h],[35+570*z.x,150+scale*z.h]],contourColor(norm(v)),contourColor(norm(v)),.6);}
   inner+=`<polyline points="${top.map(z=>z.join(',')).join(' ')}" fill="none" stroke="#657d68" stroke-width="3"/><polyline points="${bottom.map(z=>z.join(',')).join(' ')}" fill="none" stroke="#657d68" stroke-width="3"/>`;
@@ -137,6 +155,7 @@ if(s.comparison){
   const distance=wave?he/Math.tan(Math.abs(s.head)):Infinity,interaction=xe+distance,end=Math.min(610,interaction),resolved=!!s.outlet;
   const color=shade,top=a.map(z=>[x0+(xe-x0)*z.x,cy-scale*z.A]),bottom=a.map(z=>[x0+(xe-x0)*z.x,cy+scale*z.A]);
   inner+=`<defs><pattern id="unsolvedHatch" width="9" height="9" patternUnits="userSpaceOnUse"><path d="M0 9 L9 0" stroke="#cbd5ca" stroke-width=".6"/></pattern><clipPath id="fullWindow"><rect x="20" y="58" width="600" height="184"/></clipPath></defs><g clip-path="url(#fullWindow)">`;
+  if(showSchlieren)nozzleAxial=nozzleAxialSchlieren(top,bottom,a);
   if(quantity==='density')inner+=nozzleDensityFill(top,bottom,a,color);
   else for(let i=0;i<a.length-1;i++){const z=a[i],q=a[i+1],c=color(quantity==='density'?z.rho:z.P);inner+=poly([[top[i][0],top[i][1]],[top[i+1][0],top[i+1][1]],[bottom[i+1][0],bottom[i+1][1]],[bottom[i][0],bottom[i][1]]],c,c,.5);}
   // Constant-span planar schematic: the half-height follows A, not sqrt(A).
@@ -242,7 +261,7 @@ if(s.comparison){
  if(s.kind!=='airfoil'&&(s.kind!=='expansion'||inputs.cornerView==='Textbook schematic'))inner=readableSceneLabels(inner);
  if(s.kind==='cone')inner+='<circle id="fieldProbePoint" r="3.5" fill="#17212b" stroke="white" stroke-width="1.5" visibility="hidden" pointer-events="none"/>';
  if(field){if(['oblique','expansion','collision'].includes(s.kind))field.palette=cornerPalette;field.options??=f.options;field.note??='Range scaled to this solution';}
- return {label,meta,field,svg:`<svg xmlns="http://www.w3.org/2000/svg" ${s.tracking?'data-custom-wall="true"':''} viewBox="${s.kind==='state'?'0 65 640 170':`0 0 ${W} ${H}`}" role="img" aria-label="${esc(label)}"><title>${esc(label)}</title>${diagramFontStyle}<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e4ece1" stroke-width=".5"/></pattern></defs><rect width="640" height="${H}" fill="#f8fbf6"/><rect width="640" height="${H}" fill="url(#grid)"/>${inner}</svg>`};
+ return {label,meta,field,nozzleAxial,svg:`<svg xmlns="http://www.w3.org/2000/svg" ${s.tracking?'data-custom-wall="true"':''} viewBox="${s.kind==='state'?'0 65 640 170':`0 0 ${W} ${H}`}" role="img" aria-label="${esc(label)}"><title>${esc(label)}</title>${diagramFontStyle}<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e4ece1" stroke-width=".5"/></pattern></defs><rect width="640" height="${H}" fill="#f8fbf6"/><rect width="640" height="${H}" fill="url(#grid)"/>${inner}</svg>`};
 }
 function chartHeatmap(map,X,Y){
  if(!map)return '';
@@ -272,7 +291,7 @@ function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=49;
  return {svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(c.title)}"><title>${esc(c.title)}</title>${diagramFontStyle}${inner}<line id="cursorLine" x1="0" y1="${T}" x2="0" y2="${H-B}" stroke="#8caa8d" stroke-dasharray="3 3" opacity="0"/><circle id="cursorPoint" r="4" fill="#17212b" stroke="#fff" stroke-width="1.5" opacity="0" pointer-events="none"/>${c.heatmap?`<line id="finiteTimeCursor" x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="#29394b" stroke-width="1.2" opacity=".8"/>`:''}<rect id="chartHit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent"/></svg>`,legend:c.series.map((s,i)=>s.hideLegend?'':`<span>${c.heatmap?`<svg width="26" height="10" aria-hidden="true"><line x1="0" x2="26" y1="5" y2="5" stroke="${s.legendColor??s.color}" stroke-width="2" stroke-dasharray="${s.dash??''}"/></svg>`:`<i style="background:${s.legendColor??s.color??colors[i%colors.length]}"></i>`}${esc(s.name)}</span>`).join(''),axis:{xmin,xmax,ymin,ymax,L,R,W,H,T,B}};
 }
 
-export function sceneSVG(...args){const schlieren=args[3]==='schlieren';if(schlieren)args[3]='density';const view=args[0].kind==='valveClosure'?valveClosureDrawing():args[0].kind==='pistonShocks'?pistonShocksDrawing(args[0]):args[0].kind==='multiRampInlet'?multiRampDrawing(args[0],args[1],args[3]):args[0].kind==='shockFanReference'?shockFanDrawing(args[0],args[3]):args[0].wallReflection?wedgeWallDrawing(args[0],args[1],args[3]):args[0].kind==='ramjetInlet'?ramjetInletDrawing(args[0],args[1],args[3]):args[0].kind==='fannoSystem'?fannoSystemDrawing(args[0],args[1],args[3]):ductContourDrawing(args[0],args[1],args[3])??renderSceneSVG(...args);if(view.field?.options?.includes('density')){view.field={...view.field,options:[...new Set([...view.field.options,'schlieren'])]};if(schlieren){const gradient=schlierenView(view,args[0].kind==='nozzle'?'axial':args[0].kind==='nozzleJet'?'diagonal':'vertical',{lightSurround:['nozzle','nozzleJet','jet'].includes(args[0].kind)});if(gradient)return {...gradient,svg:uniformDiagramText(gradient.svg)};}}return {...view,svg:uniformDiagramText(view.svg)};}
+export function sceneSVG(...args){const schlieren=args[3]==='schlieren';if(schlieren)args[3]='density';const view=args[0].kind==='valveClosure'?valveClosureDrawing():args[0].kind==='pistonShocks'?pistonShocksDrawing(args[0]):args[0].kind==='multiRampInlet'?multiRampDrawing(args[0],args[1],args[3]):args[0].kind==='shockFanReference'?shockFanDrawing(args[0],args[3]):args[0].wallReflection?wedgeWallDrawing(args[0],args[1],args[3]):args[0].kind==='ramjetInlet'?ramjetInletDrawing(args[0],args[1],args[3]):args[0].kind==='fannoSystem'?fannoSystemDrawing(args[0],args[1],args[3]):ductContourDrawing(args[0],args[1],args[3])??renderSceneSVG(args[0],args[1],args[2],args[3],schlieren);if(view.field?.options?.includes('density')){view.field={...view.field,options:[...new Set([...view.field.options,'schlieren'])]};if(schlieren){const gradient=schlierenView(view,args[0].kind==='nozzle'?'axial':args[0].kind==='nozzleJet'?'diagonal':'vertical',{lightSurround:['nozzle','nozzleJet','jet'].includes(args[0].kind)});if(gradient)return {...gradient,svg:uniformDiagramText(gradient.svg)};}}return {...view,svg:uniformDiagramText(view.svg)};}
 export function chartSVG(...args){const view=renderChartSVG(...args);return {...view,svg:uniformDiagramText(view.svg)};}
 
 
