@@ -1,4 +1,4 @@
-import {schlierenView} from './schlieren.js?v=20261118-nozzle-schlieren';
+import {schlierenView} from './schlieren.js?v=20261118-nozzle-smooth';
 import {finiteTubeDrawing,finiteTubeFrame,tubeSampleMark} from './finite-tube.js?v=20261118-restore-sample';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
@@ -71,6 +71,12 @@ function regionalField(s,inputs,quantity){
  }else if(['jet','nozzleJet'].includes(s.kind)){values=[read(s.inlet),read(s.outlet??s.inlet),...(s.samples??[]).map(read),...(s.nozzle?.points??[]).map(z=>key==='density'?z.rho:z.P)];units=key==='density'?'kg/m³':'Pa';note='Local analytical field · external solution limited to the first waves';}
  return {key,options,values,units,note,read};
 }
+// Equal-position stops preserve the two one-sided states at a normal shock.
+function nozzleDensityFill(top,bottom,points,shade){
+ const stops=points.map(p=>`<stop offset="${p.x}" stop-color="${shade(p.rho)}"/>`).join('');
+ return `<defs><linearGradient id="nozzleDensityFill" x2="100%" y2="0%">${stops}</linearGradient></defs>`
+  +poly([...top,...bottom.slice().reverse()],'url(#nozzleDensityFill)');
+}
 function renderSceneSVG(s,inputs,time=.001,quantity='pressure'){if((s.kind==='ductSystem'&&s.process==='rayleigh'||s.kind==='duct'&&s.process==='rayleigh'&&inputs.bookExample==='4–5')&&s.system?.stations[0]?.x!==-.2){const view=rayleighBoundarySVG(s,inputs);if(view)return view;}if(s.kind==='ductSystem')return ductSystemSVG(s);if(s.kind==='bodyCompare'){
  const states=[{kind:'wedge',wedge:s.wedge},s.cone?.status==='ok'?{kind:'cone',...s.cone}:null],views=states.map(z=>z?sceneSVG(z,inputs,time,quantity):null),fields=views.map(v=>v?.field).filter(Boolean),range={min:Math.min(...fields.map(f=>f.min)),max:Math.max(...fields.map(f=>f.max))};
  const cards=states.map((z,i)=>{const view=z?sceneSVG(z,{...inputs,bodyRange:range},time,quantity):null;let svg=view?.svg??`<svg viewBox="0 0 640 300">${txt(28,145,'Cone: no accepted attached field')}</svg>`;svg=svg.replace('<svg ','<svg width="640" height="300" ').replaceAll(/id="([^"]+)"/g,(_,id)=>`id="body${i}-${id}"`).replaceAll(/url\(#([^)]*)\)/g,(_,id)=>`url(#body${i}-${id})`);return `<g transform="translate(${i*640},30)">${txt(320,-9,i?'Cone · α = 0°':`Wedge · α = ${fmt(deg(s.wedge.alpha))}°`,undefined,16,'middle')}${svg}</g>`;}).join('');
@@ -115,7 +121,8 @@ if(s.comparison){
   const a=s.points,scale=104/Math.max(...a.map(z=>z.h)),top=a.map(z=>[35+570*z.x,150-scale*z.h]),bottom=a.map(z=>[35+570*z.x,150+scale*z.h]);
   const vals=fieldValues(s,'nozzle',quantity),lo=inputs.bodyRange?.min??Math.min(...vals),hi=inputs.bodyRange?.max??Math.max(...vals),norm=v=>hi-lo<1e-14?.5:(v-lo)/(hi-lo);
   field={quantity,label:quantityLabel(quantity,'nozzle'),min:lo,max:hi,units:quantity==='mach'?'M':quantity==='pressure'?'p/p₀':quantity==='temperature'?'T/T₀':'ρ/ρ₀'};
-  for(let i=0;i<a.length-1;i++){let z=a[i],q=a[i+1],v=vals[i];inner+=poly([[35+570*z.x,150-scale*z.h],[35+570*q.x,150-scale*q.h],[35+570*q.x,150+scale*q.h],[35+570*z.x,150+scale*z.h]],contourColor(norm(v)),contourColor(norm(v)),.6);}
+  if(quantity==='density')inner+=nozzleDensityFill(top,bottom,a,v=>contourColor(norm(v/(s.p0/(s.R*s.T0)))));
+  else for(let i=0;i<a.length-1;i++){let z=a[i],q=a[i+1],v=vals[i];inner+=poly([[35+570*z.x,150-scale*z.h],[35+570*q.x,150-scale*q.h],[35+570*q.x,150+scale*q.h],[35+570*z.x,150+scale*z.h]],contourColor(norm(v)),contourColor(norm(v)),.6);}
   inner+=`<polyline points="${top.map(z=>z.join(',')).join(' ')}" fill="none" stroke="#657d68" stroke-width="3"/><polyline points="${bottom.map(z=>z.join(',')).join(' ')}" fill="none" stroke="#657d68" stroke-width="3"/>`;
   if(s.shockX!==null){const x=35+570*s.shockX,h=.12*Math.sqrt(s.AsAt)*scale;inner+=line(x,150-h,x,150+h,'#000000',3)+txt(x,258,s.shock?.upstreamMach===1?'SONIC LIMIT':'NORMAL SHOCK','#b47d39',9,x>520?'end':'middle');}
   if(s.choked){const x=s.nozzleType==='converging'?605:s.nozzleType==='diverging'?35:35+570*.28,h=.12*scale;inner+=`<line x1="${x}" x2="${x}" y1="${150-h}" y2="${150+h}" stroke="#137d73" stroke-width="1.5" stroke-dasharray="4 3"/>`+txt(x,s.nozzleType==='cd'||s.shockX===0?244:258,s.nozzleType==='converging'?'SONIC EXIT':s.nozzleType==='diverging'?'SONIC INLET':'SONIC THROAT','#137d73',9,s.nozzleType==='converging'?'end':s.nozzleType==='diverging'?'start':'middle');}
@@ -130,7 +137,8 @@ if(s.comparison){
   const distance=wave?he/Math.tan(Math.abs(s.head)):Infinity,interaction=xe+distance,end=Math.min(610,interaction),resolved=!!s.outlet;
   const color=shade,top=a.map(z=>[x0+(xe-x0)*z.x,cy-scale*z.A]),bottom=a.map(z=>[x0+(xe-x0)*z.x,cy+scale*z.A]);
   inner+=`<defs><pattern id="unsolvedHatch" width="9" height="9" patternUnits="userSpaceOnUse"><path d="M0 9 L9 0" stroke="#cbd5ca" stroke-width=".6"/></pattern><clipPath id="fullWindow"><rect x="20" y="58" width="600" height="184"/></clipPath></defs><g clip-path="url(#fullWindow)">`;
-  for(let i=0;i<a.length-1;i++){const z=a[i],q=a[i+1],c=color(quantity==='density'?z.rho:z.P);inner+=poly([[top[i][0],top[i][1]],[top[i+1][0],top[i+1][1]],[bottom[i+1][0],bottom[i+1][1]],[bottom[i][0],bottom[i][1]]],c,c,.5);}
+  if(quantity==='density')inner+=nozzleDensityFill(top,bottom,a,color);
+  else for(let i=0;i<a.length-1;i++){const z=a[i],q=a[i+1],c=color(quantity==='density'?z.rho:z.P);inner+=poly([[top[i][0],top[i][1]],[top[i+1][0],top[i+1][1]],[bottom[i+1][0],bottom[i+1][1]],[bottom[i][0],bottom[i][1]]],c,c,.5);}
   // Constant-span planar schematic: the half-height follows A, not sqrt(A).
   inner+=poly([...top,...top.map(([x,y])=>[x,y-6]).reverse()],'#ced7cc','#72836e',.5)+poly([...bottom,...bottom.map(([x,y])=>[x,y+6]).reverse()],'#ced7cc','#72836e',.5);
   inner+=`<polyline points="${top.map(z=>z.join(',')).join(' ')}" fill="none" stroke="#4f6d59" stroke-width="2"/><polyline points="${bottom.map(z=>z.join(',')).join(' ')}" fill="none" stroke="#4f6d59" stroke-width="2"/>`;
@@ -264,7 +272,7 @@ function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=49;
  return {svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(c.title)}"><title>${esc(c.title)}</title>${diagramFontStyle}${inner}<line id="cursorLine" x1="0" y1="${T}" x2="0" y2="${H-B}" stroke="#8caa8d" stroke-dasharray="3 3" opacity="0"/><circle id="cursorPoint" r="4" fill="#17212b" stroke="#fff" stroke-width="1.5" opacity="0" pointer-events="none"/>${c.heatmap?`<line id="finiteTimeCursor" x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="#29394b" stroke-width="1.2" opacity=".8"/>`:''}<rect id="chartHit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent"/></svg>`,legend:c.series.map((s,i)=>s.hideLegend?'':`<span>${c.heatmap?`<svg width="26" height="10" aria-hidden="true"><line x1="0" x2="26" y1="5" y2="5" stroke="${s.legendColor??s.color}" stroke-width="2" stroke-dasharray="${s.dash??''}"/></svg>`:`<i style="background:${s.legendColor??s.color??colors[i%colors.length]}"></i>`}${esc(s.name)}</span>`).join(''),axis:{xmin,xmax,ymin,ymax,L,R,W,H,T,B}};
 }
 
-export function sceneSVG(...args){const schlieren=args[3]==='schlieren';if(schlieren)args[3]='density';const view=args[0].kind==='valveClosure'?valveClosureDrawing():args[0].kind==='pistonShocks'?pistonShocksDrawing(args[0]):args[0].kind==='multiRampInlet'?multiRampDrawing(args[0],args[1],args[3]):args[0].kind==='shockFanReference'?shockFanDrawing(args[0],args[3]):args[0].wallReflection?wedgeWallDrawing(args[0],args[1],args[3]):args[0].kind==='ramjetInlet'?ramjetInletDrawing(args[0],args[1],args[3]):args[0].kind==='fannoSystem'?fannoSystemDrawing(args[0],args[1],args[3]):ductContourDrawing(args[0],args[1],args[3])??renderSceneSVG(...args);if(view.field?.options?.includes('density')){view.field={...view.field,options:[...new Set([...view.field.options,'schlieren'])]};if(schlieren){const gradient=schlierenView(view,args[0].kind==='nozzle'?'axial':args[0].kind==='nozzleJet'?'diagonal':'vertical');if(gradient)return {...gradient,svg:uniformDiagramText(gradient.svg)};}}return {...view,svg:uniformDiagramText(view.svg)};}
+export function sceneSVG(...args){const schlieren=args[3]==='schlieren';if(schlieren)args[3]='density';const view=args[0].kind==='valveClosure'?valveClosureDrawing():args[0].kind==='pistonShocks'?pistonShocksDrawing(args[0]):args[0].kind==='multiRampInlet'?multiRampDrawing(args[0],args[1],args[3]):args[0].kind==='shockFanReference'?shockFanDrawing(args[0],args[3]):args[0].wallReflection?wedgeWallDrawing(args[0],args[1],args[3]):args[0].kind==='ramjetInlet'?ramjetInletDrawing(args[0],args[1],args[3]):args[0].kind==='fannoSystem'?fannoSystemDrawing(args[0],args[1],args[3]):ductContourDrawing(args[0],args[1],args[3])??renderSceneSVG(...args);if(view.field?.options?.includes('density')){view.field={...view.field,options:[...new Set([...view.field.options,'schlieren'])]};if(schlieren){const gradient=schlierenView(view,args[0].kind==='nozzle'?'axial':args[0].kind==='nozzleJet'?'diagonal':'vertical',{lightSurround:['nozzle','nozzleJet','jet'].includes(args[0].kind)});if(gradient)return {...gradient,svg:uniformDiagramText(gradient.svg)};}}return {...view,svg:uniformDiagramText(view.svg)};}
 export function chartSVG(...args){const view=renderChartSVG(...args);return {...view,svg:uniformDiagramText(view.svg)};}
 
 

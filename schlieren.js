@@ -12,7 +12,7 @@ export function densityColourCoordinate(color,palettes=ramps){
  return best&&best.error<=1.2?best.value:null;
 }
 const replaceAttr=(tag,name,value)=>new RegExp(`\\b${name}="[^"]*"`).test(tag)?tag.replace(new RegExp(`\\b${name}="[^"]*"`),`${name}="${value}"`):tag.replace(/\/?\s*>$/,m=>` ${name}="${value}"${m}`);
-export function schlierenLayers(svg,palette){
+export function schlierenLayers(svg,palette,{lightSurround=false}={}){
  const palettes=palette?[palette,...ramps]:ramps,cache=new Map(),coordinate=c=>{if(!cache.has(c))cache.set(c,densityColourCoordinate(c,palettes));return cache.get(c);};
  const gradients=new Set();for(const m of svg.matchAll(/<linearGradient\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/linearGradient>/g))if([...m[2].matchAll(/stop-color="([^"]+)"/g)].some(z=>coordinate(z[1])!==null))gradients.add(m[1]);
  let count=0,defs=0;
@@ -24,7 +24,7 @@ export function schlierenLayers(svg,palette){
   if(t!==null||isGradient){count++;tag=replaceAttr(tag,'fill',isGradient?c:`rgb(${Array(3).fill(Math.round(255*t)).join(',')})`);}else tag=replaceAttr(tag,'fill','none');
   return replaceAttr(replaceAttr(tag,'stroke','none'),'shape-rendering','crispEdges');
  });
- const overlay=svg.replace(/<(?:path|polygon|rect|circle|ellipse|polyline|line)\b[^>]*>/g,tag=>{const c=tag.match(/\bfill="([^"]+)"/)?.[1];return c&&(coordinate(c)!==null||gradients.has(c.match(/^url\(#([^)]*)\)$/)?.[1]))?replaceAttr(tag,'fill','none'):tag;});
+ const overlay=svg.replace(/<(?:path|polygon|rect|circle|ellipse|polyline|line)\b[^>]*>/g,tag=>{const c=tag.match(/\bfill="([^"]+)"/)?.[1];return c&&(coordinate(c)!==null||gradients.has(c.match(/^url\(#([^)]*)\)$/)?.[1]))?replaceAttr(tag,'fill',lightSurround?'#909090':'none'):tag;});
  const body=s=>s.replace(/^<svg[^>]*>/,'').replace(/<\/svg>\s*$/,'');
  const density=body(source).replace(/\bid="([^"]+)"/g,'id="schSource-$1"').replace(/url\(#([^)]*)\)/g,'url(#schSource-$1)');
  let foregroundDefs=0;
@@ -33,7 +33,7 @@ export function schlierenLayers(svg,palette){
   .split(/(<clipPath\b[\s\S]*?<\/clipPath>)/g)
   .map(part=>part.startsWith('<clipPath')?part:part
    .replace(/\b(fill|stroke)="([^"]+)"/g,(attr,name,color)=>{
-    if (/^(?:white|#fff(?:fff)?|#fcfdfc|#f8fbf6|#eef1f2|#edf0f0)$/i.test(color))return `${name}="#909090"`;
+    if (/^(?:white|#fff(?:fff)?|#fcfdfc|#f8fbf6|#eef1f2|#edf0f0)$/i.test(color))return `${name}="${lightSurround?'#f2f5f0':'#909090'}"`;
     const channels=rgb(color);
     if(!channels)return attr;
     const gray=Math.round(.2126*channels[0]+.7152*channels[1]+.0722*channels[2]);
@@ -42,13 +42,13 @@ export function schlierenLayers(svg,palette){
    .replace(/<text\b[^>]*>/g,tag=>replaceAttr(tag,'fill','#242424'))).join('');
  return {density,overlay:grayscaleContext(body(overlay)),foreground:grayscaleContext(foreground.replace(/<defs\b[\s\S]*?<\/defs>/g,'')),count};
 }
-export function schlierenView(view,direction='vertical'){
+export function schlierenView(view,direction='vertical',{lightSurround=false}={}){
  const sensitivity={
   axial:{kernel:'1 0 -1 2 0 -2 1 0 -1',divisor:8,result:'dx',label:'axial'},
   diagonal:{kernel:'0 -2 -2 2 0 -2 2 2 0',divisor:16,result:'diagonal',label:'diagonal'},
   vertical:{kernel:'-1 -2 -1 0 0 0 1 2 1',divisor:8,result:'dy',label:'vertical'},
  }[direction];
- const layers=schlierenLayers(view.svg,view.field?.palette);if(!layers.count)return null;
+ const layers=schlierenLayers(view.svg,view.field?.palette,{lightSurround});if(!layers.count)return null;
  const root=view.svg.match(/^<svg[^>]*>/)?.[0];if(!root)return null;
  // The Sobel kernel projects the signed gradient onto the selected direction.
  // Alpha erosion suppresses false gradients at the fluid mask.
@@ -62,5 +62,5 @@ export function schlierenView(view,direction='vertical'){
  </feComponentTransfer>
  <feMorphology in="SourceAlpha" operator="erode" radius="2.5" result="interior"/><feComposite in="tone" in2="interior" operator="in"/>
  </filter>`;
- return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="#909090"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:`Synthetic schlieren · signed ${sensitivity.label} density gradient`,options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:`Mid-gray: uniform density. Light and dark indicate opposite signs of the ${sensitivity.label} density gradient. Relative display contrast. `+(view.field.note??'')}};
+ return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="${lightSurround?'#f2f5f0':'#909090'}"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:`Synthetic schlieren · signed ${sensitivity.label} density gradient`,options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:`Mid-gray: uniform density. Light and dark indicate opposite signs of the ${sensitivity.label} density gradient. Relative display contrast. `+(view.field.note??'')}};
 }

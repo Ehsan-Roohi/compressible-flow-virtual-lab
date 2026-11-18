@@ -34,6 +34,8 @@ test('all three nozzle views use density for schlieren, with axial sensitivity i
   assert.equal(density.field.quantity,'density');
   assert.ok(density.field.max>density.field.min);
   assert.equal(image.field.quantity,'schlieren');
+  assert.match(image.svg,/height="100%" fill="#f2f5f0"/);
+  if(nozzleView!=='External waves')assert.match(image.svg,/id="schSource-nozzleDensityFill"/);
   assert.match(image.svg,new RegExp('result="'+({'Internal flow':'dx','External waves':'dy','Nozzle + external waves':'diagonal'}[nozzleView])+'"'));
   assert.doesNotMatch(image.svg,/NaN|undefined|Infinity/);
  }
