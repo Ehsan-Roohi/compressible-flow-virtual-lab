@@ -11,7 +11,7 @@ test('Example 6–15 is a zero-thickness cambered two-panel plate closed at the 
  const kinds=d.result.nonlinear.waves.map(w=>w.kind);assert.deepEqual(kinds,['Oblique shock','Expansion fan','Expansion fan','Oblique shock']);
  const sample=airfoilFieldSampler(d.result).sample;assert.equal(sample(.25,.061).region,'U1');assert.equal(sample(.25,.059).region,'L1');
  const fields=inputDefinitions('airfoil',preset).map(f=>f.key);assert.ok(!fields.includes('bendHeight')&&!fields.includes('bendPosition'));for(const k of ['upperSegments','lowerSegments','thickness','upperProfile','geometryInput'])assert.ok(!fields.includes(k));
- assert.deepEqual(plotOptions(d),[]);const v=sceneSVG(d.scene,d.inputs);assert.ok(v.svg.includes('h/c = 0.12'));assert.equal(v.field.options.length,6);
+ assert.deepEqual(plotOptions(d),[]);const v=sceneSVG(d.scene,d.inputs);assert.ok(v.svg.includes('h/c = 0.12'));assert.deepEqual(new Set(v.field.options),new Set(['pressure','mach','temperature','density','speed','cp','schlieren']));
 });
 test('Bent geometry allows an off-center bend and rejects invalid height or position',()=>{
  const g=airfoilGeometry({...preset,bendPosition:.4,bendHeight:.08});assert.deepEqual(g.upper[1],{x:.4,y:.08});assert.deepEqual(g.upper,g.lower);assert.deepEqual(g.upper.at(-1),{x:1,y:0});
@@ -55,3 +55,4 @@ test('Switching to multiple panels and adding a panel preserves the plate geomet
  context.bindSegmentEditor({key:'upperSegments'});button.onclick();assert.equal(context.inputs.upperSegments.length,3);
  const after=airfoilGeometry(context.inputs);assert.deepEqual(after.upper.at(-1),{x:1,y:0});near(after.upper[1].y/after.upper[1].x,.24);near(after.upper[2].x,before.upper[1].x);near(after.upper[2].y,before.upper[1].y);
 });
+
