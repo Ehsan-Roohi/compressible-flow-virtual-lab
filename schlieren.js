@@ -22,7 +22,7 @@ export function schlierenLayers(svg,palette){
   if(defs||!/^<(?:path|polygon|rect|circle|ellipse|polyline|line|image)\b/.test(tag))return tag;
   const c=tag.match(/\bfill="([^"]+)"/)?.[1],t=c?coordinate(c):null,isGradient=c&&gradients.has(c.match(/^url\(#([^)]*)\)$/)?.[1]);
   if(t!==null||isGradient){count++;tag=replaceAttr(tag,'fill',isGradient?c:`rgb(${Array(3).fill(Math.round(255*t)).join(',')})`);}else tag=replaceAttr(tag,'fill','none');
-  return replaceAttr(tag,'stroke','none');
+  return replaceAttr(replaceAttr(tag,'stroke','none'),'shape-rendering','crispEdges');
  });
  const overlay=svg.replace(/<(?:path|polygon|rect|circle|ellipse|polyline|line)\b[^>]*>/g,tag=>{const c=tag.match(/\bfill="([^"]+)"/)?.[1];return c&&(coordinate(c)!==null||gradients.has(c.match(/^url\(#([^)]*)\)$/)?.[1]))?replaceAttr(tag,'fill','none'):tag;}).replace(/<text\b[^>]*>/g,tag=>tag.replace(/fill="(?:white|#fff(?:fff)?)"/gi,'fill="#24313c"'));
  const body=s=>s.replace(/^<svg[^>]*>/,'').replace(/<\/svg>\s*$/,'');
@@ -37,7 +37,7 @@ export function schlierenView(view){
  // Sobel derivatives of normalized density: signed bias -> absolute value ->
  // sum of squares -> square root. Alpha erosion suppresses fluid-mask edges.
  const filter=`<filter id="syntheticSchlieren" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
- <feGaussianBlur in="SourceGraphic" stdDeviation="0.65" result="smooth"/>
+ <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="smooth"/>
  <feConvolveMatrix in="smooth" order="3" kernelMatrix="-1 0 1 -2 0 2 -1 0 1" divisor="8" bias="0.5" preserveAlpha="true" result="dx"/>
  <feConvolveMatrix in="smooth" order="3" kernelMatrix="-1 -2 -1 0 0 0 1 2 1" divisor="8" bias="0.5" preserveAlpha="true" result="dy"/>
  <feComponentTransfer in="dx" result="ax"><feFuncR type="table" tableValues="1 0 1"/><feFuncG type="table" tableValues="1 0 1"/><feFuncB type="table" tableValues="1 0 1"/></feComponentTransfer>
