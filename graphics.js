@@ -1,5 +1,5 @@
 import {schlierenOutline} from './schlieren.js?v=20261118-schlieren-outline';
-import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261118-wave-arrows';
+import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261118-no-wave-arrows';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
