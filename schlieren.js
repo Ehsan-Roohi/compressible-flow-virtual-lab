@@ -1,4 +1,4 @@
-// Synthetic, display-space density-gradient magnitude. No optical ray tracing
+// Synthetic, display-space signed vertical density gradient. No optical ray tracing
 // and no physical shock thickness are inferred from the piecewise inviscid field.
 const ramps=[['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'],['#1834b8','#007fff','#00c9e8','#20c75a','#e6e529','#ff961f','#db2525']];
 const rgb=color=>/^#[\da-f]{6}$/i.test(color)?[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)):(color.match(/^rgb\(\s*(\d+)[, ]+\s*(\d+)[, ]+\s*(\d+)\s*\)$/i)?.slice(1).map(Number)??null);
@@ -29,29 +29,33 @@ export function schlierenLayers(svg,palette){
  const density=body(source).replace(/\bid="([^"]+)"/g,'id="schSource-$1"').replace(/url\(#([^)]*)\)/g,'url(#schSource-$1)');
  let foregroundDefs=0;
  const foreground=body(overlay).replace(/<\/?[\w:-]+\b[^>]*>/g,tag=>{if(/^<defs\b/.test(tag)){foregroundDefs++;return tag;}if(/^<\/defs/.test(tag)){foregroundDefs--;return tag;}if(foregroundDefs||!/^<(?:path|polygon|rect|circle|ellipse|polyline)\b/.test(tag))return tag;return replaceAttr(tag,'fill','none');});
- const darkenContext=markup=>markup.split(/(<clipPath\b[\s\S]*?<\/clipPath>)/g).map(part=>part.startsWith('<clipPath')?part:part
-  .replace(/\bfill="(?:white|#fff(?:fff)?|#fcfdfc|#f8fbf6|#eef1f2|#edf0f0)"/gi,'fill="#263748"')
-  .replace(/\bstroke="#d3dadd"/gi,'stroke="#46576a"')
-  .replace(/\bstroke="(?:black|#000(?:000)?)"/gi,'stroke="#8bb6c5"')
-  .replace(/<text\b[^>]*>/g,tag=>replaceAttr(tag,'fill','#c8dae8'))).join('');
- return {density,overlay:darkenContext(body(overlay)),foreground:darkenContext(foreground.replace(/<defs\b[\s\S]*?<\/defs>/g,'')),count};
+ const grayscaleContext=markup=>markup
+  .split(/(<clipPath\b[\s\S]*?<\/clipPath>)/g)
+  .map(part=>part.startsWith('<clipPath')?part:part
+   .replace(/\b(fill|stroke)="([^"]+)"/g,(attr,name,color)=>{
+    if (/^(?:white|#fff(?:fff)?|#fcfdfc|#f8fbf6|#eef1f2|#edf0f0)$/i.test(color))return `${name}="#909090"`;
+    const channels=rgb(color);
+    if(!channels)return attr;
+    const gray=Math.round(.2126*channels[0]+.7152*channels[1]+.0722*channels[2]);
+    return `${name}="rgb(${gray},${gray},${gray})"`;
+   })
+   .replace(/<text\b[^>]*>/g,tag=>replaceAttr(tag,'fill','#242424'))).join('');
+ return {density,overlay:grayscaleContext(body(overlay)),foreground:grayscaleContext(foreground.replace(/<defs\b[\s\S]*?<\/defs>/g,'')),count};
 }
 export function schlierenView(view){
  const layers=schlierenLayers(view.svg,view.field?.palette);if(!layers.count)return null;
  const root=view.svg.match(/^<svg[^>]*>/)?.[0];if(!root)return null;
- // Sobel derivatives of normalized density: signed bias -> absolute value ->
- // sum of squares -> square root. Alpha erosion suppresses fluid-mask edges.
+ // A horizontal knife edge responds to the signed vertical density gradient.
+ // Alpha erosion suppresses false gradients at the fluid mask.
  const filter=`<filter id="syntheticSchlieren" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
  <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="smooth"/>
- <feConvolveMatrix in="smooth" order="3" kernelMatrix="-1 0 1 -2 0 2 -1 0 1" divisor="8" bias="0.5" preserveAlpha="true" result="dx"/>
  <feConvolveMatrix in="smooth" order="3" kernelMatrix="-1 -2 -1 0 0 0 1 2 1" divisor="8" bias="0.5" preserveAlpha="true" result="dy"/>
- <feComponentTransfer in="dx" result="ax"><feFuncR type="table" tableValues="8 0 8"/><feFuncG type="table" tableValues="8 0 8"/><feFuncB type="table" tableValues="8 0 8"/></feComponentTransfer>
- <feComponentTransfer in="dy" result="ay"><feFuncR type="table" tableValues="8 0 8"/><feFuncG type="table" tableValues="8 0 8"/><feFuncB type="table" tableValues="8 0 8"/></feComponentTransfer>
- <feComposite in="ax" in2="ax" operator="arithmetic" k1="1" result="xx"/><feComposite in="ay" in2="ay" operator="arithmetic" k1="1" result="yy"/>
- <feComposite in="xx" in2="yy" operator="arithmetic" k2="1" k3="1" result="sum"/>
- <feComponentTransfer in="sum" result="strength"><feFuncR type="gamma" amplitude="1" exponent="0.5" offset="0"/><feFuncG type="gamma" amplitude="1" exponent="0.5" offset="0"/><feFuncB type="gamma" amplitude="1" exponent="0.5" offset="0"/></feComponentTransfer>
- <feComponentTransfer in="strength" result="tone"><feFuncR type="table" tableValues="0.047 0.36"/><feFuncG type="table" tableValues="0.078 0.84"/><feFuncB type="table" tableValues="0.125 0.90"/></feComponentTransfer>
+ <feComponentTransfer in="dy" result="tone">
+  <feFuncR type="table" tableValues="0.91 0.91 0.565 0.10 0.10"/>
+  <feFuncG type="table" tableValues="0.91 0.91 0.565 0.10 0.10"/>
+  <feFuncB type="table" tableValues="0.91 0.91 0.565 0.10 0.10"/>
+ </feComponentTransfer>
  <feMorphology in="SourceAlpha" operator="erode" radius="2.5" result="interior"/><feComposite in="tone" in2="interior" operator="in"/>
  </filter>`;
- return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="#0c1420"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:'Synthetic schlieren |∇ρ|',options:[...new Set([...view.field.options,'schlieren'])],min:0,max:1,units:'relative',palette:['#0c1420','#5cd6e6'],note:'Dark navy: uniform density. Brighter cyan: stronger density changes. Display-space gradient of normalized density with fixed contrast and smoothing; not a dimensional gradient, shock thickness or optical simulation. '+(view.field.note??'')}};
+ return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="#909090"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:'Synthetic schlieren · signed vertical density gradient',options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:'Mid-gray: uniform density. Light and dark indicate opposite signs of the vertical density gradient. Relative display contrast. '+(view.field.note??'')}};
 }

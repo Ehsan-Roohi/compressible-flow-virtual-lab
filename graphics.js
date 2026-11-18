@@ -1,4 +1,4 @@
-import {schlierenView} from './schlieren.js?v=20261118-dark-schlieren';
+import {schlierenView} from './schlieren.js?v=20261118-gray-schlieren';
 import {finiteTubeDrawing,finiteTubeFrame} from './finite-tube.js?v=20261117-shock-contours';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
