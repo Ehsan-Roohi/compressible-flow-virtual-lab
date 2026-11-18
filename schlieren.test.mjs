@@ -24,3 +24,17 @@ test('Cp-only models do not offer a density-gradient mode',()=>{
  const x={...defaults('airfoil'),airfoilMethod:'Linearized theory'},d=calculate('airfoil',x),v=sceneSVG(d.scene,x,0,'pressure');assert.ok(!v.field?.options.includes('density'));assert.ok(!v.field?.options.includes('schlieren'));
  assert.equal(schlierenView({svg:'<svg><text>No spatial field</text></svg>',field:{options:[]}}),null);
 });
+
+test('all three nozzle views use density for schlieren, with axial sensitivity inside',()=>{
+ for (const nozzleView of ['Internal flow','External waves','Nozzle + external waves']){
+  const inputs={...defaults('nozzle'),areaRatio:3,backRatio:nozzleView==='Internal flow'?.8:.05,nozzleView};
+  const data=calculate('nozzle',inputs);
+  const density=sceneSVG(data.scene,data.inputs,0,'density');
+  const image=sceneSVG(data.scene,data.inputs,0,'schlieren');
+  assert.equal(density.field.quantity,'density');
+  assert.ok(density.field.max>density.field.min);
+  assert.equal(image.field.quantity,'schlieren');
+  assert.match(image.svg,new RegExp('result="'+({'Internal flow':'dx','External waves':'dy','Nozzle + external waves':'diagonal'}[nozzleView])+'"'));
+  assert.doesNotMatch(image.svg,/NaN|undefined|Infinity/);
+ }
+});

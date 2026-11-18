@@ -42,20 +42,25 @@ export function schlierenLayers(svg,palette){
    .replace(/<text\b[^>]*>/g,tag=>replaceAttr(tag,'fill','#242424'))).join('');
  return {density,overlay:grayscaleContext(body(overlay)),foreground:grayscaleContext(foreground.replace(/<defs\b[\s\S]*?<\/defs>/g,'')),count};
 }
-export function schlierenView(view){
+export function schlierenView(view,direction='vertical'){
+ const sensitivity={
+  axial:{kernel:'1 0 -1 2 0 -2 1 0 -1',divisor:8,result:'dx',label:'axial'},
+  diagonal:{kernel:'0 -2 -2 2 0 -2 2 2 0',divisor:16,result:'diagonal',label:'diagonal'},
+  vertical:{kernel:'-1 -2 -1 0 0 0 1 2 1',divisor:8,result:'dy',label:'vertical'},
+ }[direction];
  const layers=schlierenLayers(view.svg,view.field?.palette);if(!layers.count)return null;
  const root=view.svg.match(/^<svg[^>]*>/)?.[0];if(!root)return null;
- // A horizontal knife edge responds to the signed vertical density gradient.
+ // The Sobel kernel projects the signed gradient onto the selected direction.
  // Alpha erosion suppresses false gradients at the fluid mask.
  const filter=`<filter id="syntheticSchlieren" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
  <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="smooth"/>
- <feConvolveMatrix in="smooth" order="3" kernelMatrix="-1 -2 -1 0 0 0 1 2 1" divisor="8" bias="0.5" preserveAlpha="true" result="dy"/>
- <feComponentTransfer in="dy" result="tone">
+ <feConvolveMatrix in="smooth" order="3" kernelMatrix="${sensitivity.kernel}" divisor="${sensitivity.divisor}" bias="0.5" preserveAlpha="true" result="${sensitivity.result}"/>
+ <feComponentTransfer in="${sensitivity.result}" result="tone">
   <feFuncR type="table" tableValues="0.91 0.91 0.565 0.10 0.10"/>
   <feFuncG type="table" tableValues="0.91 0.91 0.565 0.10 0.10"/>
   <feFuncB type="table" tableValues="0.91 0.91 0.565 0.10 0.10"/>
  </feComponentTransfer>
  <feMorphology in="SourceAlpha" operator="erode" radius="2.5" result="interior"/><feComposite in="tone" in2="interior" operator="in"/>
  </filter>`;
- return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="#909090"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:'Synthetic schlieren · signed vertical density gradient',options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:'Mid-gray: uniform density. Light and dark indicate opposite signs of the vertical density gradient. Relative display contrast. '+(view.field.note??'')}};
+ return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="#909090"/>${layers.overlay}<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:`Synthetic schlieren · signed ${sensitivity.label} density gradient`,options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:`Mid-gray: uniform density. Light and dark indicate opposite signs of the ${sensitivity.label} density gradient. Relative display contrast. `+(view.field.note??'')}};
 }
