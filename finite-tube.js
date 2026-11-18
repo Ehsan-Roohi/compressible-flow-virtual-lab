@@ -467,7 +467,17 @@ function initialTubePressure(r,t,X,color){
  return band(r.left,head,driverPressure)+expansion.join('')+band(tail,shock,incident.p)+band(shock,r.right,drivenPressure);
 }
 
-function numericalExpansionFans(r,frame,X,color,arrows){
+function expansionBoundaryMarks(boundaries){
+ return boundaries.map(([left,right])=>{
+  const path=`M${left} 94V195 M${right} 94V195`;
+  return `<g data-expansion-boundaries="" fill="none" stroke-dasharray="3 4">
+   <path d="${path}" stroke="#20394a" stroke-width="2.6" opacity=".65"/>
+   <path d="${path}" stroke="#fff" stroke-width="1.3"/>
+  </g>`;
+ }).join('');
+}
+
+function numericalExpansionFans(r,frame,X,color,arrows,boundaries){
  if(frame.time<=0)return '';
  const {pressure,density,velocity}=frame,n=pressure.length,dx=(r.right-frame.left)/n;
  const families=[[],[]];
@@ -491,6 +501,7 @@ function numericalExpansionFans(r,frame,X,color,arrows){
   .map(({start,end,direction})=>{
    const left=frame.left+(start+.5)*dx,right=frame.left+(end+.5)*dx;
    arrows.push({x:X((left+right)/2),direction});
+   boundaries.push([X(left),X(right)]);
    const stripes=Array.from({length:50},(_,i)=>{
     const a=X(left+(right-left)*i/50),b=X(left+(right-left)*(i+1)/50);
     const position=start+(end-start)*(i+.5)/50,j=Math.floor(position);
@@ -511,20 +522,24 @@ export function finiteTubeDrawing(r,time){
  const gasX=r.movingPiston?X(frame.left):40;
  const initial=r.movingPiston&&!r.sinusoidal&&(r.closedValve?frame.time<r.valveEncounter:frame.time<r.initialShocks.end);
  const shockX=analytical?X(r.incident.shockSpeed*frame.time):null;
- const arrows=[];
+ const arrows=[],boundaries=[];
  if(analytical){
   const {shockSpeed,head,tail}=r.incident;
   arrows.push({x:shockX,direction:Math.sign(shockSpeed)});
-  if(head!==tail)arrows.push({x:X((head+tail)*frame.time/2),direction:Math.sign(head+tail)});
+  if(head!==tail){
+   const left=X(head*frame.time),right=X(tail*frame.time);
+   arrows.push({x:(left+right)/2,direction:Math.sign(head+tail)});
+   boundaries.push([left,right]);
+  }
  }
  const overlay=analytical?`<g data-incident-shock=""><path d="M${shockX} 92V197" stroke="#111" stroke-width="1.7"/></g>`
   :initial?pistonShockMarks(r,frame.time,X,arrows):resolvedShockMarks(r,frame,X,arrows);
- const expansion=analytical?'':numericalExpansionFans(r,frame,X,color,arrows);
+ const expansion=analytical?'':numericalExpansionFans(r,frame,X,color,arrows,boundaries);
  const motionCaption=r.sinusoidal?pistonShockMarks(r,frame.time,X,arrows):'';
  const cells=analytical?initialTubePressure(r,frame.time,X,color):`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
  return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
- ${cells}${expansion}${motionCaption}${overlay}${waveDirectionArrows(arrows)}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
+ ${cells}${expansion}${expansionBoundaryMarks(boundaries)}${motionCaption}${overlay}${waveDirectionArrows(arrows)}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
  ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path d="M${X(0)} 92V197" stroke="#fff" stroke-dasharray="5 4"/>`}
  <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};

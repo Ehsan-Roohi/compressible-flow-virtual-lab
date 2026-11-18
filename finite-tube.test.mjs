@@ -39,7 +39,9 @@ test('Example 7–13 reproduces the first-wave solution and evolves the flow aft
  assert.ok(r.frames.every(f=>f.pressure.every(p=>Number.isFinite(p)&&p>0)&&f.density.every(z=>Number.isFinite(z)&&z>0)));
  assert.ok(r.checks.mass<1e-10&&r.checks.energy<1e-10);
  assert.doesNotMatch(finiteTubeDrawing(r,.004).svg,/data-reflected-expansion/);
- assert.match(finiteTubeDrawing(r,.015).svg,/data-reflected-expansion/);
+ const reflectedScene=finiteTubeDrawing(r,.015).svg;
+ assert.match(reflectedScene,/data-reflected-expansion/);
+ assert.match(reflectedScene,/data-expansion-boundaries/);
  const plots=plotOptions(d,.02),map=plots.find(p=>p.key==='finite-map-pressure');
  assert.ok(plots.every(p=>!/sample/i.test(p.key)));
  assert.ok(plots.some(p=>p.key==='tube-profile-h0'));
@@ -141,6 +143,7 @@ test('finite tube uses the original 50 expansion bands before the first wall ref
   assert.equal((original.match(/data-expansion-band/g)??[]).length,50);
   assert.equal((before.match(/data-expansion-band/g)??[]).length,50);
   assert.doesNotMatch(before,/data-expansion-characteristics/);
+  assert.equal((before.match(/data-expansion-boundaries/g)??[]).length,1);
   assert.doesNotMatch(after,/data-expansion-band/);
   assert.match(after,/id="finitePressure"/);
   for(const svg of [before,after]){
