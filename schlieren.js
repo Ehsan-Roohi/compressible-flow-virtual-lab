@@ -67,3 +67,35 @@ export function schlierenView(view,direction='vertical',{lightSurround=false}={}
  </filter>`;
  return {...view,label:'Synthetic schlieren · density gradient',svg:root.replace('>',' data-schlieren="true">')+`<rect x="0" y="0" width="100%" height="100%" fill="${lightSurround?'#f2f5f0':'#909090'}"/>${layers.overlay}${sampled||`<defs>${filter}</defs><g filter="url(#syntheticSchlieren)">${layers.density}</g>`}${view.nozzleAxial??''}${layers.foreground}</svg>`,field:{...view.field,quantity:'schlieren',label:view.nozzleAxial?'Synthetic schlieren · axial density gradient inside nozzle':`Synthetic schlieren · signed ${sensitivity.label} density gradient`,options:[...new Set([...view.field.options,'schlieren'])],min:-1,max:1,units:'relative',palette:['#e8e8e8','#909090','#1a1a1a'],note:(sampled?'Signed vertical density differences sampled from the solved states. Mid-gray indicates zero gradient. Relative display contrast. ':view.nozzleAxial?`Inside nozzle: signed axial derivative of the solved density samples, with separate relative contrast. ${direction==='diagonal'?'Outside nozzle: signed diagonal density gradient. ':''}Mid-gray indicates zero gradient. `:`Mid-gray: uniform density. Light and dark indicate opposite signs of the ${sensitivity.label} density gradient. Relative display contrast. `)+(view.field.note??'')}};
 }
+
+
+// Preserve geometric clipping and transforms. Only solid surfaces and the
+// diagram's solid shock strokes are painted in the simplified view.
+const bodyFills=new Set(['#edf0f2','#d7d9d5','#d5b488','#a8adb3','#ced7cc','#f2f4f5','#b1b7bc']);
+const bodyStrokes=new Set(['#4c5964','#657d68','#4f6d59','#72836e','#52616c','#56616a','#56636b','#283943','#17212b']);
+export function schlierenOutline(view){
+ const root=view.svg.match(/^<svg[^>]*>/)?.[0];
+ if(!root)return null;
+ const body=view.svg.slice(root.length).replace(/<\/svg>\s*$/,'')
+  .replace(/<text\b[^>]*>[\s\S]*?<\/text>/g,'')
+  .replace(/<defs\b[^>]*>([\s\S]*?)<\/defs>/g,(_,content)=>
+   '<defs>'+(content.match(/<clipPath\b[\s\S]*?<\/clipPath>/g)??[]).join('')+'</defs>');
+ const layers=body.split(/(<clipPath\b[\s\S]*?<\/clipPath>)/g).map(part=>{
+  if(part.startsWith('<clipPath'))return part;
+  return part.replace(/<(?:path|polygon|rect|circle|ellipse|polyline|line|image)\b[^>]*>(?:<\/(?:path|polygon|rect|circle|ellipse|polyline|line|image)>)?/g,tag=>{
+   const fill=tag.match(/\bfill="([^"]+)"/)?.[1];
+   const stroke=tag.match(/\bstroke="([^"]+)"/)?.[1];
+   const solid=bodyFills.has(fill);
+   const shock=/^(?:black|#000(?:000)?|#111)$/i.test(stroke??'')&&!tag.includes('stroke-dasharray');
+   const wall=(bodyStrokes.has(stroke)&&Number(tag.match(/\bstroke-width="([^"]+)"/)?.[1])>=1.3&&!tag.includes('stroke-dasharray'))||/\bdata-corner-wall=/.test(tag);
+   if(/^<(?:circle|ellipse|image)\b/.test(tag)||(!solid&&!shock&&!wall))return '';
+   tag=replaceAttr(tag,'fill',solid?'#b9b9b9':'none');
+   return replaceAttr(tag,'stroke',shock?'#111111':wall?'#555555':'none');
+  });
+ }).join('');
+ return {...view,label:'Schlieren · body and shock lines',
+  svg:root.replace('>',' data-schlieren-outline="true">')+
+   '<rect width="100%" height="100%" fill="#ededed"/>'+layers+'</svg>',
+  field:{...view.field,quantity:'schlieren',label:'Solid geometry and shock lines',
+   showScale:false,note:'Shocks are shown where resolved by the model.'}};
+}

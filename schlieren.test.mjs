@@ -18,14 +18,14 @@ test('Signed vertical Sobel gradient uses mid-gray and masks domain edges',()=>{
 });
 test('schlieren is available on supported density fields and changes the inlet scene without changing states',()=>{
  const x={...defaults('wall'),...multiRampPreset,inletFlowSide:'Both sides'},d=calculate('wall',x),before=JSON.stringify(d.result.regions),normal=sceneSVG(d.scene,x,0,'pressure'),v=sceneSVG(d.scene,x,0,'schlieren');
- assert.ok(normal.field.options.includes('schlieren'));assert.equal(v.field.quantity,'schlieren');assert.match(v.svg,/data-density-schlieren="resolved-samples"/);assert.doesNotMatch(v.svg,/feConvolveMatrix/);assert.match(v.svg,/>U2<\/text>/);assert.match(v.svg,/>L2<\/text>/);assert.equal(JSON.stringify(d.result.regions),before);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);
+ assert.ok(normal.field.options.includes('schlieren'));assert.equal(v.field.quantity,'schlieren');assert.match(v.svg,/data-schlieren-outline="true"/);assert.match(v.svg,/data-solid="segmented-wedge"/);assert.match(v.svg,/stroke="#111111"/);assert.doesNotMatch(v.svg,/feConvolveMatrix|resolved-samples|<text/);assert.equal(v.field.showScale,false);assert.equal(JSON.stringify(d.result.regions),before);assert.doesNotMatch(v.svg,/NaN|undefined|Infinity/);
 });
 test('Cp-only models do not offer a density-gradient mode',()=>{
  const x={...defaults('airfoil'),airfoilMethod:'Linearized theory'},d=calculate('airfoil',x),v=sceneSVG(d.scene,x,0,'pressure');assert.ok(!v.field?.options.includes('density'));assert.ok(!v.field?.options.includes('schlieren'));
  assert.equal(schlierenView({svg:'<svg><text>No spatial field</text></svg>',field:{options:[]}}),null);
 });
 
-test('all three nozzle views use density for schlieren, with axial sensitivity inside',()=>{
+test('all three nozzle views offer the simplified body and shock view',()=>{
  for (const nozzleView of ['Internal flow','External waves','Nozzle + external waves']){
   const inputs={...defaults('nozzle'),areaRatio:3,backRatio:nozzleView==='Internal flow'?.8:.05,nozzleView};
   const data=calculate('nozzle',inputs);
@@ -34,14 +34,9 @@ test('all three nozzle views use density for schlieren, with axial sensitivity i
   assert.equal(density.field.quantity,'density');
   assert.ok(density.field.max>density.field.min);
   assert.equal(image.field.quantity,'schlieren');
-  assert.match(image.svg,/height="100%" fill="#f2f5f0"/);
-  if(nozzleView!=='External waves'){
-   const gradient=image.svg.match(/<linearGradient id="nozzleAxialSchlieren"[^>]*>(.*?)<\/linearGradient>/)?.[1];
-   assert.ok(gradient);
-   assert.ok(new Set(gradient.match(/rgb\(\d+,\d+,\d+\)/g)).size>10);
-   assert.match(image.field.note,/axial derivative of the solved density/);
-  }
-  assert.match(image.svg,new RegExp('result="'+({'Internal flow':'dx','External waves':'dy','Nozzle + external waves':'diagonal'}[nozzleView])+'"'));
+  assert.match(image.svg,/data-schlieren-outline="true"/);
+  assert.doesNotMatch(image.svg,/nozzleAxialSchlieren|feConvolveMatrix|<text/);
+  assert.equal(image.field.showScale,false);
   assert.doesNotMatch(image.svg,/NaN|undefined|Infinity/);
  }
 });
