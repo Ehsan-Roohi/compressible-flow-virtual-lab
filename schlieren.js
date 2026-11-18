@@ -40,11 +40,11 @@ export function schlierenView(view){
  <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="smooth"/>
  <feConvolveMatrix in="smooth" order="3" kernelMatrix="-1 0 1 -2 0 2 -1 0 1" divisor="8" bias="0.5" preserveAlpha="true" result="dx"/>
  <feConvolveMatrix in="smooth" order="3" kernelMatrix="-1 -2 -1 0 0 0 1 2 1" divisor="8" bias="0.5" preserveAlpha="true" result="dy"/>
- <feComponentTransfer in="dx" result="ax"><feFuncR type="table" tableValues="1 0 1"/><feFuncG type="table" tableValues="1 0 1"/><feFuncB type="table" tableValues="1 0 1"/></feComponentTransfer>
- <feComponentTransfer in="dy" result="ay"><feFuncR type="table" tableValues="1 0 1"/><feFuncG type="table" tableValues="1 0 1"/><feFuncB type="table" tableValues="1 0 1"/></feComponentTransfer>
+ <feComponentTransfer in="dx" result="ax"><feFuncR type="table" tableValues="8 0 8"/><feFuncG type="table" tableValues="8 0 8"/><feFuncB type="table" tableValues="8 0 8"/></feComponentTransfer>
+ <feComponentTransfer in="dy" result="ay"><feFuncR type="table" tableValues="8 0 8"/><feFuncG type="table" tableValues="8 0 8"/><feFuncB type="table" tableValues="8 0 8"/></feComponentTransfer>
  <feComposite in="ax" in2="ax" operator="arithmetic" k1="1" result="xx"/><feComposite in="ay" in2="ay" operator="arithmetic" k1="1" result="yy"/>
  <feComposite in="xx" in2="yy" operator="arithmetic" k2="1" k3="1" result="sum"/>
- <feComponentTransfer in="sum" result="strength"><feFuncR type="gamma" amplitude="8" exponent="0.5" offset="0"/><feFuncG type="gamma" amplitude="8" exponent="0.5" offset="0"/><feFuncB type="gamma" amplitude="8" exponent="0.5" offset="0"/></feComponentTransfer>
+ <feComponentTransfer in="sum" result="strength"><feFuncR type="gamma" amplitude="1" exponent="0.5" offset="0"/><feFuncG type="gamma" amplitude="1" exponent="0.5" offset="0"/><feFuncB type="gamma" amplitude="1" exponent="0.5" offset="0"/></feComponentTransfer>
  <feComponentTransfer in="strength" result="grey"><feFuncR type="linear" slope="-1" intercept="1"/><feFuncG type="linear" slope="-1" intercept="1"/><feFuncB type="linear" slope="-1" intercept="1"/></feComponentTransfer>
  <feMorphology in="SourceAlpha" operator="erode" radius="2.5" result="interior"/><feComposite in="grey" in2="interior" operator="in"/>
  </filter>`;
