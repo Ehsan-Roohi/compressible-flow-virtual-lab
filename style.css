@@ -220,8 +220,7 @@ body{font-family:Georgia,"Times New Roman",serif}
  display:flex;
  flex-wrap:wrap;
  align-items:flex-start;
- width:fit-content;
- max-width:100%;
+ width:100%;
  margin-bottom:var(--workspace-gap);
  padding:8px var(--card-inset);
  gap:6px 18px;
