@@ -52,9 +52,11 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  const temperatureChange=b.T0-a.T0;
  if(isRayleigh&&Math.abs(temperatureChange)>1e-9){
   const heating=temperatureChange>0,cx=(left+(rayNozzle?shockX:right))/2;
+  const gamma=inputs.gamma??1.4;
+  const q=gamma*(inputs.R??287)*temperatureChange/((gamma-1)*1000);
   const start=heating?72:116,end=heating?116:72,head=end+(heating?-8:8);
   const path=`M${cx} ${start}V${end}M${cx-6} ${head}L${cx} ${end}L${cx+6} ${head}`;
-  body+=`<g data-heat-transfer="${heating?'into-duct':'out-of-duct'}"><title>${heating?'Heat added to the flow':'Heat removed from the flow'}</title><path d="${path}" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="${heating?'#a73320':'#20558a'}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+  body+=`<g data-heat-transfer="${heating?'into-duct':'out-of-duct'}"><title>${heating?'Heat added to the flow':'Heat removed from the flow'}</title><path d="${path}" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="${heating?'#a73320':'#236aba'}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${text(cx+15,94,`q = ${fmt(q)} kJ/kg`)}</g>`;
  }
  if(hasEntry){
   if(initial){
