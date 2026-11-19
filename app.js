@@ -33,7 +33,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261119-isentropic-image';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-isentropic-image';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-isentropic-sound';
 function defaults(id){
  const inputs=experimentDefaults(id);
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001}:inputs;
@@ -234,7 +234,7 @@ function renderIsentropicRelations(d){
  const panel=$('isentropicPanel');panel.hidden=d.id!=='foundations';if(panel.hidden)return;
  const rows=d.rows.filter(r=>r.panel==='isentropic');
  const groups=[
-  ['Mach and angles',rows.filter(r=>!/[₀*]/.test(r.label))],
+  ['Flow properties',[...rows.filter(r=>!/[₀*]/.test(r.label)),{label:'Speed of sound a',display:fmt(d.result.a),unit:'m/s'}]],
   ['Stagnation ratios',rows.filter(r=>r.label.endsWith('₀'))],
   ['Sonic ratios',rows.filter(r=>r.label.endsWith('*'))]
  ];

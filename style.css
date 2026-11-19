@@ -245,3 +245,4 @@ body{font-family:Georgia,"Times New Roman",serif}
 .isentropic-ratio-columns .isentropic-group-title{margin-inline:0;letter-spacing:normal}
 #isentropicPanel .isentropic-ratio-columns .isentropic-grid{grid-template-columns:minmax(0,1fr);margin:0}
 .isentropic-ratio-columns .isentropic-grid>div{padding:5px 4px}
+#isentropicPanel>section>.isentropic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
