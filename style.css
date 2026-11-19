@@ -78,7 +78,8 @@ h1{font-weight:650;letter-spacing:-.7px}h2{font-size:16px;font-weight:650}h3{fon
 /* Inputs left, figure and plots center, all numerical outputs right. */
 .output-column{min-width:0;display:grid;gap:16px;align-content:start;grid-area:outputs}.work-grid{grid-template-columns:220px minmax(280px,1fr) 330px;grid-template-areas:"controls visual outputs";gap:16px}.controls{grid-area:controls}.visual-column{grid-area:visual;min-width:0}.output-column .results{grid-column:auto;display:block}.output-column #results{display:block}.output-column .result-row{margin:0 16px}.output-column .result-label{max-width:165px}.output-column .result-value{font-size:16px}.output-column .result-actions{display:flex}.output-column .compare-btn{display:block;width:calc(100% - 32px);margin:12px 16px}.output-column .isentropic-panel{border:0;box-shadow:none;border-radius:0}.output-column .isentropic-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin:0 10px}.output-column .isentropic-grid>div{padding:11px 6px}.output-column .isentropic-grid dd{font-size:15px}.output-column .isentropic-panel h2{font-size:14px}.output-column .isentropic-note{font-size:11px;margin:10px 16px}.output-column .balance-panel,.output-column .shock-results{margin:0;padding:12px}.output-column .cv-equation th,.output-column .cv-equation td{padding:7px 8px;font-size:11px}.output-column .shock-state table{min-width:450px}.output-column .shock-state dl{grid-template-columns:1fr}.plot-controls{padding:10px 20px 0}.plot-controls label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px}.plot-controls select{font-size:13px}.plot-note{font-size:11px;line-height:1.6;color:#4b5563;margin:8px 0}.chart-card .card-head{flex-wrap:wrap}
 @media(min-width:1301px){.shell{grid-template-columns:190px minmax(0,1fr)}main{padding:0 20px}.sidebar{padding:24px 10px}.sidebar nav a{padding:9px 8px;gap:7px}.sidebar nav .nav-title{font-size:13px}.controls form{display:block}.controls .input-top{flex-wrap:wrap;gap:3px}.controls .input-top label{max-width:none}}
-@media(min-width:801px) and (max-width:1300px){.shell{grid-template-columns:170px minmax(0,1fr)}main{padding:0 16px}.work-grid{grid-template-columns:minmax(280px,1fr) 300px;grid-template-areas:"controls controls" "visual outputs"}.controls form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 18px}.sidebar{padding:20px 7px}.sidebar nav a{padding:8px 5px;gap:5px}.sidebar nav .nav-title{font-size:12px}}
+@media(min-width:801px) and (max-width:1300px){.shell{grid-template-columns:170px minmax(0,1fr)}main{padding:0 16px}.work-grid{grid-template-columns:clamp(170px,20vw,206px) minmax(0,1fr);grid-template-areas:"controls visual" "controls outputs"}.controls form{display:block}.controls .input-top{flex-wrap:wrap;gap:3px}.controls .input-top label{max-width:none}.sidebar{padding:20px 7px}.sidebar nav a{padding:8px 5px;gap:5px}.sidebar nav .nav-title{font-size:12px}}
+@media(min-width:1151px) and (max-width:1300px){.work-grid{grid-template-columns:190px minmax(0,1fr) clamp(218px,19vw,246px);grid-template-areas:"controls visual outputs"}}
 @media(max-width:800px){.work-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"controls" "outputs" "visual"}.output-column{display:grid;grid-template-columns:1fr}.output-column #results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.output-column .isentropic-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.controls form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.output-column .result-label{max-width:none}}
 @media(max-width:480px){.output-column #results,.controls form{grid-template-columns:1fr}.output-column .isentropic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .gas-result-summary{font-size:11px;line-height:1.7;color:#465463;padding:12px 16px;border-bottom:1px solid #e4e9ee}
@@ -362,4 +363,56 @@ nav .chapter-number { flex: none; display: inline-block; min-width: 1.8em; font:
   #rayleighBookAction { margin-block: 6px; }
   .controls > #wallSetupPanel:not([hidden]) { margin: 0 var(--card-inset) 10px; }
   #inputTitle:focus-visible, #resultsTitle:focus-visible { outline: 2px solid var(--teal); }
+}
+
+/* Keep the controls and secondary results quiet beside the flow diagram. */
+.lab-header .model-details .model-pill { display: inline-block; margin: 0 8px 4px 0; }
+.lab-heading-row .top-actions { gap: 6px; }
+.scene-card > .card-head { align-items: center; padding-block: 6px 4px; }
+.scene-tools { align-items: baseline; }
+.export-disclosure > summary, .sampling-settings > summary,
+.reference-detail > summary, .airfoil-detail > summary {
+  display: list-item; cursor: pointer; color: var(--teal); width: fit-content;
+}
+.export-disclosure > summary { font-size: 13px; padding-block: 3px; }
+.export-disclosure > div { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.export-disclosure button { color: var(--teal); }
+.export-disclosure summary:focus-visible, .sampling-settings summary:focus-visible,
+.reference-detail summary:focus-visible, .airfoil-detail summary:focus-visible {
+  outline: 2px solid var(--teal); outline-offset: 2px;
+}
+.scene-tools .export-disclosure { text-align: start; }
+#chartExports { margin: 0 var(--card-inset) 7px; }
+.chart-card:not(:has(#chart svg)) #chartExports { display: none; }
+.result-actions.export-disclosure, .output-column .result-actions.export-disclosure {
+  display: block; margin: 5px 0; padding: 0 var(--card-inset);
+}
+.result-actions.export-disclosure button { flex: none; }
+.sampling-settings { grid-column: 1 / -1; margin: 6px 0; }
+.sampling-settings > summary, .reference-detail > summary, .airfoil-detail > summary {
+  font-size: 14px; padding: 6px 0;
+}
+.flow-relations-panel:has(.reference-detail) { border: 0; border-radius: 0; margin-bottom: 6px; }
+.reference-detail[open] > summary { margin-bottom: 3px; }
+.airfoil-detail { margin-inline: var(--card-inset); border-top: 1px solid var(--line); }
+.airfoil-detail .airfoil-scroll { margin-inline: 0; }
+.region-table-panel { margin-top: 0; }
+.region-table-scroll { padding: 0 var(--card-inset) 8px; }
+.region-table th, .region-table td { padding: 5px 7px; }
+.region-table tbody th span { display: inline; margin-inline-start: .4em; white-space: nowrap; }
+.region-table tbody th span:empty { margin: 0; }
+body:is([data-lab="rayleigh"],[data-lab="fanno"],[data-lab="normal"]) .region-table:has(thead th:nth-child(3):last-child) { min-width: 0; }
+.flow-relations-panel td, .flow-relations-panel th { padding-block: 5px; }
+.result-row, .result-row:first-child { padding-block: 6px; }
+.region-table-panel .card-head, .chart-card .card-head { padding-block: 7px 4px; }
+@media (min-width: 801px) {
+  .lab-header h1 { font-size: clamp(26px,2.2vw,31px); }
+  .lab-header { padding-block: 8px; }
+  .result-value { font-size: 17px; }
+}
+@media (max-width: 800px) {
+  #chapterPrimary > .input-group { background: transparent; border: 0; padding: 3px 0; }
+  #chapterShortcuts { gap: 14px; margin-block: 1px; }
+  #chapterShortcuts button { padding: 5px 0; min-height: 32px; border: 0; background: transparent; text-decoration: underline; text-underline-offset: 3px; }
+  .export-disclosure > summary { min-height: 28px; }
 }

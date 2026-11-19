@@ -44,3 +44,29 @@ test('Trailing states are shown in the table, exported and included in every sho
  assert.ok(d.rows.some(r=>r.label.includes('TE-U · after · Mach')));assert.ok(d.checks.trailingPressure<1e-9);
  const svg=sceneSVG(d.scene,x).svg;assert.ok(svg.includes('data-trailing-interface="Slip line"'));assert.ok(svg.includes('data-region="TE-U"'));
 });
+
+test('Airfoil card keeps applicable details folded and solver limits visible',()=>{
+ const render=r=>airfoilTables(r,String);
+ const linear=render(solve({airfoilMethod:'Linearized theory'}));
+ const visible=html=>html.replace(/<details\b[\s\S]*?<\/details>/g,'');
+ assert.equal((linear.match(/<section class="card">/g)??[]).length,1);
+ assert.match(visible(linear),/Lift coefficient/);
+ assert.doesNotMatch(visible(linear),/Surface pressure coefficients|Flow properties by surface region/);
+ assert.match(linear,/data-airfoil-detail="surface"><summary>Surface pressure coefficients/);
+ assert.match(linear,/data-airfoil-detail="potential"/);
+ assert.doesNotMatch(linear,/data-airfoil-detail="trailing"|not resolved|require an accepted/i);
+
+ const compare=solve({airfoilMethod:'Compare both',alpha:4});
+ const html=render(compare);
+ assert.match(html,/data-airfoil-detail="trailing"><summary>Trailing-edge matching/);
+ assert.match(html,/data-airfoil-detail="surface"><summary>Surface pressures and flow properties/);
+ assert.match(visible(html),/SE − linear/);
+ assert.doesNotMatch(html,/<details[^>]*\bopen\b/);
+
+ const detached=solve({airfoilMethod:'Compare both',airfoilShape:'Flat plate',M:2,alpha:26});
+ assert.equal(detached.nonlinear.status,'unsupported');
+ const failed=render(detached);
+ assert.ok(visible(failed).includes(detached.nonlinear.reason));
+ assert.doesNotMatch(failed,/data-airfoil-detail="trailing"|Flow properties by surface region/);
+ assert.match(visible(failed),/Linearized/);
+});

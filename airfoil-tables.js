@@ -1,23 +1,76 @@
 import {airfoilRegionLabel} from './airfoil-region-labels.js?v=20261115-plate-regions';
-// Present aerodynamic coefficients separately from local flow states.
-export function airfoilTables(r,fmt){
- const number=v=>Number.isFinite(v)?fmt(v,6):'—';
- const models=r.models.filter(k=>r[k].status==='ok'),both=models.includes('linear')&&models.includes('nonlinear');
- const name=k=>k==='linear'?'Linearized':'Shock–Expansion';
- const metrics=[['Lift coefficient C<sub>L</sub>',z=>z.CL],['Wave-drag coefficient C<sub>D,w</sub>',z=>z.CD],['Quarter-chord moment C<sub>M,c/4</sub>',z=>z.CM],['Lift-to-drag ratio L/D',z=>Math.abs(z.CD)>1e-12?z.CL/z.CD:null]];
- for(const panel of r.geometry.panels)metrics.push([`Pressure coefficient C<sub>p</sub> · ${airfoilRegionLabel(r,panel.id)}`,z=>z.panels.find(p=>p.id===panel.id)?.Cp]);
- const coefficients=models.length?'<div class="airfoil-scroll"><table aria-label="Aerodynamic coefficient comparison"><thead><tr><th>Quantity</th>'+models.map(k=>`<th>${name(k)}</th>`).join('')+(both?'<th>SE − linear</th>':'')+'</tr></thead><tbody>'+metrics.map(([label,value])=>{const values=models.map(k=>value(r[k]));return `<tr><th scope="row">${label}</th>`+values.map(v=>`<td>${number(v)}</td>`).join('')+(both?`<td>${values.every(Number.isFinite)?number(value(r.nonlinear)-value(r.linear)):'—'}</td>`:'')+'</tr>';}).join('')+'</tbody></table></div>':'<p class="airfoil-empty">No accepted coefficients for the selected method.</p>';
- const hasSE=models.includes('nonlinear'),hasLinear=models.includes('linear');
- const headers=['Region',...(hasSE?['M','p (kPa)','T (K)','ρ (kg/m³)','u (m/s)','p₀ (kPa)','T₀ (K)','Wave']:[])];
- let states=hasSE?'<div class="airfoil-scroll"><table aria-label="Flow properties by surface region"><thead><tr>'+headers.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>'+r.geometry.panels.map((p,i)=>{const n=r.nonlinear.panels[i],values=[...(hasSE?[number(n.M),number(n.p/1000),number(n.T),number(n.rho),number(n.u),number(n.p0/1000),number(n.T0),n.wave]:[])];return `<tr><th scope="row">${airfoilRegionLabel(r,p.id)}</th>`+values.map(v=>`<td>${v}</td>`).join('')+'</tr>';}).join('')+'</tbody></table></div>':'<p class="airfoil-empty">Dimensional region properties require an accepted Shock–Expansion solution.</p>';
- if(hasLinear)states+='<details class="potential-equations"><summary>Surface potential · linearized</summary><p>ξ = x/c · ψ = φ/(U∞c) · ψ(0) = 0 on each side</p><div class="airfoil-scroll"><table><thead><tr><th>Region</th><th>ξ interval</th><th>ψ(ξ)</th></tr></thead><tbody>'+r.linear.potential.map(p=>`<tr><td>${airfoilRegionLabel(r,p.id)}</td><td>${number(p.x0)} – ${number(p.x1)}</td><td>${number(p.derivative)} ξ ${p.intercept<0?'−':'+'} ${number(Math.abs(p.intercept))}</td></tr>`).join('')+'</tbody></table></div></details>';
- let trailing='';
- if(hasSE){
-  const t=r.trailingEdge;
-  if(t?.status==='ok'){
-   const rows=[['TE-U−',t.upper.before,'Incoming upper stream'],['TE-L−',t.lower.before,'Incoming lower stream'],['TE-U+',t.upper.after,t.upper.kind],['TE-L+',t.lower.after,t.lower.kind]];
-   trailing='<section class="card"><div class="card-head"><h2>Trailing-edge matching</h2></div><div class="airfoil-empty">'+t.interfaceKind+' · φ = '+number(t.slipAngle)+'° · p = '+number(t.pressure/1000)+' kPa</div><div class="airfoil-scroll"><table aria-label="Trailing-edge flow properties"><thead><tr>'+['Region','M','p (kPa)','T (K)','ρ (kg/m³)','u (m/s)','Flow angle (°)','p₀ (kPa)','T₀ (K)','Wave'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(([id,z,wave])=>'<tr><th scope="row">'+airfoilRegionLabel(r,id)+'</th>'+[z.M,z.p/1000,z.T,z.rho,z.u,z.theta*180/Math.PI,z.p0/1000,z.T0].map(v=>'<td>'+number(v)+'</td>').join('')+'<td>'+wave+'</td></tr>').join('')+'</tbody></table></div></section>';
-  }else trailing='<section class="card"><div class="card-head"><h2>Trailing-edge matching</h2></div><p class="airfoil-empty">Not resolved: '+(t?.reason??'No accepted trailing-edge state.')+'</p></section>';
- }else trailing='<section class="card"><div class="card-head"><h2>Trailing-edge matching</h2></div><p class="airfoil-empty">Select Shock–Expansion or Compare both to match the trailing-edge streams.</p></section>';
- return '<section class="card"><div class="card-head"><h2>Aerodynamic coefficients</h2></div>'+(r.geometry.connectedPlate?'<p class="airfoil-empty">Connected plates: coefficient reference length is the horizontal end-to-end extent, '+number(r.geometry.connectedPlate.reference)+' m. Panel lengths are used exactly as entered.</p>':'')+coefficients+'</section><section class="card"><div class="card-head"><h2>Flow properties by region</h2></div>'+states+'</section>'+trailing;
+
+function table(label,headers,rows) {
+  const head=headers.map(h=>`<th scope="col">${h}</th>`).join('');
+  const body=rows.map(([key,...values])=>
+    `<tr><th scope="row">${key}</th>${values.map(v=>`<td>${v}</td>`).join('')}</tr>`
+  ).join('');
+  return `<div class="airfoil-scroll"><table aria-label="${label}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function detail(key,title,content) {
+  return `<details class="airfoil-detail" data-airfoil-detail="${key}"><summary>${title}</summary>${content}</details>`;
+}
+
+export function airfoilTables(r,fmt) {
+  const number=v=>Number.isFinite(v)?fmt(v,6):'—';
+  const models=r.models.filter(model=>r[model].status==='ok');
+  const hasSE=models.includes('nonlinear'),hasLinear=models.includes('linear');
+  const both=hasSE&&hasLinear;
+  const methodHeaders=models.map(model=>model==='linear'?'Linearized':'Shock–Expansion');
+  if(both)methodHeaders.push('SE − linear');
+
+  function coefficientRow(label,getValue) {
+    const values=models.map(model=>getValue(r[model]));
+    const row=[label,...values.map(number)];
+    if(both)row.push(values.every(Number.isFinite)?number(getValue(r.nonlinear)-getValue(r.linear)):'—');
+    return row;
+  }
+
+  const content=['<section class="card"><div class="card-head"><h2>Aerodynamic coefficients</h2></div>'];
+  const plate=r.geometry.connectedPlate;
+  if(plate)content.push(`<p class="airfoil-empty">Panel lengths are used as entered. The coefficient reference length is the horizontal end-to-end extent, ${number(plate.reference)} m.</p>`);
+  if(models.length){
+    content.push(table('Aerodynamic coefficient comparison',['Quantity',...methodHeaders],[
+      coefficientRow('Lift coefficient C<sub>L</sub>',z=>z.CL),
+      coefficientRow('Wave-drag coefficient C<sub>D,w</sub>',z=>z.CD),
+      coefficientRow('Quarter-chord moment C<sub>M,c/4</sub>',z=>z.CM),
+      coefficientRow('Lift-to-drag ratio L/D',z=>Math.abs(z.CD)>1e-12?z.CL/z.CD:null)
+    ]));
+  }
+  if(r.models.includes('nonlinear')&&!hasSE)
+    content.push(`<p class="airfoil-empty">Shock–Expansion unavailable. ${r.nonlinear.reason}</p>`);
+  if(hasSE&&r.trailingEdge?.status!=='ok')
+    content.push(`<p class="airfoil-empty"><strong>Trailing-edge matching</strong> · Not resolved: ${r.trailingEdge?.reason??'No accepted trailing-edge state.'}</p>`);
+
+  if(models.length){
+    const cpRows=r.geometry.panels.map(p=>coefficientRow(airfoilRegionLabel(r,p.id),z=>z.panels.find(panel=>panel.id===p.id)?.Cp));
+    const cpHeaders=methodHeaders.map(name=>`C<sub>p</sub> · ${name}`);
+    let surface=table('Surface pressure coefficients',['Region',...cpHeaders],cpRows);
+    if(hasSE){
+      const rows=r.nonlinear.panels.map(p=>[airfoilRegionLabel(r,p.id),
+        number(p.M),number(p.p/1000),number(p.T),number(p.rho),number(p.u),number(p.p0/1000),number(p.T0),p.wave
+      ]);
+      surface+=table('Flow properties by surface region',['Region','M','p (kPa)','T (K)','ρ (kg/m³)','u (m/s)','p₀ (kPa)','T₀ (K)','Wave'],rows);
+    }
+    content.push(detail('surface',hasSE?'Surface pressures and flow properties':'Surface pressure coefficients',surface));
+  }
+  if(hasLinear){
+    const rows=r.linear.potential.map(p=>[airfoilRegionLabel(r,p.id),`${number(p.x0)} – ${number(p.x1)}`,
+      `${number(p.derivative)} ξ ${p.intercept<0?'−':'+'} ${number(Math.abs(p.intercept))}`]);
+    content.push(detail('potential','Surface potential · linearized',
+      '<p class="airfoil-empty">ξ = x/c · ψ = φ/(U∞c) · ψ(0) = 0 on each side</p>'+table('Linearized surface potential',['Region','ξ interval','ψ(ξ)'],rows)));
+  }
+  if(hasSE&&r.trailingEdge?.status==='ok'){
+    const t=r.trailingEdge;
+    const states=[['TE-U−',t.upper.before,'Incoming upper stream'],['TE-L−',t.lower.before,'Incoming lower stream'],
+      ['TE-U+',t.upper.after,t.upper.kind],['TE-L+',t.lower.after,t.lower.kind]];
+    const rows=states.map(([key,z,wave])=>[airfoilRegionLabel(r,key),
+      ...[z.M,z.p/1000,z.T,z.rho,z.u,z.theta*180/Math.PI,z.p0/1000,z.T0].map(number),wave]);
+    const headers=['Region','M','p (kPa)','T (K)','ρ (kg/m³)','u (m/s)','Flow angle (°)','p₀ (kPa)','T₀ (K)','Wave'];
+    content.push(detail('trailing','Trailing-edge matching',
+      `<p class="airfoil-empty">${t.interfaceKind} · φ = ${number(t.slipAngle)}° · p = ${number(t.pressure/1000)} kPa</p>`+
+      table('Trailing-edge flow properties',headers,rows)));
+  }
+  return content.join('')+'</section>';
 }

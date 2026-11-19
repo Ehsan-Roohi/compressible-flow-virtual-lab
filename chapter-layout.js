@@ -35,7 +35,10 @@ menu.addEventListener('click', () => {
 });
 
 shortcuts.addEventListener('click', event => {
-  const target = byId(event.target.closest('button')?.dataset.target || '');
+  const requested = event.target.closest('button')?.dataset.target;
+  const target = requested === 'resultsTitle' && lab === 'airfoil' ? byId('airfoilPanel')
+    : requested === 'resultsTitle' && ['wall','collision'].includes(lab) && !byId('regionTablePanel').hidden
+      ? byId('regionTableTitle') : byId(requested || '');
   if (!target) return;
   target.tabIndex = -1;
   target.focus({preventScroll: true});
