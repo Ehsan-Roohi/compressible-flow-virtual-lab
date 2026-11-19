@@ -40,8 +40,47 @@ const coneBookPreset={
 };
 const coneExampleChanged=()=>id==='cone'&&inputs.bookExample==='10-1'&&
  Object.entries(coneBookPreset).some(([key,value])=>inputs[key]!==value);
-function defaults(id){
+const rayleighBookExamples={
+ '4–1':{ductProblem:'Single duct',rayleighInput:'Heat transfer + Inlet Mach',M1:3,T1:300,p1:101,q:300},
+ '4–2':{ductProblem:'Single duct',rayleighInput:'Outlet Mach',M1:1.5,targetMach:3,p1:68.95,T1:300},
+ '4–3':{ductProblem:'Single duct',rayleighInput:'Outlet Mach + stagnation temperatures',targetMach:.93,inletT0:373.15,outletT0:573.15,p1:101},
+ '4–4':{ductProblem:'Reservoir-fed duct',ductSolve:'Upstream reference + sonic outlet',M1:.41,p1:68.95,inletT0:229.4,outletT0:1666.7},
+ '4–5':{ductProblem:'Single duct',rayleighInput:'Heat transfer + Inlet Mach',velocityInput:'Flow speed',inletSpeed:122.5,T1:222.2,p1:68.95,q:116.3},
+ '4–7':{ductProblem:'Heat + shock + converging nozzle',systemInletType:'Static duct inlet',M1:1.6,T1:200,p1:56,backPressure:120},
+};
+function rayleighModeDefaults(base,selection){
+ const {ductProblem,ductSolve,rayleighInput,systemInletType}=selection;
+ if(ductProblem==='Reservoir-fed duct'){
+  const preset=ductSolve==='Upstream reference + sonic outlet'?rayleighBookExamples['4–4']:
+   reservoirExamples.find(([,preset])=>preset.ductSolve===ductSolve)?.[1]??reservoirExamples[0][1];
+  return {...base,...preset};
+ }
+ if(ductProblem==='Heat + shock + converging nozzle'){
+  const preset=rayleighBookExamples['4–7'];
+  const temperatureRatio=1+(base.gamma-1)*preset.M1**2/2;
+  return {...base,...preset,systemInletType:systemInletType??preset.systemInletType,
+   reservoirT0:preset.T1*temperatureRatio,reservoirP0:preset.p1*temperatureRatio**(base.gamma/(base.gamma-1)),
+  };
+ }
+ const machExample=rayleighBookExamples['4–2'];
+ if(rayleighInput==='Outlet pressure'){
+  const {M1,targetMach,p1}=machExample;
+  const targetPressure=p1*(1+base.gamma*M1**2)/(1+base.gamma*targetMach**2);
+  return {...base,...machExample,rayleighInput,targetPressure};
+ }
+ if(rayleighInput==='Outlet Mach'||rayleighInput==='Sonic outlet'){
+  return {...base,...machExample,targetMach:rayleighInput==='Sonic outlet'?1:machExample.targetMach};
+ }
+ if(rayleighInput==='Heat transfer + Outlet Mach'||rayleighInput==='Outlet Mach + stagnation temperatures'){
+  const preset=rayleighBookExamples['4–3'];
+  const q=base.gamma*base.R/(base.gamma-1)*(preset.outletT0-preset.inletT0)/1000;
+  return {...base,...preset,rayleighInput:'Heat transfer + Outlet Mach',q};
+ }
+ return {...base,...rayleighBookExamples['4–1']};
+}
+function defaults(id,selection={}){
  const inputs=experimentDefaults(id);
+ if(id==='rayleigh')return rayleighModeDefaults(inputs,selection);
  if(id==='normal')return {...inputs,bookExample:''};
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001}:inputs;
 }
@@ -260,7 +299,7 @@ if(x.modeField){
   const mode=x.modes[n.value];
   if(mode===inputs[x.modeField])return;
   request++;
-  inputs[x.modeField]=mode;
+  inputs=defaults('rayleigh',{ductProblem:inputs.ductProblem,[x.modeField]:mode});
   renderInputs();
   $('value-'+x.key)?.focus({preventScroll:true});
   schedule();
@@ -268,7 +307,11 @@ if(x.modeField){
  continue;
 }
 const commitOutletMach=id==='rayleigh'&&x.key==='targetMach';
-n.oninput=()=>{if(id==='airfoil'&&['airfoilShape','geometryInput','plateDefinition','plateLengthMode'].includes(x.key)){changeAirfoilGeometry(x.key,n.value);return;}stopSweep();sweepFinished=false;sweepPositioned=x.key==='backRatio';request++;if(id==='rayleigh'&&x.key==='referenceTemperatureType'){const factor=1+(inputs.gamma-1)*inputs.M1*inputs.M1/2;if(n.value==='Static temperature')inputs.T1=inputs.inletT0/factor;else inputs.inletT0=inputs.T1*factor;}const previousFirst=inputs.thetaUpper;inputs[x.key]=x.options||x.type==='textarea'?n.value:n.value.trim()===''?NaN:(x.displayScale??1)*(Number(n.value)-(x.displayOffset??0));if(id==='collision'&&inputs.interactionType==='Same-direction shocks'&&x.key==='thetaUpper')inputs.thetaLower+=previousFirst-inputs.thetaUpper;if(id==='fanno'&&x.key==='fannoUnknown'&&n.value!=='Back pressure'&&current?.result.fullSystem)inputs.backPressure=current.result.backPressure/1000;if(x.key==='ductProblem'){if(n.value===fannoSystemMode){Object.assign(inputs,{fannoInterfaceVersion:2,fannoUnknown:'Back pressure',fannoSystemSolve:fannoSolves[0],fannoCondition:fannoConditions[4],lambda:.2,systemAreaRatio:2,nozzleContraction:3,nozzleLength:1,ductLength:1,reservoirP0:500,reservoirT0:400,frictionInput:'Dimensionless'});}if(n.value==='Heat + shock + converging nozzle'){Object.assign(inputs,{systemInletType:'Static duct inlet',M1:1.6,T1:200,p1:56,backPressure:120,inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',bookExample:'4–7'});}if(n.value==='Two-stage heating to sonic outlet'){Object.assign(inputs,{inletSpeed:122.5,T1:222.2,p1:68.95,q:116.3,inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',bookExample:'4–6'});}if(n.value==='Duct shock location'){inputs.M1=2;inputs.lambda=.2;inputs.backPressure=300;}if(n.value==='Reservoir-fed duct'){inputs.ductSolve='Sonic outlet';inputs.q=100;}}if(r)r.value=n.value;if(id==='tube'&&['tubeInput','unsteadyExperiment'].includes(x.key)){
+n.oninput=()=>{if(id==='rayleigh'&&x.key==='ductProblem'){
+ stopSweep();request++;
+ inputs=defaults('rayleigh',{ductProblem:n.value});
+ renderInputs();$('value-ductProblem')?.focus({preventScroll:true});schedule();return;
+}if(id==='airfoil'&&['airfoilShape','geometryInput','plateDefinition','plateLengthMode'].includes(x.key)){changeAirfoilGeometry(x.key,n.value);return;}stopSweep();sweepFinished=false;sweepPositioned=x.key==='backRatio';request++;if(id==='rayleigh'&&x.key==='referenceTemperatureType'){const factor=1+(inputs.gamma-1)*inputs.M1*inputs.M1/2;if(n.value==='Static temperature')inputs.T1=inputs.inletT0/factor;else inputs.inletT0=inputs.T1*factor;}const previousFirst=inputs.thetaUpper;inputs[x.key]=x.options||x.type==='textarea'?n.value:n.value.trim()===''?NaN:(x.displayScale??1)*(Number(n.value)-(x.displayOffset??0));if(id==='collision'&&inputs.interactionType==='Same-direction shocks'&&x.key==='thetaUpper')inputs.thetaLower+=previousFirst-inputs.thetaUpper;if(id==='fanno'&&x.key==='fannoUnknown'&&n.value!=='Back pressure'&&current?.result.fullSystem)inputs.backPressure=current.result.backPressure/1000;if(x.key==='ductProblem'){if(n.value===fannoSystemMode){Object.assign(inputs,{fannoInterfaceVersion:2,fannoUnknown:'Back pressure',fannoSystemSolve:fannoSolves[0],fannoCondition:fannoConditions[4],lambda:.2,systemAreaRatio:2,nozzleContraction:3,nozzleLength:1,ductLength:1,reservoirP0:500,reservoirT0:400,frictionInput:'Dimensionless'});}if(n.value==='Duct shock location'){inputs.M1=2;inputs.lambda=.2;inputs.backPressure=300;}}if(r)r.value=n.value;if(id==='tube'&&['tubeInput','unsteadyExperiment'].includes(x.key)){
  if(x.key==='unsteadyExperiment'){
   const limit=['Two-stage piston',sinusoidalExperiment].includes(n.value)?100000:n.value===valveExperiment?10000:100;
   if(inputs.finiteEndTime>limit)inputs.finiteEndTime=defaults('tube').finiteEndTime;
@@ -466,7 +509,7 @@ function download(name,text,type){let blob=new Blob([text],{type}),url=URL.creat
 $('exportJson').onclick=()=>{if(current)download(`compressible-flow-${id}.json`,JSON.stringify({...current,exportedAt:new Date().toISOString()},null,2),'application/json');};
 $('exportCsv').onclick=()=>{if(!current)return;let q=s=>'"'+String(s).replaceAll('"','""')+'"';download(`compressible-flow-${id}.csv`,'property,value,unit\n'+csvDataRows(current).map(r=>[r.label,r.value??'',r.unit].map(q).join(',')).join('\n'),'text/csv');};
 $('exportSvg').onclick=()=>{if(current)download(`compressible-flow-${id}.svg`,$('scene').innerHTML,'image/svg+xml');};
-$('reset').onclick=()=>{stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;inputs=defaults(id);renderInputs();solve();};
+$('reset').onclick=()=>{stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;inputs=defaults(id,inputs);renderInputs();solve();};
 $('pin').onclick=()=>{if(!current)return;pinned={id,inputs:{...inputs},rows:current.rows.map(x=>({...x}))};try{localStorage.setItem('gdvl-pinned',JSON.stringify(pinned));}catch{}renderCompare();};
 try{pinned=JSON.parse(localStorage.getItem('gdvl-pinned'));}catch{}
 function renderCompare(){let box=$('comparison');if(!current||!pinned||pinned.id!==id){box.hidden=true;return;}box.hidden=false;box.innerHTML='<b>Pinned / current</b><table><tr><th>Property</th><th>Pinned</th><th>Current</th></tr>'+current.rows.map((r,i)=>`<tr><td>${r.label}</td><td>${fmt(pinned.rows.find(v=>v.label===r.label&&v.unit===r.unit)?.value)}</td><td>${fmt(r.value)}</td></tr>`).join('')+'</table><button class="text-btn" id="clearPin">Clear comparison</button>';$('clearPin').onclick=()=>{pinned=null;try{localStorage.removeItem('gdvl-pinned');}catch{}renderCompare();};}
@@ -574,7 +617,7 @@ function renderExamples(){
  if(coneExampleChanged())inputs.bookExample='';
  const box=$('examplesPanel');let entries=[];
  const load=(preset,bookExample)=>{
-  inputs={...defaults(id),...preset,bookExample};
+  inputs={...defaults(id,preset),...preset,bookExample};
   if(id==='tube'){
    const slider=$('unsteadyProfileTime');
    slider.min='0';slider.step='0.001';slider.value=bookExample==='sinusoidal-ten-cycles'?'0':bookExample==='7–10'?'0.1875':bookExample==='7–3'?'0.067':'0.133';
@@ -597,7 +640,7 @@ function renderExamples(){
  ];
  if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:String(e.number),note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
-  const cases=[['4–1',{ductProblem:'Single duct',rayleighInput:'Heat transfer',M1:3,T1:300,p1:101,q:300}],['4–2',{ductProblem:'Single duct',rayleighInput:'Outlet Mach',M1:1.5,targetMach:3,p1:68.95,T1:300}],['4–3',{ductProblem:'Single duct',rayleighInput:'Outlet Mach + stagnation temperatures',targetMach:.93,inletT0:373.15,outletT0:573.15,p1:101}],['4–4',{ductProblem:'Reservoir-fed duct',ductSolve:'Upstream reference + sonic outlet',M1:.41,p1:68.95,inletT0:229.4,outletT0:1666.7}],['4–5',{ductProblem:'Single duct',rayleighInput:'Heat transfer',velocityInput:'Flow speed',inletSpeed:122.5,T1:222.2,p1:68.95,q:116.3}],['4–7',{ductProblem:'Heat + shock + converging nozzle',systemInletType:'Static duct inlet',M1:1.6,T1:200,p1:56,backPressure:120}]];
+  const cases=Object.entries(rayleighBookExamples);
   cases.push(...reservoirExamples.filter(([,preset])=>preset.ductSolve!=='Sonic outlet'));
   const notes={
    '4–1':'Air enters a constant-area duct at Mach 3. Add 300 kJ/kg of heat and find the outlet Mach number and flow properties.',
