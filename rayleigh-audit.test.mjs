@@ -46,7 +46,7 @@ test('Invalid crossing, sonic cooling ambiguity, and nonphysical inverse tempera
  assert.throws(()=>run({rayleighInput:'Heat transfer + Outlet Mach',q:-1000,inletT0:300,targetMach:.5}),/positive|temperature/);
 });
 test('Moving reference cases preserve total conditions and continuity through implied entry area',()=>{
- for(const [,x]of reservoirExamples){const d=run(x),ref=d.result.stations[0].state,i=d.result.s1;
+ for(const [,preset]of reservoirExamples){const {openIntake,...x}=preset;const d=run(x),ref=d.result.stations[0].state,i=d.result.s1;
   close(ref.T0,i.T0);close(ref.p0,i.p0);
   const connected=run({...x,openIntake:false});
   close(ref.rho*ref.u,i.rho*i.u*connected.result.entryAreaRatio);
@@ -61,6 +61,11 @@ test('Initial upstream adjustment ignores stale supply selector and identifies r
  const a=run(x),b=run({...x,reservoirPressureType:'Static pressure',supplyReferenceMach:.8});
  close(a.result.s1.M,b.result.s1.M);close(a.result.s2.p,b.result.s2.p);
  assert.equal(b.result.stations.length,3);assert.match(b.result.referenceTable.note,/initial|operating/i);
+ close(b.result.spillFraction,1-b.rows.find(row=>row.label==='Mass flux / original mass flux').value);
+ assert.match(sceneSVG(b.scene,b.inputs).svg,/Inlet spillage ≈ 53.4% total/);
+ const lowHeat=run({...x,outletT0:235});
+ assert.equal(lowHeat.result.spillFraction,undefined);
+ assert.doesNotMatch(sceneSVG(lowHeat.scene,lowHeat.inputs).svg,/data-inlet-spillage/);
 });
 test('Reservoir sonic mode allows zero heat and rejects cooling with a clear message',()=>{
  const x={ductProblem:'Reservoir-fed duct',ductSolve:'Sonic outlet'};

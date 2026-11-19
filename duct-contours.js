@@ -66,13 +66,12 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
     +text(127,261,`Mref = ${fmt(ref.state.M)}`,'middle')
     +text(127,286,`pref = ${fmt(ref.state.p/1000)} kPa`,'middle')
     +'</g>';
-   // Show a possible open-inlet interpretation only when the adjusted flux is lower.
-   if(a.rho*a.u<ref.state.rho*ref.state.u*(1-1e-9)){
+   if(openIntake){
     body+=`<g data-inlet-spillage="schematic">
      <title>Possible inlet spillage at an open intake. Streamlines are schematic.</title>
      <path d="M35 160H241m-7 -4 7 4-7 4 M75 134C151 134 185 83 241 76m-8 -3 8 3-7 5 M75 186C151 186 185 237 241 244m-7 -5 7 5-8 3"
       fill="none" stroke="#40575d" stroke-width="1.5"/>
-    </g>`+text(135,108,openIntake?`Inlet spillage ≈ ${(100*r.spillFraction).toFixed(1)}% total`:'Possible spillage','middle',12);
+    </g>`+text(135,108,`Inlet spillage ≈ ${(100*r.spillFraction).toFixed(1)}% total`,'middle',12);
    }
   }else if(reservoir){
    body+=`<path d="M25 90H120V230H25Z" fill="#e5edeb"/>`+wall('M120 105V90H25V230H120V215');
