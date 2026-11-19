@@ -8,7 +8,7 @@ import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
 import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261117-sinusoidal-piston';
-import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261119-all-spillage';
+import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261119-fanno-shock-free-results';
 import {ductInputs} from './duct-input.js?v=20261112-state-inputs';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
 import {solveBodyLab,bodyPlots} from './wedge-cone.js?v=20261115-wedge-drag';

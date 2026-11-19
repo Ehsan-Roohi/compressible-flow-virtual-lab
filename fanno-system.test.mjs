@@ -86,12 +86,30 @@ test('Operating condition unifies the inverse tasks without a Known data menu',(
  assert.ok(!fs.some(f=>f.label==='Known data'||f.key==='fannoSystemSolve'));
  assert.ok(fs.find(f=>f.key==='fannoCondition').options.includes('Sonic at duct exit'));
  assert.deepEqual(fs.find(f=>f.key==='fannoUnknown').options,['Back pressure','Reservoir pressure']);
- assert.ok(!fs.some(f=>f.key==='lambda'||f.key==='frictionFactor'||f.key==='frictionInput'));
+ assert.ok(!fs.some(f=>['lambda','ductLength','frictionInput'].includes(f.key)));
+ assert.ok(fs.some(f=>f.key==='frictionFactor'));
  const d=calculate('fanno',sonic);near(d.result.s2.M,1);assert.equal(d.result.shockX,null);near(d.result.lambda,fannoRatios(d.result.s1.M,sonic.gamma).F);
  const inv={...sonic,fannoUnknown:'Reservoir pressure',backPressure:d.result.backPressure/1000},v=calculate('fanno',inv);near(v.result.supplyPressure,d.result.supplyPressure);near(v.result.lambda,d.result.lambda);
  const fi=inputDefinitions('fanno',inv);assert.ok(!fi.some(f=>f.key==='reservoirP0'));assert.ok(fi.some(f=>f.key==='backPressure'));
  const shock=migrateFannoInputs({...base,lambda:.15,fannoCondition:fannoConditions[4]}),f=calculate('fanno',shock),i=calculate('fanno',{...shock,fannoUnknown:'Friction parameter',backPressure:f.result.backPressure/1000});near(i.result.lambda,.15);
  assert.deepEqual(inputDefinitions('fanno',shock).find(f=>f.key==='fannoUnknown').options,['Back pressure','Reservoir pressure','Friction parameter']);
+});
+test('Shock-free conditions report duct relations and physical lengths at the selected friction factor',()=>{
+ const x={ductSection:'Rectangular',ductWidth:.06,ductHeight:.02,frictionConvention:'Darcy',frictionFactor:.02,lambda:.1};
+ for(const condition of [fannoConditions[1],fannoConditions[5]]){
+  const {result:r}=run({...x,fannoCondition:condition});
+  assert.deepEqual(r.fannoRelations.columns,['Inlet','Outlet']);
+  assert.deepEqual(r.fannoRelations.rows[0].values,[r.s1.M,r.s2.M]);
+  const [required,maximum,remaining]=r.ductLengths.map(row=>row.value);
+  near(required,r.lambda*.03/.02);
+  near(maximum,fannoRatios(r.s1.M,base.gamma).F*.03/.02);
+  near(remaining,fannoRatios(r.s2.M,base.gamma).F*.03/.02);
+  near(r.geometry.ductLength,required);
+  assert.equal(r.referenceTable.columns.at(-1),'Duct outlet');
+ }
+ const {result:zero}=run({...x,frictionFactor:0,fannoCondition:fannoConditions[1]});
+ assert.deepEqual(zero.ductLengths,[]);
+ assert.equal(run({...x,fannoCondition:fannoConditions[4]}).result.fannoRelations,undefined);
 });
 test('Former inverse selections migrate once and condition changes reset incompatible unknowns',()=>{
  for(const [mode,condition,unknown]of [[fannoSolves[1],fannoConditions[5],'Reservoir pressure'],[fannoSolves[2],fannoConditions[4],'Friction parameter']]){
@@ -115,7 +133,8 @@ test('Reservoir pressure and friction inversions recover all four fixed operatin
   const p=calculate('fanno',{...x,fannoUnknown:'Reservoir pressure',backPressure:pb,reservoirP0:123});near(p.result.supplyPressure,f.result.supplyPressure);near(p.result.s2.M,f.result.s2.M);
   const l=calculate('fanno',{...x,fannoUnknown:'Friction parameter',backPressure:pb,lambda:9,frictionInput:'Length and friction factor',hydraulicDiameter:.03,frictionFactor:.001});near(l.result.lambda,.05);near(l.result.backPressure,f.result.backPressure);assert.ok(l.checks.mass<1e-7);
   const pf=inputDefinitions('fanno',{...x,fannoUnknown:'Reservoir pressure'});assert.ok(!pf.some(f=>f.key==='reservoirP0'));assert.ok(pf.some(f=>f.key==='lambda'));assert.ok(pf.some(f=>f.key==='backPressure'));
-  const lf=inputDefinitions('fanno',{...x,fannoUnknown:'Friction parameter'});assert.ok(!lf.some(f=>['lambda','frictionInput','frictionFactor'].includes(f.key)));assert.ok(lf.some(f=>f.key==='reservoirP0'));
+  const lf=inputDefinitions('fanno',{...x,fannoUnknown:'Friction parameter'});assert.ok(!lf.some(f=>['lambda','frictionInput','ductLength'].includes(f.key)));assert.ok(lf.some(f=>f.key==='reservoirP0'));
+  assert.equal(lf.some(f=>f.key==='frictionFactor'),condition===fannoConditions[1]);
   assert.throws(()=>calculate('fanno',{...x,fannoUnknown:'Friction parameter',backPressure:600}),/must lie between/);
  }
 });
