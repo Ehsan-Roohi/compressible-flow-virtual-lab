@@ -33,7 +33,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261119-all-spillage';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-compact-fanno';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-duct-layout';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
@@ -223,8 +223,7 @@ function arrangePropertyPanels(){
   examples.after(results);
  }
 
- if(id==='fanno'){if(chart.nextElementSibling!==table)table.before(chart);}
- else if(table.nextElementSibling!==chart)chart.before(table);
+ if(table.nextElementSibling!==chart)chart.before(table);
 }
 const reservoirOutletModes={
  'Sonic outlet':{'Heat transfer':'Sonic outlet','Outlet temperature':'Upstream reference + sonic outlet'},
