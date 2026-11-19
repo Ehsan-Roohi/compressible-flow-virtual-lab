@@ -250,3 +250,17 @@ body{font-family:Georgia,"Times New Roman",serif}
 #isentropicPanel .isentropic-ratio-columns .isentropic-grid{grid-template-columns:minmax(0,1fr);margin:0}
 .isentropic-ratio-columns .isentropic-grid>div{padding:5px 4px}
 #isentropicPanel>section>.isentropic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+@supports (appearance:base-select){
+ select[data-rayleigh-mode],select[data-rayleigh-mode]::picker(select){appearance:base-select}
+ select[data-rayleigh-mode]::picker(select){
+  min-width:min(21rem,calc(100vw - 1.5rem));max-width:calc(100vw - 1.5rem);
+  border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
+ }
+ select[data-rayleigh-mode] option{display:block;padding:8px 12px;white-space:normal}
+ select[data-rayleigh-mode] option:is(:hover,:focus-visible){background:#edf4f0}
+ select[data-rayleigh-mode]:open option:is(:hover,:focus-visible)::after{
+  content:attr(data-option-hint);display:block;margin:3px 0 0 1.15rem;
+  color:#40576a;font-size:13px;line-height:1.4;
+ }
+}
