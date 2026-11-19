@@ -10,7 +10,6 @@ export function fannoSolveOptions(condition){return condition===fannoConditions[
 export const fannoSystemDefaults={fannoInterfaceVersion:1,fannoUnknown:'Back pressure',fannoCondition:'Shock at duct exit',fannoSystemSolve:fannoSolves[0],backRatio:.5,nozzleLength:1,nozzleContraction:3};
 const root=(f,a,b)=>bisect(f,a,b,{ftol:1e-11,xtol:1e-12}).value;
 const F=(M,g)=>Math.max(0,fannoRatios(M,g).F);
-const shockFreeCondition=condition=>condition===fannoConditions[1]||condition===fannoConditions[5];
 const darcyFactor=x=>x.frictionFactor*(x.frictionConvention==='Darcy'?1:4);
 function machF(target,branch,g){
  if(target<1e-12)return 1;
@@ -127,12 +126,10 @@ export function fannoSystemFields(raw){
   fields.push(select('frictionInput','Friction input','Dimensionless',['Dimensionless','Length and friction factor']));
   if(!dimensional)fields.push(n('lambda','Friction length fᴅL/D',.2,0,10));
  }
- if(dimensional||shockFreeCondition(condition)){
-  fields.push(select('ductSection','Cross section','Circular',['Circular','Rectangular']),
-   ...(x.ductSection==='Rectangular'?[n('ductWidth','Width',.05,.000001,1000,'m'),n('ductHeight','Height',.05,.000001,1000,'m')]:[n('hydraulicDiameter','Diameter',.05,.000001,1000,'m')]),
-   ...(dimensional?[n('ductLength','Duct length',1,.000001,1e6,'m')]:[]),
-   n('frictionFactor','Friction factor',.005,dimensional?0:.000001,1),select('frictionConvention','Friction convention','Fanning',['Fanning','Darcy']));
- }
+ fields.push(select('ductSection','Cross section','Circular',['Circular','Rectangular']),
+  ...(x.ductSection==='Rectangular'?[n('ductWidth','Width',.05,.000001,1000,'m'),n('ductHeight','Height',.05,.000001,1000,'m')]:[n('hydraulicDiameter','Diameter',.05,.000001,1000,'m')]),
+  ...(dimensional?[n('ductLength','Duct length',1,.000001,1e6,'m')]:[]),
+  n('frictionFactor','Friction factor',.005,dimensional?0:.000001,1),select('frictionConvention','Friction convention','Fanning',['Fanning','Darcy']));
  if(condition===fannoConditions[0])fields.push(n('backRatio','Back / reservoir pressure',.5,.000001,1,'pᵦ/p₀',.001));
  else if(x.fannoUnknown!==fannoUnknowns[0])fields.push(n('backPressure',condition===fannoConditions[5]?'Sonic duct exit pressure':'Duct exit / back pressure',100,.00001,1e9,'kPa'));
  return fields.map(f=>['nozzleLength','nozzleContraction'].includes(f.key)?{...f,geometrySetting:true}:f);
@@ -144,6 +141,7 @@ function fixedCondition(m,condition){
  if(condition===fannoConditions[4])return m.at(2);
  throw Error('Choose a fixed operating condition for this inverse calculation.');
 }
+const operatingHighlights=(rows,unknown)=>rows.filter(r=>[unknown,'Shock position from nozzle inlet','Shock position in duct'].includes(r.label));
 function solveFannoInverse(x){
  requireValue(Number.isFinite(x.backPressure)&&x.backPressure>0,'Duct exit / back pressure must be finite and positive.');
  const targetPressure=x.backPressure;
@@ -166,6 +164,8 @@ function solveFannoInverse(x){
  }
  d.inputs={...x,reservoirP0:d.result.supplyPressure/1000,lambda:d.result.lambda};
  d.result.solvedFor=x.fannoUnknown;
+ const primary=x.fannoUnknown===fannoUnknowns[1]?'Reservoir pressure':'Friction length';
+ d.result.referenceTable.highlights=operatingHighlights(d.rows,primary);
  return d;
 }
 export function solveFannoSystem(raw){
@@ -208,15 +208,20 @@ export function solveFannoSystem(raw){
   }
  }
  const b=bounds(m),{g,R,A,C,N,area,T0,L}=m,xt=.35*N;
- const shockFree=shockFreeCondition(condition),fd=darcyFactor(x);
+ const fd=darcyFactor(x),flowing=chosen.inlet.M>0&&chosen.outlet.M>0;
  const ductLengths=[];
  let D=m.D;
- if(shockFree&&Number.isFinite(fd)&&fd>0){
-  const scale=m.diameter/fd,required=L*scale,maximum=F(chosen.inlet.M,g)*scale;
-  ductLengths.push({label:'Required duct length',value:required,unit:'m'},
-   {label:'Maximum duct length',value:maximum,unit:'m'},
-   {label:'Remaining length to sonic exit',value:Math.max(0,maximum-required),unit:'m'});
+ if(Number.isFinite(fd)&&fd>0){
+  const scale=m.diameter/fd,required=L*scale;
+  ductLengths.push({label:flowing?'Required duct length':'Duct length',value:required,unit:'m'});
+  if(flowing){
+   const remaining=F(chosen.outlet.M,g)*scale;
+   ductLengths.push({label:'Maximum duct length',value:required+remaining,unit:'m'},
+    {label:'Remaining length to sonic exit',value:remaining,unit:'m'});
+  }
   if(required>0)D=required;
+ }else if(x.frictionInput==='Length and friction factor'){
+  ductLengths.push({label:'Duct length',value:D,unit:'m'});
  }
  const total=N+D;
  const scale=z=>state(z.M,z.T,z.p*P*1000,g,R),inlet=scale(chosen.inlet),outlet=scale(chosen.outlet),reservoir=state(0,T0,P*1000,g,R),shockY=chosen.y;
@@ -263,6 +268,14 @@ export function solveFannoSystem(raw){
  rows.push(...ductLengths);
  const massFlow=inlet.rho*inlet.u*area,massResidual=Math.max(...fullProfile.map(z=>Math.abs(z.state.rho*z.state.u*z.area-massFlow)/Math.max(1e-12,massFlow))),energyResidual=Math.max(...fullProfile.map(z=>Math.abs(z.state.T0-T0)/T0));
  const result={fullSystem:true,ductSystem:true,regime,status:Math.abs(outlet.M-1)<1e-7?'sonic-limit':'ok',s1:inlet,s2:outlet,reservoir,stations,points:fullProfile,fullProfile,longitudinal:ductPoints,nozzlePoints,plots,shockAt:finiteShock&&shockY>1?shockY-1:null,shockX,shockY:finiteShock?shockY:null,shockPart:finiteShock?chosen.shockPart:null,throatLimit:shockY===0||shockY!==undefined&&shockY<1e-7,backRatio:ratio,backPressure:ratio*P*1000,supplyPressure:P*1000,lambda:L,thresholds,geometry:{nozzleLength:N,ductLength:D,throat:xt,ductStart:N,totalLength:total,area,areaRatio:A,contraction:C},massFlow,referenceTable:{title:'System station properties',columns:stations.map(z=>z.name),rows:properties.map(([label,unit,get])=>({label:label+(unit?' ('+unit+')':''),values:stations.map(z=>get(z.state))})),note:'The reservoir is at rest. The nozzle is isentropic except at a normal shock; friction acts only in the duct.'}};
- if(shockFree){result.fannoRelations=ductReferenceTable('fanno',result,g);result.ductLengths=ductLengths;}
+ result.fannoRelations=flowing?ductReferenceTable('fanno',result,g):{
+  title:'Fanno Flow Relations',columns:['Inlet','Outlet'],rows:[{label:'Mach number M',values:[0,0]}],
+  note:'Sonic-reference ratios require a flowing state.',
+ };
+ if(finiteShock&&shockY>1)result.fannoRelations.note+=' Each column uses its own Fanno line across a duct shock. The remaining length follows the outlet branch with the shock held at its current location.';
+ result.ductLengths=ductLengths;
+ const primary=x.fannoUnknown===fannoUnknowns[1]||solve===fannoSolves[1]?'Reservoir pressure':
+  x.fannoUnknown===fannoUnknowns[2]||solve===fannoSolves[2]?'Friction length':'Back pressure';
+ result.referenceTable.highlights=operatingHighlights(rows,primary);
  return {id:'fanno',inputs:x,gas:gasInfo(x),model:'Reservoir + isentropic C–D nozzle + Fanno duct',result,rows,scene:{kind:'fannoSystem',process:'fanno',system:result},chart:plots[1].chart,checks:{mass:massResidual,energy:energyResidual},notice,version:'0.3.0'};
 }
