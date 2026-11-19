@@ -20,9 +20,8 @@ export function ductStationText({x,y,state,index,anchor,background}){
   return sum+[.2126,.7152,.0722][i]*(v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
  },0);
  const dark=(luminance??1)<.179;
- const fill=dark?'#fff':'#111',outline=dark?'#111':'#fff';
- const style=background?` style="stroke:${outline};stroke-width:2px;stroke-linejoin:round;paint-order:stroke fill"`:'';
- const line=(baseline,value)=>`<text x="${x}" y="${baseline}" text-anchor="${anchor}" font-size="16" fill="${fill}"${style}>${value}</text>`;
+ const fill=dark?'#fff':'#111';
+ const line=(baseline,value)=>`<text x="${x}" y="${baseline}" text-anchor="${anchor}" font-size="16" fill="${fill}">${value}</text>`;
  return `<g data-duct-station="${index==='₁'?'inlet':'outlet'}">${line(y,`M${index} = ${fmt(state.M)}`)}${line(y+17,`p${index} = ${fmt(state.p/1000)} kPa`)}</g>`;
 }
 export function ductContourDrawing(s,inputs,quantity='pressure'){
