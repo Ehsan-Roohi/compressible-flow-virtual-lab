@@ -318,7 +318,11 @@ function fannoFormFields(fields,x){
    return groupedInputFields(field,fannoSystemConditions,x.fannoCondition??fannoConditions[4],
     'Operating condition','fannoFixedCondition',shock?'Shock position':'Outlet condition');
   }
+  // The book's rectangular duct and supply pressure can exceed the usual slider ranges.
+  const extendRange=field.sliderMax!==undefined&&x[field.key]>field.sliderMax&&x[field.key]<=field.max;
   return [{...field,label:(labels[field.key]??field.label).replace(/ (?:type|specified as)$/i,''),
+   ...(extendRange?{sliderMax:Math.min(field.max,Math.ceil(x[field.key])),step:'any'}:
+    field.key==='frictionFactor'?{step:.00001}:{}),
    optionLabels:field.key==='frictionInput'?fannoFrictionLabels:undefined}];
  });
 }
