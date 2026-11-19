@@ -54,9 +54,10 @@ function basePlotOptions(d,time=.001){
  }else if(id==='rayleigh'||id==='fanno'){
   const fn=id==='rayleigh'?rayleighRatios:fannoRatios,ms=[...new Set([...linspace(.12,Math.max(4,x.M1*1.1,(r.s2?.M??0)*1.1)),r.s1.M,...(r.s2?[r.s2.M]:[])])].sort((a,b)=>a-b),samples=ms.map(m=>[m,{...fn(m,g),...(id==='fanno'?{T0:1}:{})}]);
   family(id+'-','Mach number M',samples,[['p','Static pressure ratio','p/p*',s=>s.p],['T','Static temperature ratio','T/T*',s=>s.T],['rho','Density ratio','ρ/ρ*',s=>s.rho],['u','Speed ratio','u/u*',s=>s.u],['T0','Stagnation-temperature ratio','T₀/T₀*',s=>s.T0],['p0','Stagnation-pressure ratio','p₀/p₀*',s=>s.p0]]);
-  const ref=fn(x.M1,g),cp=g*R/(g-1),physical=s=>({p:r.s1.p*s.p/ref.p,T:r.s1.T*s.T/ref.T,rho:r.s1.rho*s.rho/ref.rho,u:r.s1.u*s.u/ref.u,T0:r.s1.T0*(s.T0??1)/(ref.T0??1),p0:r.s1.p0*s.p0/ref.p0});
-  if(id==='fanno')family(id+'-dim-','Mach number M',samples.map(([m,s])=>[m,physical(s)]),[['p','Static pressure','p (kPa)',s=>s.p/1000],['T','Static temperature','T (K)',s=>s.T],['rho','Density','ρ (kg/m³)',s=>s.rho],['u','Flow speed','u (m/s)',s=>s.u],['T0','Stagnation temperature','T₀ (K)',s=>s.T0],['p0','Stagnation pressure','p₀ (kPa)',s=>s.p0/1000]]);
-  if(id==='rayleigh')add('rayleigh-heat','Heat relative to inlet','Mach number M','q (kJ/kg)',samples.map(([m,s])=>[m,cp*(physical(s).T0-r.s1.T0)/1000]));
+  if(id==='rayleigh'){
+   const inletRatio=fn(x.M1,g).T0,cp=g*R/(g-1),inletT0=r.s1.T0;
+   add('rayleigh-heat','Heat relative to inlet','Mach number M','q (kJ/kg)',samples.map(([m,s])=>[m,cp*(inletT0*s.T0/inletRatio-inletT0)/1000]));
+  }
   options.filter(o=>!o.key.includes('-axial-')).forEach(o=>o.note='Theoretical locus anchored to the inlet state. Not every plotted point is reachable from that inlet; branch and choking constraints still apply.');
   add('entropy-star','Entropy deficit to sonic reference','Mach number M','(s* − s)/R',ms.map(m=>[m,sonicRelations(id,m,g).entropyToStar]));
   if(id==='fanno')add('friction','Available friction length','Mach number M','fᴅL*/D',ms.map(m=>[m,fn(m,g).F]));

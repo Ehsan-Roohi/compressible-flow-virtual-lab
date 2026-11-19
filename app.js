@@ -28,7 +28,7 @@ import {airfoilTables} from './airfoil-tables.js?v=20261117-multi-inlet';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261119-nozzle-book';
+import {plotOptions} from './plot-options.js?v=20261119-fanno-plots';
 import {nozzleBookInputs,nozzleBookPlotKey} from './nozzle-book.js';
 import {setNozzleLayout} from './nozzle-layout.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
