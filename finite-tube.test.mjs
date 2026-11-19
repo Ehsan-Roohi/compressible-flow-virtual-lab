@@ -191,10 +191,10 @@ test('every browser example opens the closed model and the separate demo is gone
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8');
  const elements=new Map();
  const context=vm.createContext({id:'tube',experimentDefaults:defaults,inputs:{},plotSelection:{},sinusoidalExperiment:'Sinusoidal piston',finiteTubeMode,closedPistonMode:'Finite tube · closed far end',
-  valveExperiment:'Sudden valve closure',request:0,
+  valveExperiment:'Sudden valve closure',request:0,sweepFinished:false,sweepPositioned:false,timer:undefined,clearTimeout(){},
   $:key=>{if(!elements.has(key))elements.set(key,{});return elements.get(key);},
   stopAnimation(){},stopSweep(){},renderInputs(){},solve(){}});
- vm.runInContext(source.slice(source.indexOf('function defaults(id)'),source.indexOf('const $=')),context);
+ vm.runInContext(source.slice(source.indexOf('function defaults(id,'),source.indexOf('const $=')),context);
  vm.runInContext(source.slice(source.indexOf('function renderExamples(){'),source.indexOf('function knownRayleighData')),context);
  context.renderExamples();
  assert.doesNotMatch(elements.get('examplesPanel').innerHTML,/closed-piston-demo/);

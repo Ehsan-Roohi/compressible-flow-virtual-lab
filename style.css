@@ -278,14 +278,14 @@ body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px;
 }
 
 @media (max-width: 800px) {
-  body[data-lab="nozzle"] .work-grid { grid-template-areas: "visual" "controls" "outputs"; }
-  body[data-lab="nozzle"] .sidebar {
+  body[data-lab] .work-grid { grid-template-areas: "visual" "controls" "outputs"; }
+  body[data-lab] .sidebar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0 8px;
   }
-  #nozzleChapterMenu:not([hidden]) {
+  #chapterMenu:not([hidden]) {
     display: block;
     padding: 6px 12px;
     min-height: 44px;
@@ -295,9 +295,9 @@ body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px;
     color: white;
     font: inherit;
   }
-  body[data-lab="nozzle"] #chapters { grid-column: 1 / -1; }
-  body[data-lab="nozzle"] #chapters[hidden] { display: none; }
-  body[data-lab="nozzle"] #chapters:not([hidden]) { display: flex; flex-wrap: wrap; }
+  body[data-lab] #chapters { grid-column: 1 / -1; }
+  body[data-lab] #chapters[hidden] { display: none; }
+  body[data-lab] #chapters:not([hidden]) { display: flex; flex-wrap: wrap; }
   body[data-lab="nozzle"] .sweep-full-label { display: none; }
   body[data-lab="nozzle"] .sweep-mobile-label {
     display: inline;
@@ -320,13 +320,46 @@ body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px;
   }
 }
 
-/* Keep the live pressure control in the first screen of a narrow phone. */
+/* Keep the experiment in the first screen of a narrow phone. */
 @media (max-width: 360px) {
-  body[data-lab="nozzle"] .sidebar { padding-block: 4px; }
-  body[data-lab="nozzle"] .lab-header { padding: 6px 0; }
-  body[data-lab="nozzle"] .lab-heading-row { display: block; }
-  body[data-lab="nozzle"] #labTitle { font-size: 24px; }
-  body[data-lab="nozzle"] .lab-header .model-pill { display: none; }
-  body[data-lab="nozzle"] .lab-header:has(#modelDetails[hidden]) #description { display: none; }
-  body[data-lab="nozzle"] .scene-card > .card-head { align-items: center; padding-block: 3px; }
+  body[data-lab] .sidebar { padding-block: 4px; }
+  body[data-lab] .lab-header { padding: 6px 0; }
+  body[data-lab] .lab-heading-row { display: block; }
+  body[data-lab] #labTitle { font-size: 24px; }
+  body[data-lab] .lab-header .model-pill { display: none; }
+  body[data-lab] .lab-header:has(#modelDetails[hidden]) #description { display: none; }
+  body[data-lab] .scene-card > .card-head { align-items: center; padding-block: 3px; }
+}
+nav .chapter-number { flex: none; display: inline-block; min-width: 1.8em; font: 12px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+#chapterPrimary[hidden], #rayleighBookAction[hidden], #chapterShortcuts[hidden] { display: none; }
+#rayleighBookAction { margin: 8px var(--card-inset); }
+#loadRayleighBook, #chapterShortcuts button {
+  border: 1px solid #638b7c; border-radius: 4px; background: white;
+  color: #225447; padding: 6px 10px; font: inherit;
+}
+@media (max-width: 800px) {
+  body[data-lab] #chapters:not([hidden]) {
+    display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 13rem),1fr));
+    max-height: 65vh; overflow-y: auto;
+  }
+  body[data-lab] .work-grid:not(:has(>.output-column>:not([hidden]))) {
+    grid-template-areas: "visual" "controls";
+  }
+  #chapterPrimary { margin: 8px var(--card-inset) 2px; }
+  #chapterPrimary > .input-group {
+    padding: 7px 10px; border: 1px solid #d6e4df; border-radius: 5px;
+    background: #f1f6f3; min-width: 0; display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(5rem, 32%); gap: 3px 8px; align-items: center;
+  }
+  #chapterPrimary .input-top { display: block; margin: 0; }
+  #chapterPrimary .input-top .unit { margin-inline-start: 5px; }
+  #chapterPrimary .number-wrap input { min-height: 36px; padding-block: 4px; }
+  #chapterPrimary input[type=range], #chapterPrimary .range-labels, #chapterPrimary select { grid-column: 1 / -1; }
+  #chapterPrimary input[type=range] { display: block; height: 30px; width: 100%; margin: 0; }
+  #chapterPrimary .range-labels { margin: 0; }
+  #chapterShortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px var(--card-inset); }
+  #chapterShortcuts button { padding: 5px 9px; font-size: 14px; }
+  #rayleighBookAction { margin-block: 6px; }
+  .controls > #wallSetupPanel:not([hidden]) { margin: 0 var(--card-inset) 10px; }
+  #inputTitle:focus-visible, #resultsTitle:focus-visible { outline: 2px solid var(--teal); }
 }

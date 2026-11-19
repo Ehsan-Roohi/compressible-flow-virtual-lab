@@ -14,3 +14,18 @@ test('Geometry editor displays calculated lengths and hides a nonexistent closin
  values[1].angle=10;context.inputs.upperSegments[1].angle=10;context.updateClosingSegment('upperSegments');
  assert.ok(lengths.every(n=>n.value===''));assert.match(elements.get('[data-closure-message]').textContent,/cannot close/);
 });
+
+test('a flat face displays its full chord without overwriting the segment input',()=>{
+ const input={readOnly:true,dataset:{index:'0'}},nodes=new Map();
+ const box={
+  querySelector(s){if(!nodes.has(s))nodes.set(s,{});return nodes.get(s);},
+  querySelectorAll(){return [input];}
+ };
+ const inputs={airfoilShape:'Asymmetric double wedge',lowerSegments:[{angle:0,length:.5}]};
+ const context=vm.createContext({inputs,$:()=>box,fmt:String,segmentSurface});
+ vm.runInContext(functions,context);
+ context.updateClosingSegment('lowerSegments');
+ assert.equal(input.value,'1');
+ assert.equal(inputs.lowerSegments[0].length,.5);
+ assert.equal(segmentSurface(inputs.lowerSegments).points.at(-1).x,1);
+});
