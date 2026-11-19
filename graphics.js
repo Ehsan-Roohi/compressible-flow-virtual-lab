@@ -280,7 +280,7 @@ if(s.comparison){
  if(s.kind!=='airfoil'&&(s.kind!=='expansion'||inputs.cornerView==='Textbook schematic'))inner=readableSceneLabels(inner);
  if(s.kind==='cone')inner+='<circle id="fieldProbePoint" r="3.5" fill="#17212b" stroke="white" stroke-width="1.5" visibility="hidden" pointer-events="none"/>';
  if(field){if(['oblique','expansion','collision'].includes(s.kind))field.palette=cornerPalette;field.options??=f.options;field.note??='Range scaled to this solution';}
- return {label,meta,field,nozzleAxial,densityCells,svg:`<svg xmlns="http://www.w3.org/2000/svg" ${s.tracking?'data-custom-wall="true"':''} viewBox="${s.kind==='state'?'0 65 640 170':`0 0 ${W} ${H}`}" role="img" aria-label="${esc(label)}"><title>${esc(label)}</title>${diagramFontStyle}<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e4ece1" stroke-width=".5"/></pattern></defs><rect width="640" height="${H}" fill="#f8fbf6"/><rect width="640" height="${H}" fill="url(#grid)"/>${inner}</svg>`};
+ return {label,meta,field,nozzleAxial,densityCells,svg:`<svg xmlns="http://www.w3.org/2000/svg" ${s.tracking?'data-custom-wall="true"':''} viewBox="${s.kind==='state'?'0 65 640 170':s.kind==='normal'?'0 27 640 228':`0 0 ${W} ${H}`}" role="img" aria-label="${esc(label)}"><title>${esc(label)}</title>${diagramFontStyle}<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e4ece1" stroke-width=".5"/></pattern></defs><rect width="640" height="${H}" fill="#f8fbf6"/><rect width="640" height="${H}" fill="url(#grid)"/>${inner}</svg>`};
 }
 function chartHeatmap(map,X,Y){
  if(!map)return '';

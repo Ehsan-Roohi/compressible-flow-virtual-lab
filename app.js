@@ -33,9 +33,10 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261119-isentropic-image';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-cone-clean-diagram';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-normal-shock-examples';
 function defaults(id){
  const inputs=experimentDefaults(id);
+ if(id==='normal')return {...inputs,bookExample:''};
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001}:inputs;
 }
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
@@ -507,6 +508,10 @@ function renderExamples(){
   entries.push({value:'7–13',label:'Example 8 · Finite shock tube',note:'Air in both chambers. Driver: 4 m, 200 kPa, 20 °C. Driven: 6 m, 5 kPa, 25 °C. Diameter 0.30 m. The sample is 3 m downstream of the diaphragm. Passage times use the initial analytical wave speeds. The simulation initially runs to 30 ms.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,p4:200,p1:5,T4:293.15,T1:298.15,finiteDriverLength:4,finiteDrivenLength:6,finiteDiameter:.3},'7–13');}});
  }
  if(id==='tube')entries.push({value:'sinusoidal-ten-cycles',label:'Example 9 · Sinusoidal piston · 10 cycles',note:'Air at 100 kPa and 300 K in a 6 m closed tube. The piston completes 10 cycles at 100 Hz with ε = 0.1. Press Play to watch the full 100 ms from the start.',apply:()=>{stopAnimation();load({unsteadyExperiment:sinusoidalExperiment,pistonEpsilon:0.1,pistonFrequency:100,pistonCycles:10,pistonTubeLength:6,finiteEndTime:100,finiteCells:1200,p1:100,T1:300},'sinusoidal-ten-cycles');plotSelection.tube='finite-map-pressure';}});
+ if(id==='normal')entries=[
+  {value:'3-1',label:'Example 1',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load({M1:2,p1:137.9,T1:277.78},'3-1')},
+  {value:'3-2',label:'Example 2',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
+ ];
  if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:String(e.number),note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
   const cases=[['4–1',{ductProblem:'Single duct',rayleighInput:'Heat transfer',M1:3,T1:300,p1:101,q:300}],['4–2',{ductProblem:'Single duct',rayleighInput:'Outlet Mach',M1:1.5,targetMach:3,p1:68.95,T1:300}],['4–3',{ductProblem:'Single duct',rayleighInput:'Outlet Mach + stagnation temperatures',targetMach:.93,inletT0:373.15,outletT0:573.15,p1:101}],['4–4',{ductProblem:'Reservoir-fed duct',ductSolve:'Upstream reference + sonic outlet',M1:.41,p1:68.95,inletT0:229.4,outletT0:1666.7}],['4–5',{ductProblem:'Single duct',rayleighInput:'Heat transfer',velocityInput:'Flow speed',inletSpeed:122.5,T1:222.2,p1:68.95,q:116.3}],['4–7',{ductProblem:'Heat + shock + converging nozzle',systemInletType:'Static duct inlet',M1:1.6,T1:200,p1:56,backPressure:120}]];
