@@ -52,8 +52,18 @@ test('Moving reference cases preserve total conditions and continuity through im
   close(ref.rho*ref.u,i.rho*i.u*connected.result.entryAreaRatio);
   close(d.result.spillFraction,1-i.rho*i.u/(ref.rho*ref.u));
   close(d.result.s2.M,connected.result.s2.M);
-  assert.match(sceneSVG(d.scene,x).svg,/data-inlet-spillage/);
-  assert.doesNotMatch(sceneSVG(d.scene,x).svg,/Ain\/Aref/);
+  const spillView=sceneSVG(d.scene,x).svg;
+  assert.match(spillView,/data-inlet-spillage/);
+  assert.doesNotMatch(spillView,/Ain\/Aref/);
+  const lowMach=run({...x,supplyReferenceMach:.01,reservoirP0:ref.p0/1000/p.isentropic(.01).p0p});
+  const atRest=run({...x,reservoirPressureType:'Stagnation pressure',reservoirP0:ref.p0/1000});
+  for(const result of [d,connected,lowMach,atRest]){
+   const svg=sceneSVG(result.scene,result.inputs).svg;
+   assert.match(svg,/data-rayleigh-intake="open"/);
+   assert.match(svg,/M270 105H735M270 215H735/);
+   assert.doesNotMatch(svg,/L270 105|L270 215|Entry nozzle/);
+   assert.equal(svg.includes('data-inlet-spillage'),result===d);
+  }
  }
 });
 test('Initial upstream adjustment ignores stale supply selector and identifies reference as initial state',()=>{
@@ -65,6 +75,7 @@ test('Initial upstream adjustment ignores stale supply selector and identifies r
  assert.match(sceneSVG(b.scene,b.inputs).svg,/Inlet spillage ≈ 53.4% total/);
  const lowHeat=run({...x,outletT0:235});
  assert.equal(lowHeat.result.spillFraction,undefined);
+ assert.match(sceneSVG(lowHeat.scene,lowHeat.inputs).svg,/data-rayleigh-intake="open"/);
  assert.doesNotMatch(sceneSVG(lowHeat.scene,lowHeat.inputs).svg,/data-inlet-spillage/);
 });
 test('Reservoir sonic mode allows zero heat and rejects cooling with a clear message',()=>{
