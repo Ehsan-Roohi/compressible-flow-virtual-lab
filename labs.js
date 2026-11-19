@@ -65,7 +65,7 @@ function shockStateSection({kind,title,location,before,after,gamma,R,extra=[]}){
 }
 export const chapters=[
  [1,'Isentropic Flow Calculator','Thermodynamics & stagnation properties',['foundations']],
- [3,'Normal shocks','Sound, compression & entropy',['normal']],
+ [3,'Normal shock','Sound, compression & entropy',['normal']],
  [4,'Rayleigh flow','Heat transfer & thermal choking',['rayleigh']],
  [5,'Fanno flow','Friction & sonic length',['fanno']],
  [6,'Supersonic Wave Lab','Oblique shocks, expansion & interaction',['wall','collision']],
