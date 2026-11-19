@@ -61,7 +61,11 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  if(hasEntry){
   if(initial){
    // A reference operating state is not a simultaneous upstream station.
-   body+=`<rect data-initial-reference="" x="20" y="110" width="215" height="100" rx="5" fill="#f8fbf8" stroke="#81999b" stroke-dasharray="4 4"/>`+text(127,136,'Initial reference','middle')+text(127,164,`Mref = ${fmt(ref.state.M)}`,'middle')+text(127,190,`pref = ${fmt(ref.state.p/1000)} kPa`,'middle');
+   body+=`<g data-initial-reference="">`
+    +text(127,58,'Initial reference','middle')
+    +text(127,261,`Mref = ${fmt(ref.state.M)}`,'middle')
+    +text(127,286,`pref = ${fmt(ref.state.p/1000)} kPa`,'middle')
+    +'</g>';
   }else if(reservoir){
    body+=`<path d="M25 90H120V230H25Z" fill="#e5edeb"/>`+wall('M120 105V90H25V230H120V215');
    const path='M120 105L185 135L270 105M120 215L185 185L270 215';
