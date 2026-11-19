@@ -36,7 +36,7 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  let body=`<defs><linearGradient id="ductContour" gradientUnits="userSpaceOnUse" x1="${left}" x2="${rayNozzle?left+(shockX-left)/shock:right}">${rayNozzle?points.filter(z=>z.x<=shock).map(z=>`<stop offset="${100*z.x}%" stop-color="${tint(z.state)}"/>`).join(''):stops}</linearGradient></defs><rect width="800" height="390" fill="#f8fbf8"/>`;
  const ductEnd=rayNozzle?nozzleStart:right;
  const top=isRayleigh?(r.entryAreaRatio||shock!=null?16:hasEntry?40:64):0;
- const height=isRayleigh?343-top:390;
+ const height=isRayleigh?325-top:390;
  body+=`<path d="M${left} 105H${ductEnd}V215H${left}Z" fill="url(#ductContour)" data-duct-contour="${key}"/>`+wall(`M${left} 105H${ductEnd}M${left} 215H${ductEnd}`);
  if(rayNozzle){
   const post=r.stations.find(z=>z.name==='After shock').state;
@@ -47,8 +47,15 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
   const exitStops=[{x:shock,state:post},...points.filter(z=>z.x>shock)].map(z=>`<stop offset="${100*(z.x-shock)/(1-shock)}%" stop-color="${tint(z.state)}"/>`).join('');
   body+=`<defs><linearGradient id="exitContour" gradientUnits="userSpaceOnUse" x1="${nozzleStart}" x2="${right}">${exitStops}</linearGradient></defs><path d="M${nozzlePoints.map(z=>`${z.x} ${160-z.h}`).join('L')}L${[...nozzlePoints].reverse().map(z=>`${z.x} ${160+z.h}`).join('L')}Z" fill="url(#exitContour)"/>`;
   body+=wall('M'+nozzlePoints.map(z=>`${z.x} ${160-z.h}`).join('L')+'M'+nozzlePoints.map(z=>`${z.x} ${160+z.h}`).join('L'));
-  body+=text((nozzleStart+right)/2,85,'Converging nozzle','middle')+text((left+shockX)/2,85,'Heated / cooled duct','middle');
- }else body+=text((left+right)/2,85,s.process==='fanno'?'Constant-area friction duct':'Heated / cooled duct','middle');
+  body+=text((nozzleStart+right)/2,85,'Converging nozzle','middle');
+ }else if(!isRayleigh)body+=text((left+right)/2,85,'Constant-area friction duct','middle');
+ const temperatureChange=b.T0-a.T0;
+ if(isRayleigh&&Math.abs(temperatureChange)>1e-9){
+  const heating=temperatureChange>0,cx=(left+(rayNozzle?shockX:right))/2;
+  const start=heating?72:116,end=heating?116:72,head=end+(heating?-8:8);
+  const path=`M${cx} ${start}V${end}M${cx-6} ${head}L${cx} ${end}L${cx+6} ${head}`;
+  body+=`<g data-heat-transfer="${heating?'into-duct':'out-of-duct'}"><title>${heating?'Heat added to the flow':'Heat removed from the flow'}</title><path d="${path}" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="${heating?'#a73320':'#20558a'}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+ }
  if(hasEntry){
   if(initial){
    // A reference operating state is not a simultaneous upstream station.
@@ -71,20 +78,14 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  for(const x of [.12,.38,.62,.88])body+=arrow(X(x));
  const stateY=isRayleigh?241:270;
  body+=text(left,stateY,`${isRayleigh?'Inlet':'Duct inlet'} · M₁ = ${fmt(a.M)}`)+text(right,stateY,`${rayNozzle?'Nozzle outlet':isRayleigh?'Outlet':'Duct outlet'} · M₂ = ${fmt(b.M)}`,'end');
- if(isRayleigh){
-  const gamma=inputs.gamma??1.4,cp=gamma*(inputs.R??287)/(gamma-1);
-  // The upstream reference for cumulative heat is the heated-duct inlet.
-  const q=cp*(b.T0-a.T0)/1000;
-  body+=text(left,261,'q = 0 kJ/kg')+text(right,261,`q = ${fmt(q)} kJ/kg`,'end');
- }
- if(key!=='mach')body+=text(left,isRayleigh?281:297,`${prop.symbol}₁ = ${fmt(prop.get(a))} ${prop.units}`)+text(right,isRayleigh?281:297,`${prop.symbol}₂ = ${fmt(prop.get(b))} ${prop.units}`,'end');
- if(rayNozzle)body+=text(400,312,'Schematic positions · heat transfer in the straight duct; isentropic exit nozzle.','middle',12);
+ if(key!=='mach')body+=text(left,isRayleigh?261:297,`${prop.symbol}₁ = ${fmt(prop.get(a))} ${prop.units}`)+text(right,isRayleigh?261:297,`${prop.symbol}₂ = ${fmt(prop.get(b))} ${prop.units}`,'end');
+ if(rayNozzle)body+=text(400,291,'Schematic positions · heat transfer in the straight duct; isentropic exit nozzle.','middle',12);
  else {
-  const axisY=isRayleigh?296:322;
+  const axisY=isRayleigh?278:322;
   body+=`<path d="M${left} ${axisY}H${right}" stroke="#91a3a1"/>`;
-  for(const x of [0,.5,1])body+=`<path d="M${X(x)} ${axisY-4}V${axisY+4}" stroke="#91a3a1"/>`+text(X(x),isRayleigh?314:348,`x/L = ${x}`,x===0?'start':x===1?'end':'middle');
+  for(const x of [0,.5,1])body+=`<path d="M${X(x)} ${axisY-4}V${axisY+4}" stroke="#91a3a1"/>`+text(X(x),isRayleigh?296:348,`x/L = ${x}`,x===0?'start':x===1?'end':'middle');
  }
- body+=text(400,isRayleigh?333:377,initial?'Initial reference and adjusted inlet are different operating states.':s.process==='rayleigh'?'Uniform heat transfer: equal heat added/removed per metre of heated duct.':'Constant friction factor and hydraulic diameter.','middle',12);
+ body+=text(400,isRayleigh?315:377,initial?'Initial reference and adjusted inlet are different operating states.':s.process==='rayleigh'?'Uniform heat transfer: equal heat added/removed per metre of heated duct.':'Constant friction factor and hydraulic diameter.','middle',12);
  return {svg:`<svg xmlns="http://www.w3.org/2000/svg" ${isRayleigh?'data-rayleigh-contour="true" ':''}viewBox="0 ${top} 800 ${height}" role="img" aria-label="${s.process} system: ${hasEntry?(initial?'initial reference, ':ref?'upstream, ':'reservoir and inlet nozzle, '):'upstream flow, '}constant-area duct${rayNozzle?', shock in duct and converging exit nozzle':''}"><title>${s.process} longitudinal ${prop.label.toLowerCase()} contour</title>${body}</svg>`,label:'One-dimensional longitudinal '+prop.label.toLowerCase(),meta:'',field:{quantity:key,options:Object.keys(ductProperties),label:prop.label,units:prop.units,min,max,palette:ductPalette,note:s.process==='rayleigh'?'Uniform heat transfer per unit heated length · section-uniform 1D field':'Constant friction factor and hydraulic diameter · section-uniform 1D field'}};
 }
 export function ductLongitudinalPlots(id,r){const points=r.longitudinal;if(!points?.length)return [];

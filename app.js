@@ -28,12 +28,12 @@ import {airfoilTables} from './airfoil-tables.js?v=20261117-multi-inlet';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261119-isentropic-image';
+import {plotOptions} from './plot-options.js?v=20261119-rayleigh-heat-arrow';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261119-rayleigh-heat-tooltip';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-rayleigh-compact';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-rayleigh-heat-arrow';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
