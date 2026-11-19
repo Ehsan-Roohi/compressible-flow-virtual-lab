@@ -1,5 +1,4 @@
 import {nozzleBookPressurePlot} from './nozzle-book.js';
-import {fannoExample5Plot} from './fanno-examples.js?v=20261119-fanno-example5-comparison';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261117-sinusoidal-piston';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
@@ -35,10 +34,7 @@ function finiteMapOptions(r){
 function basePlotOptions(d,time=.001){
  if(d.result.multiRamp)return [{key:'multi-inlet-p-theta',label:'Pressure–deflection diagram',chart:multiRampPlot(d.result),note:'θ is absolute to horizontal. A normal shock increases pressure without changing flow direction.'}];
  if(d.result.ramjet)return ramjetPlots(d.result).filter(p=>p.key==='inlet-p-theta');
- if(d.result.ductSystem){
-  const comparison=d.id==='fanno'?fannoExample5Plot(d):null;
-  return comparison?[comparison,...d.result.plots]:d.result.plots;
- }
+ if(d.result.ductSystem)return d.result.plots;
  const {id,inputs:x,result:r}=d,g=x.gamma??1.4,R=x.R??287,options=[];
  const add=(key,label,xlabel,ylabel,points,extra={})=>options.push({key,label,chart:{title:label,xlabel,ylabel,zeroBaseline:false,series:[{name:label,points:points.filter(p=>p.every(Number.isFinite))}],...extra}});
  const family=(prefix,xlabel,samples,properties)=>{for(const [key,label,unit,value] of properties)add(prefix+key,label,xlabel,unit,samples.map(([a,s])=>[a,value(s)]));};

@@ -7,7 +7,7 @@ import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetPreset,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
-import {fannoExamples,fannoExample5PlotKey} from './fanno-examples.js?v=20261119-fanno-example5-short';
+import {fannoExamples} from './fanno-examples.js?v=20261120-fanno-plot-menu';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
 import {rayleighDistributionNote,fannoDistributionNote} from './duct-contours.js?v=20261113-rainbow-physical';
@@ -29,7 +29,7 @@ import {airfoilTables} from './airfoil-tables.js?v=20261117-multi-inlet';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261119-fanno-example5-comparison';
+import {plotOptions} from './plot-options.js?v=20261120-fanno-plot-menu';
 import {nozzleBookInputs,nozzleBookPlotKey} from './nozzle-book.js';
 import {setNozzleLayout} from './nozzle-layout.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
@@ -744,10 +744,7 @@ function renderExamples(){
   {value:'3-1',label:'Example 1',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load({M1:2,p1:137.9,T1:277.78},'3-1')},
   {value:'3-2',label:'Example 2',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
- if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:String(e.number),note:e.note,apply:()=>{
-  load(e.inputs,'5–'+e.number);
-  if(e.number===5)plotSelection.fanno=fannoExample5PlotKey;
- }}));
+ if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:String(e.number),note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
   const cases=Object.entries(rayleighBookExamples);
   cases.push(...reservoirExamples.filter(([,preset])=>preset.ductSolve!=='Sonic outlet'));

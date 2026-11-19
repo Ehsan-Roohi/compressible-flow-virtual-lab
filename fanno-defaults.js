@@ -1,4 +1,4 @@
-import {fannoExample} from './fanno-examples.js?v=20261119-fanno-example5-comparison';
+import {fannoExample} from './fanno-examples.js?v=20261120-fanno-plot-menu';
 import {fannoConditions,fannoSolveOptions,fannoSystemMode,fannoUnknowns,solveFannoSystem} from './fanno-system.js?v=20261119-fanno-system-relations';
 import {fannoRatios,isentropic} from './physics.js';
 

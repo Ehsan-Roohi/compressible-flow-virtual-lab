@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fannoExamples,fannoExample,fannoExample5PlotKey} from './fanno-examples.js';
+import {fannoExamples,fannoExample} from './fanno-examples.js';
 import {calculate,defaults,inputDefinitions} from './labs.js';
 import {migrateFannoInputs,fannoConditions} from './fanno-system.js';
 import {plotOptions} from './plot-options.js';
@@ -35,26 +35,17 @@ test('Example 5 covers each requested shock station; example 6 recovers the spec
  near(r.s1.M,3);near(r.s1.T,300);near(r.s2.p/1000,50.66);
  near((r.shockX-1)/.05,28.9572,.001);
 });
-test('Example 5 defaults to a duct-only pressure comparison with the exit shock jump',()=>{
- const bookExample='5–5';
- const plots=[2,3,4].map(i=>plotOptions(solve(5,{bookExample,fannoCondition:fannoConditions[i]})));
- const {key,chart}=plots[0][0];
- assert.equal(key,fannoExample5PlotKey);
- for(const options of plots){
-  assert.deepEqual(options[0].chart,chart);
-  assert.ok(options.some(o=>o.key==='fanno-full-Static pressure'));
+test('Example 5 keeps the standard plots for each selected shock location',()=>{
+ for(const i of [2,3,4]){
+  const d=solve(5,{bookExample:'5–5',fannoCondition:fannoConditions[i]});
+  const options=plotOptions(d);
+  assert.deepEqual(options,d.result.plots);
+  const pressure=options.find(o=>o.key==='fanno-full-Static pressure');
+  assert.equal(pressure.chart.series.length,1);
+  if(i===4){
+   const points=pressure.chart.series[0].points;
+   assert.equal(points.at(-2)[0],points.at(-1)[0]);
+   assert.ok(points.at(-2)[1]<points.at(-1)[1]);
+  }
  }
- assert.equal(chart.series.length,3);
- const [throat,nozzleExit,ductExit]=chart.series.map(s=>s.points);
- for(const points of [throat,nozzleExit,ductExit]){
-  assert.equal(points[0][0],0);
-  assert.equal(points.at(-1)[0],1);
- }
- assert.ok(throat[0][1]>throat.at(-1)[1]);
- assert.ok(nozzleExit[0][1]>nozzleExit.at(-1)[1]);
- assert.ok(ductExit[0][1]<ductExit.at(-2)[1]);
- assert.equal(ductExit.at(-2)[0],1);
- assert.ok(ductExit.at(-2)[1]<ductExit.at(-1)[1]);
- assert.ok(!plotOptions(solve(4,{bookExample:'5–4'})).some(o=>o.key===key));
- assert.ok(!plotOptions(solve(5,{bookExample,lambda:.6})).some(o=>o.key===key));
 });

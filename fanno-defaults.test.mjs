@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {calculate,defaults} from './labs.js';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js';
 import {fannoConditions,fannoPressurePlan,fannoSolveOptions,fannoSystemMode,fannoUnknowns,migrateFannoInputs} from './fanno-system.js';
-import {fannoExample,fannoExample5PlotKey} from './fanno-examples.js';
+import {fannoExample} from './fanno-examples.js';
 import {plotOptions} from './plot-options.js';
 
 const base=defaults('fanno');
@@ -49,12 +49,13 @@ test('Fanno defaults reuse book inputs and recover the relevant book results',()
  for(const unknown of [0,1])near(calculate('fanno',preset(system(5,unknown))).result.s2.M,1);
 });
 
-test('Changing Fanno modes discards incompatible inputs and keeps Example 5 comparison across its cases',()=>{
+test('Changing Fanno modes discards incompatible inputs and keeps Example 5 across its cases',()=>{
  const previous={...preset(system(2,0)),bookExample:'5–5',lambda:9};
  const next=preset(fannoModeSelection(previous,'fannoCondition',fannoConditions[3]));
  assert.equal(next.lambda,.3);
  assert.equal(next.bookExample,'5–5');
- assert.equal(plotOptions(calculate('fanno',next))[0].key,fannoExample5PlotKey);
+ const result=calculate('fanno',next);
+ assert.deepEqual(plotOptions(result),result.result.plots);
  const inverse=preset(fannoModeSelection(next,'fannoUnknown',fannoUnknowns[1]));
  assert.equal(inverse.bookExample,'');
  near(calculate('fanno',inverse).result.supplyPressure/1000,1034.2);

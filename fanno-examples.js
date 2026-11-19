@@ -1,4 +1,4 @@
-import {fannoSystemMode,fannoConditions,fannoUnknowns,solveFannoSystem} from './fanno-system.js?v=20261119-fanno-system-relations';
+import {fannoSystemMode,fannoConditions} from './fanno-system.js?v=20261119-fanno-system-relations';
 
 // Chapter 5, Examples 5-1 through 5-6. The book uses Fanning f.
 const system={ductProblem:fannoSystemMode,fannoInterfaceVersion:2,frictionInput:'Dimensionless',fannoUnknown:'Back pressure'};
@@ -11,25 +11,3 @@ export const fannoExamples=[
  {number:6,inputs:{...system,fannoCondition:fannoConditions[0],fannoUnknown:'Shock location / flow regime',reservoirP0:304,reservoirT0:840,systemAreaRatio:4.23456790123457,lambda:.6,backRatio:50.66/304,backPressure:50.66,ductLength:3,hydraulicDiameter:.05,frictionFactor:.0025},note:'The nozzle supplies the specified duct inlet: M = 3, T = 300 K, p₀ = 304 kPa. L/D = 60; divide the reported shock distance by D = 0.05 m to obtain x/D.'}
 ];
 export function fannoExample(number){return fannoExamples.find(x=>x.number===Number(number));}
-
-export const fannoExample5PlotKey='fanno-example5-pressure';
-const example5Cases=[
- ['throat',fannoConditions[2],'(a-1) Nozzle throat limit'],
- ['nozzleExit',fannoConditions[3],'(a-2) Nozzle exit'],
- ['ductExit',fannoConditions[4],'(a-3) Duct exit']
-];
-export function fannoExample5Plot({inputs,result}){
- if(inputs.bookExample!=='5–5'||inputs.fannoUnknown!==fannoUnknowns[0]||
-    !example5Cases.some(([,condition])=>condition===inputs.fannoCondition)||
-    !example5Cases.every(([threshold])=>Number.isFinite(result.thresholds?.[threshold])))return null;
- const series=example5Cases.map(([,condition,label])=>{
-  const solution=inputs.fannoCondition===condition?result:solveFannoSystem({...inputs,fannoCondition:condition}).result;
-  return {
-   name:`${label} · pᵦ = ${(solution.backPressure/1000).toFixed(2)} kPa`,
-   points:solution.longitudinal.map(z=>[z.x,z.state.p/1000])
-  };
- });
- const label='Duct pressure · three shock locations';
- return {key:fannoExample5PlotKey,label,note:'Example 5(b), Fig. 5-18. The duct runs from x/L = 0 (inlet) to 1 (exit). The vertical jump at the exit shows the normal shock in (a-3).',
-  chart:{title:label,xlabel:'Duct position x/L',ylabel:'Static pressure (kPa)',zeroBaseline:false,series}};
-}
