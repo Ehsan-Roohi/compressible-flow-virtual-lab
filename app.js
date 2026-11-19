@@ -189,8 +189,8 @@ function arrangePropertyPanels(){
 }
 const reservoirOutletModes={
  'Sonic outlet':{'Heat transfer':'Sonic outlet','Outlet temperature':'Upstream reference + sonic outlet'},
- 'Specified back pressure':{'Heat transfer':'Specified back pressure'},
- 'Specified outlet Mach':{'Heat transfer':'Heat + outlet Mach','Outlet pressure':'Outlet Mach + outlet pressure'},
+ 'Back pressure':{'Heat transfer':'Specified back pressure'},
+ 'Outlet Mach number':{'Heat transfer':'Heat + outlet Mach','Outlet pressure':'Outlet Mach + outlet pressure'},
 };
 const singleDuctModes={
  'Inlet Mach or speed known':{'Heat transfer':'Heat transfer + Inlet Mach','Outlet Mach number':'Outlet Mach','Outlet static pressure':'Outlet pressure'},
@@ -219,28 +219,28 @@ function rayleighFormFields(fields,x){
  const movingSupply=fields.some(field=>field.key==='supplyReferenceMach');
  const supply=movingSupply?'Upstream reference':'Reservoir';
  const labels={
-  q:'Heat transfer per unit mass', targetMach:'Outlet Mach number',
+  ductProblem:'Problem', q:'Heat transfer per unit mass', targetMach:'Outlet Mach number',
   supplyReferenceMach:'Upstream reference Mach number',
-  reservoirPressureType:`${supply} pressure type`,
+  reservoirPressureType:`${supply} pressure`,
   reservoirP0:`${supply} ${x.reservoirPressureType==='Static pressure'?'static':'stagnation'} pressure`,
-  supplyTemperatureType:`${supply} temperature type`,
+  supplyTemperatureType:`${supply} temperature`,
   reservoirT0:`${supply} ${x.supplyTemperatureType==='Static temperature'?'static':'stagnation'} temperature`,
  };
  if(x.ductSolve==='Specified back pressure'&&x.ductProblem==='Reservoir-fed duct')labels.backPressure='Back pressure (static)';
  if(x.ductSolve==='Upstream reference + sonic outlet'&&x.ductProblem==='Reservoir-fed duct')Object.assign(labels,{
-  M1:'Initial upstream Mach number',referencePressureType:'Initial upstream pressure type',
+  M1:'Initial upstream Mach number',referencePressureType:'Initial upstream pressure',
   p1:`Initial upstream ${x.referencePressureType==='Stagnation pressure'?'stagnation':'static'} pressure`,
-  referenceTemperatureType:'Initial upstream temperature type',T1:'Initial upstream static temperature',
-  inletT0:'Initial upstream stagnation temperature',outletTemperatureType:'Sonic outlet temperature type',
+  referenceTemperatureType:'Initial upstream temperature',T1:'Initial upstream static temperature',
+  inletT0:'Initial upstream stagnation temperature',outletTemperatureType:'Sonic outlet temperature',
   outletT0:`Sonic outlet ${x.outletTemperatureType==='Static temperature'?'static':'stagnation'} temperature`,
  });
  return fields.flatMap(field=>{
   if(field.key==='ductSolve')return groupedRayleighFields(field,reservoirOutletModes,x.ductSolve,'Outlet condition');
   if(field.key==='rayleighInput')return groupedRayleighFields(field,singleDuctModes,x.rayleighInput,'Inlet condition');
-  if(field.key==='reservoirP0'||field.key==='reservoirT0'||field.key==='reservoirPressureType'||field.key==='supplyTemperatureType'){
-   if(x.ductProblem!=='Reservoir-fed duct')return [field];
-  }
-  return [labels[field.key]?{...field,label:labels[field.key]}:field];
+  const supplyField=['reservoirP0','reservoirT0','reservoirPressureType','supplyTemperatureType'].includes(field.key);
+  const label=(supplyField&&x.ductProblem!=='Reservoir-fed duct'?field.label:labels[field.key]??field.label)
+   .replace(/ (?:type|specified as)$/i,'');
+  return [{...field,label}];
  });
 }
 function renderInputs(){if(id==='wall'&&inputs.customInteraction===multiRampMode&&inputs.inletTerminal==='None')inputs.inletTerminal='Compression only';if(id==='tube'){inputs.tubeDomain=finiteTubeMode;inputs.pistonDomain=closedPistonMode;
@@ -638,7 +638,7 @@ function renderExamples(){
 function knownRayleighData(mode,group){
  const groups={
   'Sonic outlet':'Set the outlet Mach number to 1. Specify heat transfer or outlet temperature.',
-  'Specified outlet Mach':'Specify a subsonic outlet Mach number and either heat transfer or outlet pressure.',
+  'Outlet Mach number':'Specify a subsonic outlet Mach number and either heat transfer or outlet pressure.',
   'Inlet Mach or speed known':'Specify inlet Mach number or flow speed, plus one heat-transfer or outlet condition.',
  };
  const modes={
