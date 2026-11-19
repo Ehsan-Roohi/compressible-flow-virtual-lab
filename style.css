@@ -175,6 +175,7 @@ main{max-width:none;margin:0;padding:0 clamp(8px,1.2vw,16px) 12px;min-width:0}
 .controls{padding-bottom:10px}
 .controls form{padding-inline:var(--card-inset)}
 .controls form>.input-group{padding-block:8px}
+.controls form>.input-group[data-station-input]{grid-column:1/-1}
 .scene,.field-controls{margin-inline:8px}
 .scene.finite-tube-scene{aspect-ratio:auto}
 .scene.finite-tube-scene>svg{height:auto}

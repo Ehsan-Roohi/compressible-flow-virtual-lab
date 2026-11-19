@@ -205,7 +205,7 @@ function experimentInputs(id,x={}){
  }).map(f=>f.key==='alpha'&&x.airfoilShape==='Connected flat plates'?{...f,label:'Inlet flow angle α'}:f.key==='upperSegments'&&x.airfoilShape==='Connected flat plates'?{...f,label:'Connected plate segments'}:f.key==='upperSegments'&&x.airfoilShape==='Bent flat plate'?{...f,label:'Plate segments'}:f.key==='upperSegments'&&x.airfoilShape==='Diamond'?{...f,label:'Upper segments · lower mirrored'}:f.key==='geometryInput'?{...f,options:x.airfoilShape==='Diamond'?['Angles','Length ratios','Angle & length ratio']:x.airfoilShape==='Custom panels'?['Angles & lengths','Coordinates']:['Angles & lengths','Dimensions']}:f.key==='T1'?{...f,label:'Freestream temperature'}:f.key==='p1'?{...f,label:'Freestream pressure'}:f);
 
  if(id==='collision')return labs.collision.inputs.filter(f=>f.key!=='geometryMode').map(f=>f.key==='thetaUpper'?{...f,label:x.interactionType==='Same-direction shocks'?'First wall angle θ₁':'Lower-wall angle θₗ'}:f.key==='thetaLower'?(x.interactionType==='Same-direction shocks'?{...f,label:'Second-wall angle θ₂',min:(x.thetaUpper??10)+f.min,max:(x.thetaUpper??10)+f.max,displayOffset:x.thetaUpper??10,help:'Absolute wall angle measured from the horizontal.'}:{...f,label:'Upper-wall angle θᵤ',min:-f.max,max:-f.min,displayScale:-1,help:'Signed wall angle measured from the horizontal; clockwise is negative.'}):f.key==='cornerSpacing'?{...f,help:x.interactionType==='Same-direction shocks'?'Axial distance between the two lower-wall corners.':'Upper corner x minus lower corner x. The lower corner is at x = 0.'}:f);
- if(id==='balances')return labs.balances.inputs.filter(f=>f.key!=='M2'||x.balanceMode!=='Solve outlet speed').map(f=>f.key==='T2'&&x.balanceMode==='Solve outlet speed'?{...f,section:'Outlet state'}:f);
+ if(id==='balances')return labs.balances.inputs.filter(f=>f.key!=='M2'||x.balanceMode!=='Solve outlet speed').map(f=>f.key==='p2'&&x.balanceMode==='Solve outlet speed'?{...f,section:'Outlet state'}:f);
  if(id==='cone')return labs.cone.inputs.filter(f=>(!['nearbyWall','wallDistance'].includes(f.key)||x.bodyGeometry==='Wedge'&&(f.key==='nearbyWall'||x.nearbyWall&&x.nearbyWall!=='None'))&&(f.key!=='wedgeAlpha'||x.bodyGeometry==='Wedge'||x.bodyGeometry==='Compare both')).map(f=>f.key==='thetaCone'?{...f,label:x.bodyGeometry==='Wedge'?'Wedge half-angle':x.bodyGeometry==='Compare both'?'Common body half-angle':'Cone half-angle'}:f.key==='T1'?{...f,label:'Freestream temperature'}:f.key==='p1'?{...f,label:'Freestream pressure'}:f);
  if(id!=='nozzle')return ['oblique','expansion'].includes(id)?[...labs[id].inputs,cornerView]:labs[id].inputs;
  const type=x.nozzleType??'Converging–diverging';
@@ -228,22 +228,22 @@ if(fields.some(f=>f.key==='T1'))fields=fields.flatMap(f=>f.key==='T1'?[choices[1
 if(id==='fanno'&&fields.some(f=>f.key==='lambda'))fields=fields.flatMap(f=>f.key==='lambda'?[{key:'frictionInput',label:'Friction input',value:'Dimensionless',options:['Dimensionless','Length and friction factor']},...(x.frictionInput==='Length and friction factor'?[{key:'ductSection',label:'Cross section',value:'Circular',options:['Circular','Rectangular']},...(x.ductSection==='Rectangular'?[input('ductWidth','Width',.05,.000001,1000,.001,'m'),input('ductHeight','Height',.05,.000001,1000,.001,'m')]:[input('hydraulicDiameter','Hydraulic diameter',.05,.000001,1000,.001,'m')]),input('ductLength','Duct length',1,0,1e6,.01,'m'),input('frictionFactor','Friction factor',.005,.000001,1,.0001,''),{key:'frictionConvention',label:'Friction convention',value:'Fanning',options:['Fanning','Darcy']}]:[f])]:[f]);return fields;}
 // Keep each station's known data together, including the selectors attached to it.
 const stationInputGroups=[
- ['velocityInput','M','M1','inletSpeed','inletPressureType','p1','temperatureInput','inverseTemperatureType','T1','inletT0','inletBranch'],
+ ['velocityInput','M','M1','inletSpeed','inletPressureType','referencePressureType','p1','temperatureInput','inverseTemperatureType','referenceTemperatureType','T1','inletT0','inletBranch'],
  ['driverPressureType','p4','driverTemperatureType','T4'],
  ['supplyReferenceMach','reservoirPressureType','reservoirP0','supplyTemperatureType','reservoirT0'],
- ['MIn','nozzlePressureType','p0','nozzleTemperatureType','T0','backRatio'],
- ['M2','targetMach','outletPressureType','p2','targetPressure','backPressure','outletTemperatureType','T2','outletT0'],
+ ['MIn','nozzlePressureType','p0','nozzleTemperatureType','T0'],
+ ['M2','targetMach','outletPressureType','p2','targetPressure','backPressure','backRatio','outletTemperatureType','T2','outletT0'],
 ];
+const stationGroupByKey=new Map(stationInputGroups.flatMap(group=>group.map(key=>[key,group])));
 function groupStationInputs(fields){
  const byKey=new Map(fields.map(field=>[field.key,field]));
- const groupsByKey=new Map(stationInputGroups.flatMap(group=>group.map(key=>[key,group])));
  const emitted=new Set();
  return fields.flatMap(field=>{
-  const group=groupsByKey.get(field.key);
+  const group=stationGroupByKey.get(field.key);
   if(!group)return [field];
   if(emitted.has(group))return [];
   emitted.add(group);
-  return group.map(key=>byKey.get(key)).filter(Boolean);
+  return group.map(key=>byKey.get(key)).filter(Boolean).map(member=>({...member,stationInput:true}));
  });
 }
 export function inputDefinitions(id,x={}){
