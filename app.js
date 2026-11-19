@@ -122,6 +122,7 @@ function changeAirfoilGeometry(key,value){
 function arrangeWallInputs(){
  const panel=$('wallSetupPanel'),active=['wall','collision','airfoil','cone'].includes(id);
  $('profileStationControls').innerHTML='';$('profileStationControls').hidden=true;
+ panel.classList.toggle('cone-setup',id==='cone'&&inputs.bodyGeometry==='Cone');
  panel.hidden=!active;panel.classList.toggle('collision-setup',id==='collision'||id==='wall'&&inputs.customInteraction===multiRampMode);if(!active){panel.innerHTML='';return;}
  const editorsOpen=panel.querySelector('#wallEditors')?.open??false,settingsOpen=panel.querySelector('#wallSolverSettings')?.open??false;
  panel.innerHTML=`<div class="card-head"><h2>Geometry & solution</h2></div><div id="wallSetupControls" class="wall-setup-grid"></div><div class="wall-setup-details"><details id="wallEditors" ${editorsOpen?'open':''}><summary>${id==='airfoil'?'Edit surface geometry':'Edit wall segments'}</summary><div id="wallEditorControls" class="wall-editor-grid"></div></details><details id="wallSolverSettings" ${settingsOpen?'open':''}><summary>Solver settings</summary><div id="wallSolverControls" class="wall-setup-grid"></div></details></div>`;
@@ -514,7 +515,7 @@ function renderExamples(){
  if(id==='airfoil'){const angle=Math.atan(.24)*180/Math.PI,length=Math.hypot(.5,.12);entries=[{value:'6–15',label:'Example 15 · Connected flat plates',note:'M∞ = 2.5, α = 4.2°, h/c = 0.12. Two zero-thickness panels with a mid-chord bend. Reference horizontal extent c = 1 m; dimensions can be scaled. Pressure and temperature are reference values.',apply:()=>load({airfoilShape:'Connected flat plates',airfoilMethod:'Shock–Expansion',M:2.5,alpha:4.2,upperSegments:[{angle,length},{angle:-angle,length}]},'6–15')}];}
 
  if(id==='cone')entries=[{
-  value:'10-1',label:'Example 10–1 · Conical shock',
+  value:'10-1',label:'Example 1 · Conical shock',
   note:'Air at M∞ = 2, p∞ = 7 kPa and T∞ = 217 K flows over a cone with a 9° half-angle. Find the flow deflection just behind the shock and compare Mach number, pressure and temperature there and on the cone surface.',
   apply:()=>load({bodyGeometry:'Cone',M:2,thetaCone:9,p1:7,T1:217},'10-1'),
  }];

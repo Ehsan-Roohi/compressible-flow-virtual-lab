@@ -214,3 +214,28 @@ body{font-family:Georgia,"Times New Roman",serif}
 @media(max-width:800px){
  .lab-header h1{font-size:28px}
 }
+
+/* Keep the two cone geometry controls close to their heading. */
+#wallSetupPanel.cone-setup:not([hidden]){
+ display:flex;
+ flex-wrap:wrap;
+ align-items:flex-start;
+ width:fit-content;
+ max-width:100%;
+ margin-bottom:var(--workspace-gap);
+ padding:8px var(--card-inset);
+ gap:6px 18px;
+}
+.cone-setup .card-head{padding:0}
+.cone-setup .card-head h2{font-size:16px;line-height:1.4}
+.cone-setup #wallSetupControls{
+ grid-template-columns:repeat(2,minmax(0,12rem));
+ gap:8px 12px;
+ padding:0;
+}
+.cone-setup #wallSetupControls select,
+.cone-setup #wallSetupControls input[type=number]{min-height:0;padding:6px 9px}
+.cone-setup #wallSetupControls input[type=range]{margin-top:3px}
+@media(max-width:380px){
+ .cone-setup #wallSetupControls{grid-template-columns:1fr}
+}
