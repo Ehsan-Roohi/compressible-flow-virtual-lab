@@ -34,6 +34,12 @@ import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261119-normal-title';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-normal-shock-examples';
+const coneBookPreset={
+ bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
+ temperatureInput:'Static temperature',inletPressureType:'Static pressure',
+};
+const coneExampleChanged=()=>id==='cone'&&inputs.bookExample==='10-1'&&
+ Object.entries(coneBookPreset).some(([key,value])=>inputs[key]!==value);
 function defaults(id){
  const inputs=experimentDefaults(id);
  if(id==='normal')return {...inputs,bookExample:''};
@@ -199,7 +205,7 @@ arrangeWallInputs();arrangeFannoGeometry(fields,geometryOpen);if(id==='rayleigh'
  }
  stopAnimation();renderInputs();$('value-'+x.key)?.focus();
 }if(x.key==='fluid'){inputs=selectGas(inputs,n.value);renderInputs();$('value-fluid').focus();}if(id==='nozzle'&&(x.key==='nozzleType'||x.key==='nozzleView'||x.key==='outletCondition'||x.key==='MIn'&&(inputs.MIn===1||!!$('value-sonicBranch')))){renderInputs();$('value-'+x.key)?.focus();}if(['temperatureInput','inletPressureType','nozzlePressureType','nozzleTemperatureType','driverPressureType','driverTemperatureType','supplyTemperatureType','reservoirPressureType','inverseTemperatureType','outletTemperatureType','outletPressureType'].includes(x.key))renderInputs();if(['rayleigh','fanno'].includes(id)&&['rayleighInput','fannoInput','targetMach','ductProblem','ductSolve','shockCase','fannoSystemSolve','fannoCondition','fannoUnknown','systemInletType','referenceTemperatureType','referencePressureType','reservoirPressureType','inletPressureType','velocityInput','temperatureInput','frictionInput','ductSection','frictionConvention'].includes(x.key)){renderInputs();}if(id==='cone'&&['bodyGeometry','nearbyWall'].includes(x.key)){renderInputs();$('value-bodyGeometry')?.focus();}if(id==='wall'&&['inletTerminal','inletFlowSide','inletLowerDefinition'].includes(x.key)){renderInputs();}if(id==='wall'&&x.key==='channelSolver'){renderInputs();}if(id==='wall'&&x.key==='boundaryMode'){if(inputs.boundaryMode==='Channel')inputs.wallShape='Custom wall';renderInputs();}if(id==='wall'&&x.key==='wallSide'){renderInputs();}if(id==='balances'&&x.key==='balanceMode'||id==='collision'&&['interactionType','geometryMode','thetaUpper'].includes(x.key)||id==='airfoil'&&['airfoilShape','airfoilMethod'].includes(x.key))renderInputs();syncRayleighHeat();schedule(x.key==='backRatio');};if(r)r.oninput=()=>{stopSweep();sweepFinished=false;sweepPositioned=x.key==='backRatio';request++;const previousFirst=inputs.thetaUpper;inputs[x.key]=(x.displayScale??1)*(Number(r.value)-(x.displayOffset??0));if(id==='collision'&&inputs.interactionType==='Same-direction shocks'&&x.key==='thetaUpper'){inputs.thetaLower+=previousFirst-inputs.thetaUpper;renderInputs();}n.value=r.value;if(id==='nozzle'&&x.key==='MIn'&&(inputs.MIn===1||!!$('value-sonicBranch'))){renderInputs();}syncRayleighHeat();schedule(x.key==='backRatio');};}syncSweep();syncRayleighHeat();}
-function schedule(stream=false){clearTimeout(timer);timer=setTimeout(()=>solve({stream}),id==='cone'?240:70);}
+function schedule(stream=false){if(coneExampleChanged())renderExamples();clearTimeout(timer);timer=setTimeout(()=>solve({stream}),id==='cone'?240:70);}
 function pendingAirfoilScene(){
  if(id!=='airfoil')return '<div class="error-display" style="color:#7f927d">Solving the physical model…</div>';
  try{return sceneSVG({kind:'airfoil',geometry:airfoilGeometry(inputs),models:[],alpha:(inputs.alpha??0)*Math.PI/180},inputs).svg;}
@@ -489,6 +495,7 @@ function syncRayleighHeat(){if(id!=='rayleigh'||(inputs.ductProblem??'Single duc
 
 
 function renderExamples(){
+ if(coneExampleChanged())inputs.bookExample='';
  const box=$('examplesPanel');let entries=[];
  const load=(preset,bookExample)=>{
   inputs={...defaults(id),...preset,bookExample};
@@ -530,15 +537,15 @@ function renderExamples(){
 
  if(id==='cone')entries=[{
   value:'10-1',label:'Example 1 · Conical shock',
-  note:'Air at M∞ = 2, p∞ = 7 kPa and T∞ = 217 K flows over a cone with a 9° half-angle. Find the flow deflection just behind the shock and compare Mach number, pressure and temperature there and on the cone surface.',
-  apply:()=>load({bodyGeometry:'Cone',M:2,thetaCone:9,p1:7,T1:217},'10-1'),
+  note:'Air at M∞ = 2, static p∞ = 7 kPa and static T∞ = 217 K flows over a cone with an 18° full angle (9° half-angle). Find the flow deflection just behind the shock and compare Mach number, pressure and temperature there and on the cone surface.',
+  apply:()=>load(coneBookPreset,'10-1'),
  }];
  if(id==='balances')entries=[['nozzle','Balanced nozzle'],['shock','Normal shock']].map(([value,label])=>({value,label,apply:()=>{inputs={...defaults(id),...controlVolumePreset(value,{gamma:inputs.gamma,R:inputs.R}),fluid:inputs.fluid,bookExample:value};}}));
  if(id==='balances')entries.push({value:'perturb',label:'Increase outlet pressure 10%',apply:()=>{inputs.p2*=1.1;inputs.bookExample='perturb';}});
  box.hidden=!entries.length;box.onclick=null;box.innerHTML='';if(!entries.length)return;
  const selected=entries.find(e=>e.value===inputs.bookExample);
  box.innerHTML=`<div class="input-group"><div class="input-top"><label for="exampleSelect">Examples</label></div><select id="exampleSelect"><option value="" disabled ${selected?'':'selected'}>Select example…</option>${entries.map(e=>`<option value="${e.value}" ${selected===e?'selected':''}>${e.label}</option>`).join('')}</select>${selected?.note?`<p class="control-hint">${selected.note}</p>`:''}</div>`;
- $('exampleSelect').onchange=e=>{const entry=entries.find(x=>x.value===e.target.value);if(!entry)return;stopSweep();sweepFinished=false;sweepPositioned=false;request++;entry.apply();renderInputs();solve();};
+ $('exampleSelect').onchange=e=>{const entry=entries.find(x=>x.value===e.target.value);if(!entry)return;stopSweep();sweepFinished=false;sweepPositioned=false;request++;clearTimeout(timer);entry.apply();renderInputs();solve();};
 }
 
 function knownRayleighData(mode){return {'Sonic outlet':'Known: supply conditions and heat q, with outlet Mach fixed at 1. Solves: duct inlet and sonic outlet states.','Specified back pressure':'Known: supply conditions, heat q and outlet pressure. Solves: duct inlet and outlet Mach and properties. A low back pressure may produce a choked exit.','Heat + outlet Mach':'Known: supply conditions, heat q and subsonic outlet Mach. Solves: subsonic duct inlet and properties.','Outlet Mach + outlet pressure':'Known: supply conditions, subsonic outlet Mach and outlet pressure (selected type). Solves: subsonic inlet and heat q.','Upstream reference + sonic outlet':'Known: initial upstream reference and sonic outlet stagnation temperature. Solves: a new inlet operating state, heat q and critical exit pressure; inlet mass flux may change.'}[mode]??'Select which independent data are known; the corresponding input fields appear below.';}
