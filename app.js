@@ -233,8 +233,10 @@ function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.le
 function renderIsentropicRelations(d){
  const panel=$('isentropicPanel');panel.hidden=d.id!=='foundations';if(panel.hidden)return;
  const rows=d.rows.filter(r=>r.panel==='isentropic');
+ const [mach,machAngle,prandtlMeyer]=rows.filter(r=>!/[₀*]/.test(r.label));
+ const soundSpeed={label:'Speed of sound a',display:fmt(d.result.a),unit:'m/s'};
  const groups=[
-  ['Flow properties',[...rows.filter(r=>!/[₀*]/.test(r.label)),{label:'Speed of sound a',display:fmt(d.result.a),unit:'m/s'}]],
+  ['Flow properties',[mach,soundSpeed,machAngle,prandtlMeyer]],
   ['Stagnation ratios',rows.filter(r=>r.label.endsWith('₀'))],
   ['Sonic ratios',rows.filter(r=>r.label.endsWith('*'))]
  ];
