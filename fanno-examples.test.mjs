@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fannoExamples,fannoExample} from './fanno-examples.js';
+import {fannoExamples,fannoExample,fannoExample5PlotKey} from './fanno-examples.js';
 import {calculate,defaults,inputDefinitions} from './labs.js';
 import {migrateFannoInputs,fannoConditions} from './fanno-system.js';
+import {plotOptions} from './plot-options.js';
 const solve=(n,extra={})=>calculate('fanno',migrateFannoInputs({...defaults('fanno'),...fannoExample(n).inputs,...extra}));
 const near=(a,b,t=.001)=>assert.ok(Math.abs(a-b)<=t,`${a} != ${b}`);
 const value=(d,name)=>d.rows.find(r=>r.label===name).value;
@@ -29,9 +30,31 @@ test('Known outlet Mach uses cross section and friction data to solve for physic
 });
 test('Example 5 covers each requested shock station; example 6 recovers the specified duct inlet',()=>{
  const pressures=[2,3,4].map(i=>solve(5,{fannoCondition:fannoConditions[i]}).result.backPressure);
- assert.ok(pressures[0]>pressures[1]&&pressures[1]>pressures[2]);
- near(pressures[0]/1000,1004.8267,.01);
+ [1004.8267,328.6415,260.4449].forEach((p,i)=>near(pressures[i]/1000,p,.001));
  const r=solve(6).result;
  near(r.s1.M,3);near(r.s1.T,300);near(r.s2.p/1000,50.66);
  near((r.shockX-1)/.05,28.9572,.001);
+});
+test('Example 5 defaults to a duct-only pressure comparison with the exit shock jump',()=>{
+ const bookExample='5–5';
+ const plots=[2,3,4].map(i=>plotOptions(solve(5,{bookExample,fannoCondition:fannoConditions[i]})));
+ const {key,chart}=plots[0][0];
+ assert.equal(key,fannoExample5PlotKey);
+ for(const options of plots){
+  assert.deepEqual(options[0].chart,chart);
+  assert.ok(options.some(o=>o.key==='fanno-full-Static pressure'));
+ }
+ assert.equal(chart.series.length,3);
+ const [throat,nozzleExit,ductExit]=chart.series.map(s=>s.points);
+ for(const points of [throat,nozzleExit,ductExit]){
+  assert.equal(points[0][0],0);
+  assert.equal(points.at(-1)[0],1);
+ }
+ assert.ok(throat[0][1]>throat.at(-1)[1]);
+ assert.ok(nozzleExit[0][1]>nozzleExit.at(-1)[1]);
+ assert.ok(ductExit[0][1]<ductExit.at(-2)[1]);
+ assert.equal(ductExit.at(-2)[0],1);
+ assert.ok(ductExit.at(-2)[1]<ductExit.at(-1)[1]);
+ assert.ok(!plotOptions(solve(4,{bookExample:'5–4'})).some(o=>o.key===key));
+ assert.ok(!plotOptions(solve(5,{bookExample,lambda:.6})).some(o=>o.key===key));
 });
