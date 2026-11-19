@@ -523,7 +523,19 @@ function renderExamples(){
  if(id==='rayleigh'){
   const cases=[['4–1',{ductProblem:'Single duct',rayleighInput:'Heat transfer',M1:3,T1:300,p1:101,q:300}],['4–2',{ductProblem:'Single duct',rayleighInput:'Outlet Mach',M1:1.5,targetMach:3,p1:68.95,T1:300}],['4–3',{ductProblem:'Single duct',rayleighInput:'Outlet Mach + stagnation temperatures',targetMach:.93,inletT0:373.15,outletT0:573.15,p1:101}],['4–4',{ductProblem:'Reservoir-fed duct',ductSolve:'Upstream reference + sonic outlet',M1:.41,p1:68.95,inletT0:229.4,outletT0:1666.7}],['4–5',{ductProblem:'Single duct',rayleighInput:'Heat transfer',velocityInput:'Flow speed',inletSpeed:122.5,T1:222.2,p1:68.95,q:116.3}],['4–7',{ductProblem:'Heat + shock + converging nozzle',systemInletType:'Static duct inlet',M1:1.6,T1:200,p1:56,backPressure:120}]];
   cases.push(...reservoirExamples);
-  entries=cases.map(([name,preset])=>({value:name,label:'Example '+name.split('–').pop(),apply:()=>load(preset,name)}));
+  const notes={
+   '4–1':'Air enters a constant-area duct at Mach 3. Add 300 kJ/kg of heat and find the outlet Mach number and flow properties.',
+   '4–2':'Air enters at Mach 1.5 and leaves at Mach 3. Find the heat that must be removed and the outlet flow properties.',
+   '4–3':'The outlet Mach number is 0.93. The stagnation temperature rises from 373.15 K to 573.15 K. Find the inlet Mach number and heat added.',
+   '4–4':'The upstream reference Mach number is 0.41. Find the adjusted duct-inlet state and the sonic outlet state when the outlet stagnation temperature reaches 1666.7 K.',
+   '4–5':'Air enters at 122.5 m/s, 68.95 kPa and 222.2 K. Add 116.3 kJ/kg of heat and find the outlet Mach number, pressure and temperature.',
+   '4–7':'Air enters at Mach 1.6. Find the heat transfer and the states across the normal shock and through the converging nozzle for a back pressure of 120 kPa.',
+   'R1 · Sonic outlet':'Add 100 kJ/kg to reach Mach 1 at the outlet. Find the duct-inlet state and the outlet pressure.',
+   'R2 · Specified back pressure':'Add 100 kJ/kg with a specified back pressure. Find the inlet and outlet Mach numbers consistent with that pressure.',
+   'R3 · Heat + outlet Mach':'Given the heat added and the outlet Mach number, find the duct-inlet state and the outlet pressure.',
+   'R4 · Outlet Mach + outlet pressure':'Given the outlet Mach number and pressure, find the heat added and the duct-inlet state.',
+  };
+  entries=cases.map(([name,preset])=>({value:name,label:'Example '+name.split('–').pop(),note:notes[name],apply:()=>load(preset,name)}));
  }
  if(id==='wall'){
   entries=[4,5].map(n=>({value:'6–'+n,label:'Example '+n,apply:()=>{inputs={...inputs,...chapter6Example(n),bookExample:'6–'+n};}}));
