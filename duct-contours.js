@@ -61,7 +61,7 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  if(hasEntry){
   if(initial){
    // A reference operating state is not a simultaneous upstream station.
-   body+=`<rect x="20" y="110" width="215" height="100" rx="5" fill="#edf1ed" stroke="#81999b"/>`+text(127,136,'Initial reference','middle')+text(127,164,`Mref = ${fmt(ref.state.M)}`,'middle')+text(127,190,`pref = ${fmt(ref.state.p/1000)} kPa`,'middle');
+   body+=`<rect data-initial-reference="" x="20" y="110" width="215" height="100" rx="5" fill="#f8fbf8" stroke="#81999b" stroke-dasharray="4 4"/>`+text(127,136,'Initial reference','middle')+text(127,164,`Mref = ${fmt(ref.state.M)}`,'middle')+text(127,190,`pref = ${fmt(ref.state.p/1000)} kPa`,'middle');
   }else if(reservoir){
    body+=`<path d="M25 90H120V230H25Z" fill="#e5edeb"/>`+wall('M120 105V90H25V230H120V215');
    const path='M120 105L185 135L270 105M120 215L185 185L270 215';
@@ -79,7 +79,9 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  if(shock!==null&&shock!==undefined)body+=`<path data-shock="true" d="M${X(shock)} 105V215" stroke="#111" stroke-width="2.5"/>`+text(Math.max(210,Math.min(600,X(shock))),34,shock===0?'Normal shock · nozzle exit / duct inlet':shock===1?'Normal shock · duct exit':'Normal shock · in duct','middle');
  for(const x of [.12,.38,.62,.88])body+=arrow(X(x));
  const stateY=isRayleigh?241:270;
- body+=text(left,stateY,`${isRayleigh?'Inlet':'Duct inlet'} · M₁ = ${fmt(a.M)}`)+text(right,stateY,`${rayNozzle?'Nozzle outlet':isRayleigh?'Outlet':'Duct outlet'} · M₂ = ${fmt(b.M)}`,'end');
+ const inletLabel=initial?'Adjusted inlet':isRayleigh?'Inlet':'Duct inlet';
+ const outletLabel=initial?'Sonic outlet':rayNozzle?'Nozzle outlet':isRayleigh?'Outlet':'Duct outlet';
+ body+=text(left,stateY,`${inletLabel} · M₁ = ${fmt(a.M)}`)+text(right,stateY,`${outletLabel} · M₂ = ${fmt(b.M)}`,'end');
  if(key!=='mach')body+=text(left,isRayleigh?261:297,`${prop.symbol}₁ = ${fmt(prop.get(a))} ${prop.units}`)+text(right,isRayleigh?261:297,`${prop.symbol}₂ = ${fmt(prop.get(b))} ${prop.units}`,'end');
  if(rayNozzle)body+=text(400,291,'Schematic positions · heat transfer in the straight duct; isentropic exit nozzle.','middle',12);
  else {
