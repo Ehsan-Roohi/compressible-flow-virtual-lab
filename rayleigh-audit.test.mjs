@@ -48,8 +48,12 @@ test('Invalid crossing, sonic cooling ambiguity, and nonphysical inverse tempera
 test('Moving reference cases preserve total conditions and continuity through implied entry area',()=>{
  for(const [,x]of reservoirExamples){const d=run(x),ref=d.result.stations[0].state,i=d.result.s1;
   close(ref.T0,i.T0);close(ref.p0,i.p0);
-  close(ref.rho*ref.u,i.rho*i.u*d.result.entryAreaRatio);
-  assert.match(sceneSVG(d.scene,x).svg,/Ain\/Aref/);
+  const connected=run({...x,openIntake:false});
+  close(ref.rho*ref.u,i.rho*i.u*connected.result.entryAreaRatio);
+  close(d.result.spillFraction,1-i.rho*i.u/(ref.rho*ref.u));
+  close(d.result.s2.M,connected.result.s2.M);
+  assert.match(sceneSVG(d.scene,x).svg,/data-inlet-spillage/);
+  assert.doesNotMatch(sceneSVG(d.scene,x).svg,/Ain\/Aref/);
  }
 });
 test('Initial upstream adjustment ignores stale supply selector and identifies reference as initial state',()=>{

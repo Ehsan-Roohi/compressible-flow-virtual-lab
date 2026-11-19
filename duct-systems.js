@@ -46,7 +46,16 @@ d.result.stations.unshift({name:'Upstream reference',state:ref,x:-.2});
 d.result.referenceTable.columns.unshift('Upstream reference');
 const vals=[ref.M,ref.p/1000,ref.T,ref.rho,ref.u,ref.T0,ref.p0/1000];
 d.result.referenceTable.rows.forEach((r,i)=>r.values.unshift(vals[i]));
-const inlet=d.result.s1;d.result.entryAreaRatio=ref.rho*ref.u/(inlet.rho*inlet.u);
+const inlet=d.result.s1,areaRatio=ref.rho*ref.u/(inlet.rho*inlet.u);
+if(x.openIntake&&areaRatio>1){
+ const spillFraction=1-1/areaRatio;
+ d.model='Ideal open intake + constant-area Rayleigh duct';
+ d.result.spillFraction=spillFraction;
+ d.rows.push({label:'Estimated inlet spillage',value:100*spillFraction,unit:'%'});
+ d.result.referenceTable.note='Idealized open intake with the same reference and duct mouth areas. The estimated bypass fraction assumes uniform reference mass flux across the nominal capture area.';
+ return d;
+}
+d.result.entryAreaRatio=areaRatio;
 d.rows.push({label:'Required inlet / reference area',value:d.result.entryAreaRatio,unit:'Ain/Aref'});
 d.result.referenceTable.note='Moving upstream and duct inlet are connected by an ideal isentropic streamtube. The reported Ain/Aref enforces continuity; equal entry areas are not imposed.';
 return d;

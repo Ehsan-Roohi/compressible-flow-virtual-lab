@@ -21,7 +21,7 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  const isRayleigh=s.process==='rayleigh';
  const mode=inputs.ductProblem??'Single duct',rayNozzle=isRayleigh&&mode==='Heat + shock + converging nozzle';
  const cd=s.process==='fanno'&&mode.startsWith('CD nozzle'),entryNozzle=cd||mode==='Reservoir + nozzle + duct';
- const ref=r.stations?.[0]?.x<0?r.stations[0]:null,initial=!!r.initialReference;
+ const ref=r.stations?.[0]?.x<0?r.stations[0]:null,initial=!!r.initialReference,openIntake=r.spillFraction!=null;
  const reservoir=entryNozzle||(mode==='Reservoir-fed duct'&&!ref),hasEntry=entryNozzle||reservoir||!!ref;
  const left=hasEntry?270:65,right=735,shock=r.shockAt,a=r.s1,b=r.s2;
  // The Rayleigh solver's last segment is an isentropic exit nozzle, not heated duct.
@@ -59,10 +59,10 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
   body+=`<g data-heat-transfer="${heating?'into-duct':'out-of-duct'}"><title>${heating?'Heat added to the flow':'Heat removed from the flow'}</title><path d="${path}" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="${heating?'#a73320':'#236aba'}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${text(cx+15,94,`q = ${fmt(q)} kJ/kg`)}</g>`;
  }
  if(hasEntry){
-  if(initial){
+  if(initial||openIntake){
    // A reference operating state is not a simultaneous upstream station.
    body+=`<g data-initial-reference="">`
-    +text(127,58,'Initial reference','middle')
+    +text(127,58,initial?'Initial reference':'Upstream reference','middle')
     +text(127,261,`Mref = ${fmt(ref.state.M)}`,'middle')
     +text(127,286,`pref = ${fmt(ref.state.p/1000)} kPa`,'middle')
     +'</g>';
@@ -72,7 +72,7 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
      <title>Possible inlet spillage at an open intake. Streamlines are schematic.</title>
      <path d="M35 160H241m-7 -4 7 4-7 4 M75 134C151 134 185 83 241 76m-8 -3 8 3-7 5 M75 186C151 186 185 237 241 244m-7 -5 7 5-8 3"
       fill="none" stroke="#40575d" stroke-width="1.5"/>
-    </g>`+text(135,108,'Possible spillage','middle',12);
+    </g>`+text(135,108,openIntake?'Inlet spillage (schematic)':'Possible spillage','middle',12);
    }
   }else if(reservoir){
    body+=`<path d="M25 90H120V230H25Z" fill="#e5edeb"/>`+wall('M120 105V90H25V230H120V215');
