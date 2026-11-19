@@ -1,5 +1,6 @@
 import {diagramFontFamily,diagramFontStyle} from './diagram-font.js';
 export const diagramValueSize=16;
+export const backPressureHTML=value=>String(value).replaceAll('pᵦ','p<sub>b</sub>');
 // Apply at the shared renderer boundary, including specialized SVG renderers and
 // exported images. Region IDs and chart ticks are numbers, not property values.
 export function uniformDiagramText(svg){
@@ -15,6 +16,7 @@ export function uniformDiagramText(svg){
    if(/^[-+−]?\d[\d.eE+−-]*\s+(?:kPa|Pa|MPa)$/.test(content.trim()))content='p = '+content;
    if(/^[-+−]?\d[\d.eE+−-]*\s+K$/.test(content.trim()))content='T = '+content;
   }
+  content=content.replaceAll('pᵦ','p<tspan baseline-shift="sub" font-size="75%">b</tspan>');
   return `<text${a} font-family="${diagramFontFamily}">${content}</text>`;
  });
  if(!svg.includes('@font-face'))svg=svg.replace(/(<svg\b[^>]*>)/,`$1${diagramFontStyle}`);
