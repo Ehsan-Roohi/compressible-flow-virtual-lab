@@ -41,7 +41,7 @@ function basePlotOptions(d,time=.001){
  if(id==='wall')return r.comparison?comparisonPlots(r,x.comparisonStation):r.tracking?trackingPlots(r,x.trackingStation):r.interaction?regularChannelPlots(r):r.moc?mocProfilePlots(r,x.mocStation):r.channel?channelPlots(r):wallPlots(r);
  if(id==='airfoil')return airfoilPlots(r);
  if(['rayleigh','fanno'].includes(id))options.push(...ductLongitudinalPlots(id,r));
- const original={key:'overview',label:d.chart.title,chart:d.chart};options.push(original);
+ const original={key:'overview',label:d.chart.title,chart:d.chart};if(id!=='foundations')options.push(original);
  if(id==='foundations'){
   const samples=[...new Set([...linspace(.02,Math.max(5,x.M*1.15),201),x.M])].sort((a,b)=>a-b).map(m=>[m,{...state(m,x.T1,x.p1*1000,g,R),...isentropicRelations(m,g)}]);
   family('iso-','Mach number M',samples,[['pP0','Pressure ratio p/p₀','p/p₀',s=>s.pP0],['rhoRho0','Density ratio ρ/ρ₀','ρ/ρ₀',s=>s.rhoRho0],['TT0','Temperature ratio T/T₀','T/T₀',s=>s.TT0],['pPstar','Pressure ratio p/p*','p/p*',s=>s.pPstar],['rhoRhostar','Density ratio ρ/ρ*','ρ/ρ*',s=>s.rhoRhostar],['TTstar','Temperature ratio T/T*','T/T*',s=>s.TTstar],['areaRatio','Critical area ratio A/A*','A/A*',s=>s.areaRatio],['machAngle','Mach angle μ','μ (°)',s=>s.machAngle??NaN],['pmAngle','Prandtl–Meyer angle ν','ν (°)',s=>s.pmAngle??NaN]]);

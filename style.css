@@ -238,3 +238,5 @@ body{font-family:Georgia,"Times New Roman",serif}
 @media(max-width:380px){
  .cone-setup #wallSetupControls{grid-template-columns:1fr}
 }
+
+.isentropic-group-title{margin:10px 10px 4px;font-size:13px;font-weight:650}
