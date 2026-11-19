@@ -264,3 +264,69 @@ body{font-family:Georgia,"Times New Roman",serif}
   color:#40576a;font-size:13px;line-height:1.4;
  }
 }
+
+/* Put the active nozzle experiment ahead of the longer setup form on a phone. */
+.sweep-mobile-label, #sweepDetails > summary, .nozzle-case-actions { display: none; }
+body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px; }
+#loadNozzleBook {
+  border: 1px solid #638b7c;
+  border-radius: 4px;
+  background: white;
+  color: #225447;
+  padding: 6px 10px;
+  font: inherit;
+}
+
+@media (max-width: 800px) {
+  body[data-lab="nozzle"] .work-grid { grid-template-areas: "visual" "controls" "outputs"; }
+  body[data-lab="nozzle"] .sidebar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0 8px;
+  }
+  #nozzleChapterMenu:not([hidden]) {
+    display: block;
+    padding: 6px 12px;
+    min-height: 44px;
+    border: 1px solid #78948b;
+    border-radius: 5px;
+    background: transparent;
+    color: white;
+    font: inherit;
+  }
+  body[data-lab="nozzle"] #chapters { grid-column: 1 / -1; }
+  body[data-lab="nozzle"] #chapters[hidden] { display: none; }
+  body[data-lab="nozzle"] #chapters:not([hidden]) { display: flex; flex-wrap: wrap; }
+  body[data-lab="nozzle"] .sweep-full-label { display: none; }
+  body[data-lab="nozzle"] .sweep-mobile-label {
+    display: inline;
+    font: 600 17px Georgia, serif;
+    letter-spacing: normal;
+    color: var(--ink);
+  }
+  body[data-lab="nozzle"] #nozzleSweep { margin: 8px; padding: 8px 12px; }
+  body[data-lab="nozzle"] #pressureScrub { display: block; height: 34px; margin: 0; }
+  body[data-lab="nozzle"] .sweep-state { margin: 3px 0 0; }
+  body[data-lab="nozzle"] .sweep-endpoints { margin: -2px 0 5px; }
+  body[data-lab="nozzle"] .nozzle-case-actions { display: inline-block; margin: 0; }
+  body[data-lab="nozzle"] #sweepDetails > summary {
+    display: list-item;
+    width: fit-content;
+    padding: 6px 0;
+    color: #375849;
+    font-size: 14px;
+    cursor: pointer;
+  }
+}
+
+/* Keep the live pressure control in the first screen of a narrow phone. */
+@media (max-width: 360px) {
+  body[data-lab="nozzle"] .sidebar { padding-block: 4px; }
+  body[data-lab="nozzle"] .lab-header { padding: 6px 0; }
+  body[data-lab="nozzle"] .lab-heading-row { display: block; }
+  body[data-lab="nozzle"] #labTitle { font-size: 24px; }
+  body[data-lab="nozzle"] .lab-header .model-pill { display: none; }
+  body[data-lab="nozzle"] .lab-header:has(#modelDetails[hidden]) #description { display: none; }
+  body[data-lab="nozzle"] .scene-card > .card-head { align-items: center; padding-block: 3px; }
+}

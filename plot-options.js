@@ -1,3 +1,4 @@
+import {nozzleBookPressurePlot} from './nozzle-book.js';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261117-sinusoidal-piston';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
@@ -81,6 +82,7 @@ function basePlotOptions(d,time=.001){
    options.at(-1).note='Cone surface → downstream side of shock · reference state 2: immediately behind shock';
   }
  }else if(id==='nozzle'){
+  if(r.nozzleType==='cd' && x.nozzleView!=='External waves') options.unshift(nozzleBookPressurePlot(r));
   if(r.external){const j=r.external,exp=j.status==='expansion',samples=exp?j.samples.map(z=>[deg(z.theta),z]):j.outlet?[[0,j.inlet],[.5,j.inlet],[.5,j.outlet],[1,j.outlet]]:[[0,j.inlet],[1,j.inlet]];
    family('external-',exp?'Flow turn θ (°)':'Across local wave · schematic coordinate',samples,[['M','External Mach','M',s=>s.M],['p','External pressure','p (kPa)',s=>s.p/1000],['T','External temperature','T (K)',s=>s.T],['rho','External density','ρ (kg/m³)',s=>s.rho],['u','External speed','u (m/s)',s=>s.u],['p0','External stagnation pressure','p₀ (kPa)',s=>s.p0/1000],['T0','External stagnation temperature','T₀ (K)',s=>s.T0]]);
   }else{
