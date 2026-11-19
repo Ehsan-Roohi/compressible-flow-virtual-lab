@@ -7,7 +7,7 @@ import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetPreset,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
-import {fannoExamples,fannoExample5PlotKey} from './fanno-examples.js?v=20261119-fanno-example5-comparison';
+import {fannoExamples,fannoExample5PlotKey} from './fanno-examples.js?v=20261119-fanno-example5-note';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
 import {rayleighDistributionNote,fannoDistributionNote} from './duct-contours.js?v=20261113-rainbow-physical';
