@@ -236,10 +236,10 @@ function renderIsentropicRelations(d){
  const groups=[
   ['Mach and angles',rows.filter(r=>!/[₀*]/.test(r.label))],
   ['Stagnation ratios',rows.filter(r=>r.label.endsWith('₀'))],
-  ['Sonic reference ratios',rows.filter(r=>r.label.endsWith('*'))]
+  ['Sonic ratios',rows.filter(r=>r.label.endsWith('*'))]
  ];
- const sections=groups.map(([title,items])=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${items.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??fmt(r.value,8)}${r.unit?` <small>${r.unit}</small>`:''}</dd></div>`).join('')}</dl></section>`).join('');
- panel.innerHTML=`<div class="card-head"><h2>Isentropic Flow Calculator</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${sections}<p class="isentropic-note">Subscript 0: stagnation state. Asterisk *: sonic reference at the same stagnation state; A* is the corresponding critical area for the same mass flow. Angles are in degrees.</p>`;
+ const [angles,...ratios]=groups.map(([title,items])=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${items.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??fmt(r.value,8)}${r.unit?` <small>${r.unit}</small>`:''}</dd></div>`).join('')}</dl></section>`);
+ panel.innerHTML=`<div class="card-head"><h2>Isentropic Flow Calculator</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${angles}<div class="isentropic-ratio-columns">${ratios.join('')}</div><p class="isentropic-note">Subscript 0: stagnation state. Asterisk *: sonic reference at the same stagnation state; A* is the corresponding critical area for the same mass flow. Angles are in degrees.</p>`;
 }
 function renderBalanceDetails(){
  const panel=$('balancePanel');panel.hidden=current.id!=='balances';if(panel.hidden)return;

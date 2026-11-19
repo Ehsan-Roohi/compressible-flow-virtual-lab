@@ -240,3 +240,8 @@ body{font-family:Georgia,"Times New Roman",serif}
 }
 
 .isentropic-group-title{margin:10px 10px 4px;font-size:13px;font-weight:650}
+
+.isentropic-ratio-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-inline:10px}
+.isentropic-ratio-columns .isentropic-group-title{margin-inline:0;letter-spacing:normal}
+#isentropicPanel .isentropic-ratio-columns .isentropic-grid{grid-template-columns:minmax(0,1fr);margin:0}
+.isentropic-ratio-columns .isentropic-grid>div{padding:5px 4px}
