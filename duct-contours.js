@@ -14,6 +14,17 @@ export const ductProperties={pressure:{label:'Static pressure',symbol:'p',units:
 const fmt=v=>Number(v.toPrecision(5)).toString();
 export const ductPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function color(t){const a=Math.max(0,Math.min(1,t))*(ductPalette.length-1),i=Math.min(ductPalette.length-2,Math.floor(a)),f=a-i;const rgb=h=>h.match(/[a-f\d]{2}/gi).map(x=>parseInt(x,16)),p=rgb(ductPalette[i]),q=rgb(ductPalette[i+1]);return '#'+p.map((v,k)=>Math.round(v+(q[k]-v)*f).toString(16).padStart(2,'0')).join('');}
+export function ductStationText({x,y,state,index,anchor,background}){
+ const luminance=background?.match(/[0-9a-f]{2}/gi).reduce((sum,hex,i)=>{
+  const v=parseInt(hex,16)/255;
+  return sum+[.2126,.7152,.0722][i]*(v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
+ },0);
+ const dark=(luminance??1)<.179;
+ const fill=dark?'#fff':'#111',outline=dark?'#111':'#fff';
+ const style=background?` style="stroke:${outline};stroke-width:2px;stroke-linejoin:round;paint-order:stroke fill"`:'';
+ const line=(baseline,value)=>`<text x="${x}" y="${baseline}" text-anchor="${anchor}" font-size="16" fill="${fill}"${style}>${value}</text>`;
+ return `<g data-duct-station="${index==='₁'?'inlet':'outlet'}">${line(y,`M${index} = ${fmt(state.M)}`)}${line(y+17,`p${index} = ${fmt(state.p/1000)} kPa`)}</g>`;
+}
 export function ductContourDrawing(s,inputs,quantity='pressure'){
  if(!['rayleigh','fanno'].includes(s.process))return null;
  const r=s.system??s,points=r.longitudinal??s.longitudinal;if(!points?.length||!r.s2)return null;
@@ -103,17 +114,10 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  for(const x of [.12,.38,.62,.88])body+=arrow(X(x));
  const inletLabel=initial?'Adjusted inlet':isRayleigh?'Inlet':'Duct inlet';
  const outletLabel=initial?'Sonic outlet':rayNozzle?'Nozzle outlet':isRayleigh?'Outlet':'Duct exit';
- if(compactStations){
-  const value=(x,y,state,index)=>`<g data-duct-station="${index==='₁'?'inlet':'outlet'}"><rect x="${x-80}" y="${y-16}" width="160" height="${key==='mach'?23:39}" rx="4" fill="#fff" fill-opacity=".94"/>`
-   +text(x,y,`M${index} = ${fmt(state.M)}`,'middle')
-   +(key==='mach'?'':text(x,y+17,`${prop.symbol}${index} = ${fmt(prop.get(state))} ${prop.units}`,'middle'))
-   +'</g>';
-  body+=value(left+87,187,a,'₁')+value(right-87,rayNozzle?228:187,b,'₂');
-  body+=text(left,238,inletLabel)+text(right,rayNozzle?271:238,outletLabel,'end');
- }else{
-  body+=text(left,270,`Duct inlet · M₁ = ${fmt(a.M)}`)+text(right,270,`Duct outlet · M₂ = ${fmt(b.M)}`,'end');
-  if(key!=='mach')body+=text(left,297,`${prop.symbol}₁ = ${fmt(prop.get(a))} ${prop.units}`)+text(right,297,`${prop.symbol}₂ = ${fmt(prop.get(b))} ${prop.units}`,'end');
- }
+ const inletX=left+7,outletX=right-7;
+ body+=ductStationText({x:inletX,y:187,state:a,index:'₁',anchor:'start',background:tint(a)});
+ body+=ductStationText({x:outletX,y:rayNozzle?234:187,state:b,index:'₂',anchor:'end',background:rayNozzle?null:tint(b)});
+ body+=text(left,238,inletLabel)+text(right,rayNozzle?273:238,outletLabel,'end');
  if(!rayNozzle){
   const axisY=compactStations?246:322;
   body+=`<path d="M${left} ${axisY}H${right}" stroke="#91a3a1"/>`;
