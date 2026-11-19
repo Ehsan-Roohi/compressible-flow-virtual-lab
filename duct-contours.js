@@ -108,7 +108,8 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
   }
  }else body+=arrow(30);
  if(showEntryAreaRatio)body+=text(400,34,`Isentropic entry · Ain/Aref = ${fmt(r.entryAreaRatio)}`,'middle');
- body+=`<path d="M${left} 97V223" stroke="#81999b" stroke-dasharray="4 4"/>`;
+ body+=`<path ${!isRayleigh?'data-fanno-station-line="inlet" ':''}d="M${left} 97V223" stroke="#81999b" stroke-dasharray="4 4"/>`;
+ if(!isRayleigh)body+=`<path data-fanno-station-line="outlet" d="M${right} 105V223" stroke="#637b80" stroke-dasharray="4 4"/>`;
  if(shock!==null&&shock!==undefined)body+=`<path data-shock="true" d="M${X(shock)} 105V215" stroke="#111" stroke-width="2.5"/>`+text(Math.max(210,Math.min(600,X(shock))),34,shock===0?'Normal shock · nozzle exit / duct inlet':shock===1?'Normal shock · duct exit':'Normal shock · in duct','middle');
  for(const x of [.12,.38,.62,.88])body+=arrow(X(x));
  const inletLabel=initial?'Adjusted inlet':isRayleigh?'Inlet':'Duct inlet';
