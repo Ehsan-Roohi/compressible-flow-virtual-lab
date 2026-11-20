@@ -72,3 +72,22 @@ test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
  near(shape.nonlinear.CD,.134,.00002);
  assert.deepEqual(run(15).result.nonlinear.waves.map(w=>w.kind),['Oblique shock','Expansion fan','Expansion fan','Oblique shock']);
 });
+
+test('Book figures show numerical shock and fan annotations for the solved waves',()=>{
+ const shockCounts=[1,1,1,4,3,0,2,2,2,4,4,2,4,2,3];
+ for(const [i,count] of shockCounts.entries()){
+  const d=run(i+1),{svg}=sceneSVG(d.scene,d.inputs);
+  assert.match(svg,/data-chapter6-wave-labels/);
+  assert.equal([...svg.matchAll(/data-wave-readout="S\d+"/g)].length,count,`Example ${i+1}`);
+  assert.equal([...svg.matchAll(/β = [\d.]+° · θ = [\d.]+° · M = [\d.]+ → [\d.]+/g)].length,count);
+ }
+ const ramp=run(2),corner=sceneSVG(ramp.scene,ramp.inputs).svg;
+ assert.match(corner,/β = 37\.76° · θ = 20° · M = 3 → 1\.9941/);
+ assert.doesNotMatch(sceneSVG(ramp.scene,{...ramp.inputs,bookExample:''}).svg,/data-chapter6-wave-labels/);
+ const fan=run(6);
+ assert.match(sceneSVG(fan.scene,fan.inputs).svg,/θ = 20° · M = 2 → 2\.8306/);
+ assert.doesNotMatch(sceneSVG(fan.scene,fan.inputs).svg,/β =/);
+ const inlet=run(9),schlieren=sceneSVG(inlet.scene,inlet.inputs,0,'schlieren').svg;
+ assert.match(schlieren,/data-schlieren-outline="true"/);
+ assert.match(schlieren,/Reflected shock · 2 → 3/);
+});

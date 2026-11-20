@@ -7,7 +7,7 @@ import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
-import {fannoExamples} from './fanno-examples.js?v=20261120-fanno-plot-menu';
+import {fannoExamples} from './fanno-examples.js?v=20261120-example-titles';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
 import {rayleighDistributionNote,fannoDistributionNote} from './duct-contours.js?v=20261113-rainbow-physical';
@@ -39,7 +39,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-chapter-eight';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-latin-back-pressure';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-chapter6-waves';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
@@ -906,38 +906,41 @@ function renderExamples(){
   }
  };
  if(id==='tube')entries=[{value:'7–1',label:'Example 1 · Moving normal shock',note:'Air at rest, T₁ = 300 K, p₂/p₁ = 10. p₁ = 100 kPa is a reference pressure; T₄ = 300 K defines an equivalent shock-tube driver. Shock speed, induced gas speed and T₂/T₁ do not depend on these additional driver/reference choices.',apply:()=>{stopAnimation();load({tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300},'7–1');}}];
- if(id==='tube')entries.push({value:'7–2',label:'Example 2 · Given piston / gas speed',note:'Initially stationary air, gas / piston speed 150 m/s, T₁ = 25°C ≈ 298 K as rounded in the book. p₁ = 100 kPa and T₄ = 298 K define an equivalent driver for the displayed shock tube; they do not change the requested shock speed. For exact Celsius conversion, enter 298.15 K.',apply:()=>{stopAnimation();load({tubeInput:'Induced gas speed',inducedSpeed:150,p1:100,T1:298,T4:298},'7–2');}});
+ if(id==='tube')entries.push({value:'7–2',label:'Example 2 · Piston speed',note:'Initially stationary air, gas / piston speed 150 m/s, T₁ = 25°C ≈ 298 K as rounded in the book. p₁ = 100 kPa and T₄ = 298 K define an equivalent driver for the displayed shock tube; they do not change the requested shock speed. For exact Celsius conversion, enter 298.15 K.',apply:()=>{stopAnimation();load({tubeInput:'Induced gas speed',inducedSpeed:150,p1:100,T1:298,T4:298},'7–2');}});
  if(id==='tube')entries.push({value:'7–3',label:'Example 3 · Two successive shocks',note:'Helium: γ = 1.667, R = 2077 J/(kg·K), T₁ = 300 K (book rounding of 27°C). Piston speed 25 → 50 m/s after 1 s. p₁ = 100 kPa is a reference; it does not affect shock speeds or catch-up. The end wall is 40 km away so the shocks merge at 31.325464 s and 32452.402 m before reflections. The 90 s simulation also shows the return of the reflected wave toward the piston.',apply:()=>{stopAnimation();load({unsteadyExperiment:'Two-stage piston',fluid:'Custom gas',gamma:1.667,R:2077,pistonSpeed1:25,pistonSpeed2:50,pistonDelay:1,T1:300,p1:100,pistonTubeLength:40000,finiteEndTime:90000,finiteCells:1200},'7–3');}});
  if(id==='tube')entries.push({value:'7–4',label:'Example 4 · Sudden valve closure',note:'Air flows toward the valve at 60 m/s, 101 kPa and 300 K. A shock moves upstream and brings the gas behind it to rest. The upstream piston keeps moving at 60 m/s. The 6 m tube and 30 ms duration are editable simulation settings.',apply:()=>{stopAnimation();load({unsteadyExperiment:valveExperiment,valveInletSpeed:60,p1:101,T1:300},'7–4');}});
  if(id==='tube')entries.push({value:'7–7',label:'Example 5 · Shock into moving gas',note:'Air approaches the incident shock at 200 m/s (u₁ = −200 m/s), with T₁ = 300 K and p₂/p₁ = 10 as in Example 1. The equivalent driver shares the initial velocity. p₁ = 100 kPa and T₄ = 300 K set reference chamber conditions. The numerical field also includes waves generated at both closed ends at t = 0.',apply:()=>{stopAnimation();load({tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,tubeInitialVelocity:-200,p1:100,T1:300,T4:300},'7–7');}});
  if(id==='tube')entries.push({value:'7–10',label:'Example 6 · Sinusoidal piston',note:'The book gives a symbolic small-amplitude solution for one complete cycle. This preset uses air at 100 kPa and 300 K, ε = 0.01, f = 100 Hz and a 6 m closed tube. The preview compares both solutions before reflections; Play continues through reflections to 40 ms.',apply:()=>{stopAnimation();load({unsteadyExperiment:sinusoidalExperiment,pistonEpsilon:.01,pistonFrequency:100,pistonCycles:1,pistonTubeLength:6,finiteEndTime:40,finiteCells:1200,p1:100,T1:300},'7–10');plotSelection.tube='tube-profile-sine-u';}});
  if(id==='tube'){
-  entries.push({value:'7–12',label:'Example 7 · Shock reflection at a closed wall',note:'Air at rest, T₁ = 300 K and p₂/p₁ = 10. The book does not specify lengths. The 4 m driver, 6 m driven section, 0.30 m diameter and 30 ms duration are editable demonstration settings. p₁ = 100 kPa and T₄ = 300 K define the equivalent driver.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300},'7–12');}});
+  entries.push({value:'7–12',label:'Example 7 · Closed-wall reflection',note:'Air at rest, T₁ = 300 K and p₂/p₁ = 10. The book does not specify lengths. The 4 m driver, 6 m driven section, 0.30 m diameter and 30 ms duration are editable demonstration settings. p₁ = 100 kPa and T₄ = 300 K define the equivalent driver.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300},'7–12');}});
   entries.push({value:'7–13',label:'Example 8 · Finite shock tube',note:'Air in both chambers. Driver: 4 m, 200 kPa, 20 °C. Driven: 6 m, 5 kPa, 25 °C. Diameter 0.30 m. The sample is 3 m downstream of the diaphragm. Passage times use the initial analytical wave speeds. The simulation initially runs to 30 ms.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,p4:200,p1:5,T4:293.15,T1:298.15,finiteDriverLength:4,finiteDrivenLength:6,finiteDiameter:.3},'7–13');}});
  }
- if(id==='tube')entries.push({value:'sinusoidal-ten-cycles',label:'Example 9 · Sinusoidal piston · 10 cycles',note:'Air at 100 kPa and 300 K in a 6 m closed tube. The piston completes 10 cycles at 100 Hz with ε = 0.1. Press Play to watch the full 100 ms from the start.',apply:()=>{stopAnimation();load({unsteadyExperiment:sinusoidalExperiment,pistonEpsilon:0.1,pistonFrequency:100,pistonCycles:10,pistonTubeLength:6,finiteEndTime:100,finiteCells:1200,p1:100,T1:300},'sinusoidal-ten-cycles');plotSelection.tube='finite-map-pressure';}});
+ if(id==='tube')entries.push({value:'sinusoidal-ten-cycles',label:'Example 9 · Sinusoidal piston (10 cycles)',note:'Air at 100 kPa and 300 K in a 6 m closed tube. The piston completes 10 cycles at 100 Hz with ε = 0.1. Press Play to watch the full 100 ms from the start.',apply:()=>{stopAnimation();load({unsteadyExperiment:sinusoidalExperiment,pistonEpsilon:0.1,pistonFrequency:100,pistonCycles:10,pistonTubeLength:6,finiteEndTime:100,finiteCells:1200,p1:100,T1:300},'sinusoidal-ten-cycles');plotSelection.tube='finite-map-pressure';}});
  if(id==='foundations')entries=foundationExampleEntries.map(e=>({...e,apply:()=>load(e.inputs,e.value)}));
  if(id==='normal')entries=[
-  {value:'3-1',label:'Example 1',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load({M1:2,p1:137.9,T1:277.78},'3-1')},
-  {value:'3-2',label:'Example 2',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
+  {value:'3-1',label:'Example 1 · Downstream shock state',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load({M1:2,p1:137.9,T1:277.78},'3-1')},
+  {value:'3-2',label:'Example 2 · Shock ratios and entropy',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
  if(id==='nozzle')entries=nozzleExamples.map(entry=>({...entry,apply:()=>selectNozzleInputs({bookExample:entry.value})}));
- if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:String(e.number),note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
+ if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:`Example ${e.number} · ${e.title}`,note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
   const cases=Object.entries(rayleighBookExamples);
   cases.push(...reservoirExamples.filter(([,preset])=>preset.ductSolve!=='Sonic outlet'));
-  const notes={
-   '4–1':'Air enters a constant-area duct at Mach 3. Add 300 kJ/kg of heat and find the outlet Mach number and flow properties.',
-   '4–2':'Air enters at Mach 1.5 and leaves at Mach 3. Find the heat that must be removed and the outlet flow properties.',
-   '4–3':'The outlet Mach number is 0.93. The stagnation temperature rises from 373.15 K to 573.15 K. Find the inlet Mach number and heat added.',
-   '4–4':'The upstream reference Mach number is 0.41. Find the adjusted duct-inlet state and the sonic outlet state when the outlet stagnation temperature reaches 1666.7 K.',
-   '4–5':'Air enters at 122.5 m/s, 68.95 kPa and 222.2 K. Add 116.3 kJ/kg of heat and find the outlet Mach number, pressure and temperature.',
-   '4–7':'Air enters at Mach 1.6. Find the heat transfer and the states across the normal shock and through the converging nozzle for a back pressure of 120 kPa.',
-   'R2 · Specified back pressure':'Add 100 kJ/kg with a specified back pressure. Find the inlet and outlet Mach numbers consistent with that pressure.',
-   'R3 · Heat + outlet Mach':'Given the heat added and the outlet Mach number, find the duct-inlet state and the outlet pressure.',
-   'R4 · Outlet Mach + outlet pressure':'Given the outlet Mach number and pressure, find the heat added and the duct-inlet state.',
+  const descriptions={
+   '4–1':{title:'Supersonic heating',note:'Air enters a constant-area duct at Mach 3. Add 300 kJ/kg of heat and find the outlet Mach number and flow properties.'},
+   '4–2':{title:'Supersonic cooling',note:'Air enters at Mach 1.5 and leaves at Mach 3. Find the heat that must be removed and the outlet flow properties.'},
+   '4–3':{title:'Find inlet Mach',note:'The outlet Mach number is 0.93. The stagnation temperature rises from 373.15 K to 573.15 K. Find the inlet Mach number and heat added.'},
+   '4–4':{title:'Sonic outlet temperature',note:'The upstream reference Mach number is 0.41. Find the adjusted duct-inlet state and the sonic outlet state when the outlet stagnation temperature reaches 1666.7 K.'},
+   '4–5':{title:'Heating with inlet speed',note:'Air enters at 122.5 m/s, 68.95 kPa and 222.2 K. Add 116.3 kJ/kg of heat and find the outlet Mach number, pressure and temperature.'},
+   '4–7':{title:'Heat, shock and nozzle',note:'Air enters at Mach 1.6. Find the heat transfer and the states across the normal shock and through the converging nozzle for a back pressure of 120 kPa.'},
+   'R2 · Specified back pressure':{title:'Reservoir back pressure',note:'Add 100 kJ/kg with a specified back pressure. Find the inlet and outlet Mach numbers consistent with that pressure.'},
+   'R3 · Heat + outlet Mach':{title:'Heat and outlet Mach',note:'Given the heat added and the outlet Mach number, find the duct-inlet state and the outlet pressure.'},
+   'R4 · Outlet Mach + outlet pressure':{title:'Outlet Mach and pressure',note:'Given the outlet Mach number and pressure, find the heat added and the duct-inlet state.'},
   };
-  entries=cases.map(([name,preset],i)=>({value:name,label:`Example ${i+1}`,note:notes[name],apply:()=>{load(preset,name);if(name==='4–1')plotSelection.rayleigh=rayleighBookPlotKey;}}));
+  entries=cases.map(([name,preset],i)=>{
+   const {title,note}=descriptions[name];
+   return {value:name,label:`Example ${i+1} · ${title}`,note,apply:()=>{load(preset,name);if(name==='4–1')plotSelection.rayleigh=rayleighBookPlotKey;}};
+  });
  }
  if(id==='wall'||id==='collision'||id==='airfoil'){
   const cases=chapter6BookExamples.filter(e=>e.lab===(id==='airfoil'?'airfoil':'wall'));
@@ -954,7 +957,7 @@ function renderExamples(){
   for(const [value,label] of [['reflection','Shock reflections'],['shock-fan','Shock + expansion'],['fans','Two expansion fans']])entries.push({value,label,apply:()=>{inputs={...inputs,...trackingPreset(value),channelSolver:inputs.channelSolver,bookExample:value};}});
  }
 
- if(id==='airfoil')entries.push({value:'9-7',label:'Example 7 · Triangular airfoil',note:'Chapter 9, Fig. 9–22. At Mach 2, the upper surface peaks at x/c = 0.5 and y/c = 0.1 above a flat lower surface. Start at zero incidence and vary α from −10° to +10° to compare lift and wave drag with the small-disturbance solution.',apply:()=>{
+ if(id==='airfoil')entries.push({value:'9-7',label:'Example 7 · Linearized triangular airfoil',note:'Chapter 9, Fig. 9–22. At Mach 2, the upper surface peaks at x/c = 0.5 and y/c = 0.1 above a flat lower surface. Start at zero incidence and vary α from −10° to +10° to compare lift and wave drag with the small-disturbance solution.',apply:()=>{
   load(chapter9Triangle,'9-7');
  }});
  if(id==='cone')entries=[{

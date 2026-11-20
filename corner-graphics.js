@@ -60,5 +60,9 @@ export function cornerDrawing(s,inputs,{txt,line,poly,shade,fmt}){
  if(!shock)inner+=`<g data-view-frame="flow-aligned">${txt(120,y-65,`M₁ = ${fmt(s.M,4)}`,annotation,15,'middle')}</g>`;
  else inner+=`<g data-view-frame="flow-aligned"><g data-flow-angle="0">${line(ix,iy,ix+58,iy,'#344e61',1.8)}${poly([[ix+58,iy],[ix+50,iy-4],[ix+50,iy+4]],'#344e61')}</g>${txt(ix+67,iy+5,`M₁ = ${fmt(s.M,4)}`,'#263c4d',15)}`;
  if(shock)inner+='</g>';
- return {inner,densityCells,label:shock?'Oblique shock · horizontal surface and compression ramp':'Prandtl–Meyer fan · horizontal surface and opening corner',meta:'Flow-aligned view · angles to scale · analytical streamlines'};
+ const waveEnd=end(shock?s.beta:(Math.asin(1/s.M)+Math.asin(1/s.M2)-turn)/2);
+ const bookWave={kind:shock?'Oblique shock':'Expansion fan',label:shock?'Oblique shock':'Expansion fan',
+  before:{M:s.M,theta:0},after:{M:s.M2,theta:angle},beta:s.beta,
+  point:[(x+waveEnd[0])/2,(y+waveEnd[1])/2]};
+ return {inner,densityCells,bookWave,label:shock?'Oblique shock · horizontal surface and compression ramp':'Prandtl–Meyer fan · horizontal surface and opening corner',meta:'Flow-aligned view · angles to scale · analytical streamlines'};
 }

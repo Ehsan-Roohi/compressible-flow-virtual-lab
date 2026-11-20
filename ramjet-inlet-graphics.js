@@ -21,5 +21,9 @@ export function ramjetInletDrawing(r,inputs,quantity='pressure'){
  for(const c of g.cells){const p=regionLabelPosition([c.poly.map(V)])?.point;if(p)inner+=`<circle cx="${p[0]}" cy="${p[1]}" r="14" fill="none" stroke="none"/>`+text([p[0],p[1]+5],c.region,15)+(c.region===1||c.region===3?`<g>`+text([p[0],p[1]<140?p[1]+40:p[1]-30],c.region===1?`M₁ = ${inputs.M1}`:'θ₃ = 0°',12)+'</g>':'');}
  inner+=text(V([g.end*.75,g.H-g.mt*g.end*.28]),`θw = ${inputs.theta}°`,12)+text((()=>{const p=V([(g.start+g.end)/2,-pad*.5]);return [p[0],p[1]+4];})(),'Wall',17);
 
- return {densityCells:key==='density'&&inputs.cornerView!=='Textbook schematic'?g.cells.map(c=>({points:c.poly.map(V),rho:c.state.rho})):[],svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 38 640 285" role="img" aria-label="Ramjet inlet with incident and reflected shocks and regions 1, 2, 3">${inner}</svg>`,label:'Weak regular reflection · three analytical regions',meta:'Two successive oblique-shock solutions',field:{quantity:key,label,min,max,units,options:Object.keys(quantities),palette:cornerPalette,note:'Analytical uniform regions · normal-to-shock jump relations'}};
+ const bookWaves=[
+  {kind:'Oblique shock',label:'Incident shock · 1 → 2',beta:r.a.beta,before:r.regions[1],after:r.regions[2],point:V([g.hit/2,g.H/2])},
+  {kind:'Oblique shock',label:'Reflected shock · 2 → 3',beta:r.b.beta,before:r.regions[2],after:r.regions[3],point:V([(g.hit+g.end)/2,g.mr*(g.end-g.hit)/2])}
+ ];
+ return {bookWaves,densityCells:key==='density'&&inputs.cornerView!=='Textbook schematic'?g.cells.map(c=>({points:c.poly.map(V),rho:c.state.rho})):[],svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 38 640 285" role="img" aria-label="Ramjet inlet with incident and reflected shocks and regions 1, 2, 3">${inner}</svg>`,label:'Weak regular reflection · three analytical regions',meta:'Two successive oblique-shock solutions',field:{quantity:key,label,min,max,units,options:Object.keys(quantities),palette:cornerPalette,note:'Analytical uniform regions · normal-to-shock jump relations'}};
 }
