@@ -1,4 +1,6 @@
-import {nozzle} from './physics.js';
+import {areaMach,isentropic,machFromArea,nozzle} from './physics.js';
+
+export const nozzleSolveModes = ['Specified back pressure', 'Required reservoir pressure', 'Design exit Mach'];
 
 export const nozzleBookPlotKey = 'nozzle-book-pressure';
 export const nozzleBookInputs = Object.freeze({
@@ -14,6 +16,58 @@ export const nozzleBookInputs = Object.freeze({
   nozzleTemperatureType: 'Stagnation temperature',
   plotProperty: 'Pressure'
 });
+
+const converging = {nozzleType:'Converging',p0:500,T0:400,minAreaCm2:6};
+const cd = {areaRatio:3,p0:1216,T0:500,minAreaCm2:6};
+const pressureRatio = (M,gamma=1.4) => 1/isentropic(M,gamma).p0p;
+const subsonicRatio = (areaRatio,gamma=1.4) => pressureRatio(machFromArea(areaRatio,'subsonic',gamma),gamma);
+
+export const nozzleExamples = [
+  {value:'8-1a', label:'Example 1(a) · Converging, unchoked', inputs:{...converging,backRatio:350/500},
+    note:'Reservoir pressure 500 kPa, temperature 400 K and exit area 6 cm². Find the exit Mach and pressure at 350 kPa back pressure. The book does not specify the inlet area.'},
+  {value:'8-1b', label:'Example 1(b) · Converging, choked', inputs:{...converging,backRatio:200/500},
+    note:'Reduce the back pressure to 200 kPa and compare it with the computed sonic exit pressure.'},
+  {value:'8-2a', label:'Example 2(a) · Perfectly expanded', inputs:{...cd,backRatio:pressureRatio(machFromArea(3))},
+    note:'Find the throat and exit states for a perfectly expanded C–D nozzle. The throat area is a reference value because only the area ratio is specified.'},
+  {value:'8-2b', label:'Example 2(b) · Sonic throat, subsonic exit', inputs:{...cd,backRatio:subsonicRatio(3)},
+    note:'Find the throat and subsonic exit states at the onset of choking.'},
+  {value:'8-2c', label:'Example 2(c) · Required reservoir pressure', inputs:{...cd,nozzleSolve:nozzleSolveModes[1],nozzleExitPressure:47.42},
+    note:'Find the reservoir pressure for a sonic throat and a 47.42 kPa subsonic exit.'},
+  {value:'8-3', label:'Example 3 · Design for Mach 3.5', inputs:{nozzleSolve:nozzleSolveModes[2],nozzleDesignMach:3.5,p0:1000,T0:333.15,minAreaCm2:500},
+    note:'Find exit area, design mass flow and the back-pressure ranges for internal shock, overexpanded flow and underexpanded flow.'},
+  {value:'8-4', label:'Example 4 · Internal normal shock', inputs:{},
+    note:'Locate the shock for an exit-to-throat area ratio of 3 and back pressure of 50.66 kPa. The book gives no reservoir temperature, absolute throat area or axial contour. Dimensional values use the lab’s reference inputs and the axial position uses its schematic contour.'},
+];
+
+export function nozzleModeDefaults(base,selection={}){
+  const {nozzleType='Converging–diverging',nozzleSolve=nozzleSolveModes[0],outletCondition='Matched isentropic',sonicBranch='supersonic'}=selection;
+  const example=nozzleExamples.find(e=>e.value===selection.bookExample);
+  const choice=example??nozzleExamples.find(e=>e.value===(
+    nozzleType==='Converging'?'8-1a':nozzleType==='Diverging'?
+      (outletCondition==='Specified back pressure'?'8-4':sonicBranch==='subsonic'?'8-2b':'8-2a'):
+      nozzleSolve===nozzleSolveModes[1]?'8-2c':nozzleSolve===nozzleSolveModes[2]?'8-3':'8-4'
+  ));
+  const inputs={...base,...nozzleBookInputs,nozzleSolve:nozzleSolveModes[0],...choice.inputs,bookExample:choice.value};
+  if(!example&&nozzleType==='Diverging'){
+    return {...inputs,nozzleType,MIn:1,sonicBranch:outletCondition==='Specified back pressure'?'supersonic':sonicBranch,outletCondition,bookExample:''};
+  }
+  return inputs;
+}
+
+export function resolveNozzleCase(x){
+  if(x.nozzleType!=='Converging–diverging')return x;
+  const g=x.gamma??1.4;
+  if(x.nozzleSolve===nozzleSolveModes[1]){
+    if(!Number.isFinite(x.nozzleExitPressure)||x.nozzleExitPressure<=0)throw Error('Specify a positive subsonic exit pressure.');
+    const backRatio=subsonicRatio(x.areaRatio,g);
+    return {...x,backRatio,p0:x.nozzleExitPressure/backRatio,nozzlePressureType:'Stagnation pressure'};
+  }
+  if(x.nozzleSolve===nozzleSolveModes[2]){
+    if(!(Number.isFinite(x.nozzleDesignMach)&&x.nozzleDesignMach>1&&x.nozzleDesignMach<=20))throw Error('Specify a design exit Mach number greater than 1 and at most 20.');
+    return {...x,areaRatio:areaMach(x.nozzleDesignMach,g),backRatio:pressureRatio(x.nozzleDesignMach,g)};
+  }
+  return x;
+}
 
 const pressurePoints = result => result.points.map(({x, p}) => [x, p]);
 let bookProfile;

@@ -30,7 +30,7 @@ import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,s
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261119-chapter-exercises';
-import {nozzleBookInputs,nozzleBookPlotKey} from './nozzle-book.js';
+import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261120-chapter-eight';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261119-compact-layout';
 import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
@@ -38,7 +38,7 @@ import {foundationExampleEntries} from './foundation-exercises.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261119-chapter-exercises';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-chapter-eight';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261119-latin-back-pressure';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
@@ -94,14 +94,14 @@ function defaults(id,selection={}){
  }
  if(id==='rayleigh')return rayleighModeDefaults(inputs,selection);
  if(id==='fanno')return fannoModeDefaults(inputs,selection);
- if(id==='nozzle')return {...inputs,...nozzleBookInputs};
+ if(id==='nozzle')return nozzleModeDefaults(inputs,selection);
  if(id==='normal')return {...inputs,bookExample:''};
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001}:inputs;
 }
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261119-chapter-exercises',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261120-chapter-eight',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([n,title,,ids])=>{
   const number=n===1?'1–2':n;
@@ -146,6 +146,7 @@ function openLab(){
   const saved=JSON.parse(localStorage.getItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':'')));
   if(saved&&typeof saved==='object'){
    for(const key in inputs)if(key in saved)inputs[key]=saved[key];
+   if(id==='nozzle'&&!Object.hasOwn(saved,'bookExample'))inputs.bookExample='';
    if(id==='wall'&&saved.customInteraction===multiRampMode&&saved.inletSolutionVersion!==2){inputs.inletTerminal='Wall reflections';inputs.inletSolutionVersion=2;}
    if(id==='wall'&&saved.theta===undefined&&saved.wallSegments?.length)inputs.theta=Math.abs(saved.wallSegments[0].angle);
    if(id==='airfoil'&&!saved.geometryInput){
@@ -184,7 +185,11 @@ function openLab(){
   tabs.innerHTML='<button type="button" data-lab="foundations?example=1-1">Ch. 1 · Wing pressure</button><button type="button" data-lab="foundations?example=2-1">Ch. 2 · Euler state and flux</button>';
  }
  $('labTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(location.hash==='#'+b.dataset.lab)openLab();else location.hash=b.dataset.lab;});renderNav();
- if(id==='nozzle'&&example==='8-4'){loadNozzleBookExample();return;}
+ if(id==='nozzle'){
+  const code=example==='8-1'||example==='8-2'?example+'a':example;
+  if(nozzleExamples.some(entry=>entry.value===code)){loadNozzleExample({bookExample:code});return;}
+  selectNozzleExamplePlot();
+ }
  renderInputs();
  const select=$('exampleSelect');
  const match=example&&select&&Array.from(select.options).find(option=>canonicalExample(option.value)===example);
@@ -478,6 +483,13 @@ n.oninput=()=>{
 if(id==='fanno'&&['ductProblem','fannoUnknown'].includes(x.key)){
  changeFannoMode(x.key,n.value,x.key);return;
 }
+if(id==='nozzle'&&['nozzleType','nozzleSolve','outletCondition'].includes(x.key)){
+ const previousNozzleView=inputs.nozzleView;
+ stopSweep();request++;
+ selectNozzleInputs({nozzleType:inputs.nozzleType,nozzleSolve:inputs.nozzleSolve,sonicBranch:inputs.sonicBranch,[x.key]:n.value});
+ inputs.nozzleView=previousNozzleView;
+ renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
+}
 if(id==='rayleigh'&&x.key==='ductProblem'){
  stopSweep();request++;
  inputs=defaults('rayleigh',{ductProblem:n.value});
@@ -488,7 +500,7 @@ if(id==='rayleigh'&&x.key==='ductProblem'){
   if(inputs.finiteEndTime>limit)inputs.finiteEndTime=defaults('tube').finiteEndTime;
  }
  stopAnimation();renderInputs();$('value-'+x.key)?.focus();
-}if(x.key==='fluid'){inputs=selectGas(inputs,n.value);renderInputs();$('value-fluid').focus();}if(id==='nozzle'&&(x.key==='nozzleType'||x.key==='nozzleView'||x.key==='outletCondition'||x.key==='MIn'&&(inputs.MIn===1||!!$('value-sonicBranch')))){renderInputs();$('value-'+x.key)?.focus();}if(['temperatureInput','inletPressureType','nozzlePressureType','nozzleTemperatureType','driverPressureType','driverTemperatureType','supplyTemperatureType','reservoirPressureType','inverseTemperatureType','outletTemperatureType','outletPressureType'].includes(x.key))renderInputs();if(!commitOutletMach&&['rayleigh','fanno'].includes(id)&&['rayleighInput','fannoInput','targetMach','ductProblem','ductSolve','shockCase','fannoSystemSolve','fannoCondition','fannoUnknown','systemInletType','referenceTemperatureType','referencePressureType','reservoirPressureType','inletPressureType','velocityInput','temperatureInput','frictionInput','ductSection','frictionConvention'].includes(x.key)){renderInputs();}if(id==='cone'&&['bodyGeometry','nearbyWall'].includes(x.key)){renderInputs();$('value-bodyGeometry')?.focus();}if(id==='wall'&&['inletTerminal','inletFlowSide','inletLowerDefinition'].includes(x.key)){renderInputs();}if(id==='wall'&&x.key==='channelSolver'){renderInputs();}if(id==='wall'&&x.key==='boundaryMode'){if(inputs.boundaryMode==='Channel')inputs.wallShape='Custom wall';renderInputs();}if(id==='wall'&&x.key==='wallSide'){renderInputs();}if(id==='balances'&&x.key==='balanceMode'||id==='collision'&&['interactionType','geometryMode','thetaUpper'].includes(x.key)||id==='airfoil'&&['airfoilShape','airfoilMethod'].includes(x.key))renderInputs();syncRayleighHeat();schedule(x.key==='backRatio'||commitOutletMach||(id==='rayleigh'&&x.key==='q'));};
+}if(x.key==='fluid'){inputs=selectGas(inputs,n.value);renderInputs();$('value-fluid').focus();}if(id==='nozzle'&&(x.key==='nozzleView'||x.key==='MIn'&&(inputs.MIn===1||!!$('value-sonicBranch')))){renderInputs();$('value-'+x.key)?.focus();}if(['temperatureInput','inletPressureType','nozzlePressureType','nozzleTemperatureType','driverPressureType','driverTemperatureType','supplyTemperatureType','reservoirPressureType','inverseTemperatureType','outletTemperatureType','outletPressureType'].includes(x.key))renderInputs();if(!commitOutletMach&&['rayleigh','fanno'].includes(id)&&['rayleighInput','fannoInput','targetMach','ductProblem','ductSolve','shockCase','fannoSystemSolve','fannoCondition','fannoUnknown','systemInletType','referenceTemperatureType','referencePressureType','reservoirPressureType','inletPressureType','velocityInput','temperatureInput','frictionInput','ductSection','frictionConvention'].includes(x.key)){renderInputs();}if(id==='cone'&&['bodyGeometry','nearbyWall'].includes(x.key)){renderInputs();$('value-bodyGeometry')?.focus();}if(id==='wall'&&['inletTerminal','inletFlowSide','inletLowerDefinition'].includes(x.key)){renderInputs();}if(id==='wall'&&x.key==='channelSolver'){renderInputs();}if(id==='wall'&&x.key==='boundaryMode'){if(inputs.boundaryMode==='Channel')inputs.wallShape='Custom wall';renderInputs();}if(id==='wall'&&x.key==='wallSide'){renderInputs();}if(id==='balances'&&x.key==='balanceMode'||id==='collision'&&['interactionType','geometryMode','thetaUpper'].includes(x.key)||id==='airfoil'&&['airfoilShape','airfoilMethod'].includes(x.key))renderInputs();syncRayleighHeat();schedule(x.key==='backRatio'||commitOutletMach||(id==='rayleigh'&&x.key==='q'));};
 if(commitOutletMach){
  n.onchange=n.oninput;
  n.oninput=null;
@@ -582,7 +594,7 @@ function resultSidebarRows(d){
 function renderRegionTable(d){
  const showShockGuide=d.id==='fanno'&&d.result.fullSystem&&d.inputs.fannoCondition===fannoConditions[0];
  const shockGuide=showShockGuide?'<p class="control-hint">Use the back-pressure slider above to set the shock location. The station properties in this table depend on the selected location.</p>':'';
- if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Gas properties across the shock':d.result.twoStagePiston?'Gas properties before catch-up':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${r.label}</th>${r.values.map(v=>`<td>${fmt(v,6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${t.note}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
+ if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure||d.id==='nozzle'){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Gas properties across the shock':d.result.twoStagePiston?'Gas properties before catch-up':d.id==='nozzle'?'Nozzle station properties':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${r.label}</th>${r.values.map(v=>`<td>${fmt(v,6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${backPressureHTML(t.note)}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
   const summary=document.createElement('p');summary.className='control-hint';
   summary.textContent=highlights.map(r=>`${r.label} ${fmt(r.value,6)} ${r.unit}`.trim()).join(' · ');
   $('regionTable').append(summary);
@@ -729,24 +741,30 @@ function download(name,text,type){let blob=new Blob([text],{type}),url=URL.creat
 $('exportJson').onclick=()=>{if(current)download(`compressible-flow-${id}.json`,JSON.stringify({...current,exportedAt:new Date().toISOString()},null,2),'application/json');};
 $('exportCsv').onclick=()=>{if(!current)return;let q=s=>'"'+String(s).replaceAll('"','""')+'"';download(`compressible-flow-${id}.csv`,'property,value,unit\n'+csvDataRows(current).map(r=>[r.label,r.value??'',r.unit].map(q).join(',')).join('\n'),'text/csv');};
 $('exportSvg').onclick=()=>{if(current)download(`compressible-flow-${id}.svg`,$('scene').innerHTML,'image/svg+xml');};
-function loadNozzleBookExample(){
- stopSweep();
- clearTimeout(timer);
+function selectNozzleExamplePlot(){
+ plotSelection.nozzle=inputs.bookExample==='8-4'?nozzleBookPlotKey:'nozzle-p';
+}
+function selectNozzleInputs(selection){
+ inputs=defaults('nozzle',selection);
  sweepPositioned=true;
  sweepFinished=false;
- inputs=defaults('nozzle');
- plotSelection.nozzle=nozzleBookPlotKey;
+ selectNozzleExamplePlot();
+}
+function loadNozzleExample(selection){
+ stopSweep();
+ clearTimeout(timer);
+ selectNozzleInputs(selection);
  renderInputs();
  solve();
 }
-$('loadNozzleBook').onclick=loadNozzleBookExample;
+$('loadNozzleBook').onclick=()=>loadNozzleExample({bookExample:'8-4'});
 $('loadRayleighBook').onclick=()=>{
  const select=$('exampleSelect');
  if(id!=='rayleigh'||!select)return;
  select.value='4–1';
  select.onchange({target:select});
 };
-$('reset').onclick=()=>{if(id==='nozzle'){loadNozzleBookExample();return;}stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;inputs=defaults(id,inputs);renderInputs();solve();};
+$('reset').onclick=()=>{if(id==='nozzle'){loadNozzleExample(inputs);return;}stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;inputs=defaults(id,inputs);renderInputs();solve();};
 $('pin').onclick=()=>{if(!current)return;pinned={id,inputs:{...inputs},rows:current.rows.map(x=>({...x}))};try{localStorage.setItem('gdvl-pinned',JSON.stringify(pinned));}catch{}renderCompare();};
 try{pinned=JSON.parse(localStorage.getItem('gdvl-pinned'));}catch{}
 function renderCompare(){let box=$('comparison');if(!current||!pinned||pinned.id!==id){box.hidden=true;return;}box.hidden=false;box.innerHTML='<b>Pinned / current</b><table><tr><th>Property</th><th>Pinned</th><th>Current</th></tr>'+current.rows.map((r,i)=>`<tr><td>${r.label}</td><td>${fmt(pinned.rows.find(v=>v.label===r.label&&v.unit===r.unit)?.value)}</td><td>${fmt(r.value)}</td></tr>`).join('')+'</table><button class="text-btn" id="clearPin">Clear comparison</button>';$('clearPin').onclick=()=>{pinned=null;try{localStorage.removeItem('gdvl-pinned');}catch{}renderCompare();};}
@@ -783,7 +801,7 @@ function getSweepPlan(){
  return sweepPlanCache;
 }
 function syncSweep(){
- const active=id==='nozzle'||id==='fanno'&&inputs.ductProblem===fannoSystemMode&&inputs.fannoCondition===fannoConditions[0];const box=$('nozzleSweep');box.hidden=!active;$('animate').hidden=!['nozzle','tube'].includes(id);if(!active)return;
+ const active=id==='nozzle'&&inputs.nozzleSolve===nozzleSolveModes[0]||id==='fanno'&&inputs.ductProblem===fannoSystemMode&&inputs.fannoCondition===fannoConditions[0];const box=$('nozzleSweep');box.hidden=!active;$('animate').hidden=id!=='tube'&&(id!=='nozzle'||!active);if(!active)return;
  const plan=getSweepPlan(),ratio=id==='fanno'&&current?.result.fullSystem&&(inputs.fannoCondition!==fannoConditions[0]||inputs.fannoSystemSolve!==fannoSolves[0])?current.result.backRatio:inputs.backRatio,position=Number.isFinite(ratio)?ratio:plan.min;
  if(id==='fanno'&&plan.enabled){
   for(const key of ['value-backRatio','range-backRatio']){const control=$(key);if(control){control.min=plan.min;control.max=plan.max;}}
@@ -903,6 +921,7 @@ function renderExamples(){
   {value:'3-1',label:'Example 1',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load({M1:2,p1:137.9,T1:277.78},'3-1')},
   {value:'3-2',label:'Example 2',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
+ if(id==='nozzle')entries=nozzleExamples.map(entry=>({...entry,apply:()=>selectNozzleInputs({bookExample:entry.value})}));
  if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:String(e.number),note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
   const cases=Object.entries(rayleighBookExamples);
