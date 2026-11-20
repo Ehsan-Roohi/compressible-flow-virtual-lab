@@ -1,5 +1,5 @@
 import {bodyPlots} from './wedge-cone.js';
-import {pressureTurningPlot} from './pressure-turning.js';
+import {pressureTurningPlot,opposingShockSlipAngle} from './pressure-turning.js';
 import {annotateTurningRegions} from './turning-region-markers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,6 +39,9 @@ test('Example 4 pressure–deflection diagram connects all four shocks in every 
   near(c.points.at(-1)[0],9.54488816868);near(c.points.at(-1)[1],10.10926478965);
   near(c.points.at(-1)[1],e.points.at(-1)[1]);
   assert.deepEqual(polar.chart.markers.map(m=>m.name),['1','2','3','4′ / 4']);
-  assert.doesNotMatch(chartSVG(polar.chart).svg,/NaN|undefined|Infinity/);
+  near(opposingShockSlipAngle(d.result),9.54488816868);
+  const svg=chartSVG(polar.chart).svg;
+  assert.match(svg,/4′ \/ 4 · φ = 9\.54°/);
+  assert.doesNotMatch(svg,/NaN|undefined|Infinity/);
  }
 });

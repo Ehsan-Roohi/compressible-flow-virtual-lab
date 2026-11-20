@@ -18,6 +18,12 @@ function opposingShockRegions(r){
   !oblique(meet.match?.a)||!oblique(meet.match?.b))return null;
  return [r.s1,meet.lower,meet.upper,meet.match.a.after,meet.match.b.after];
 }
+function slipLineAngle(regions){
+ if(!regions)return null;
+ const [, , ,a,b]=regions;
+ return Math.abs(Math.log(a.p0/b.p0))>1e-8?deg(a.theta):null;
+}
+export function opposingShockSlipAngle(r){return slipLineAngle(opposingShockRegions(r));}
 // Every curve has one upstream reference. Shock curves are polar loci, not
 // resolved profiles inside a discontinuity. Cross-section samples stay separate.
 export function pressureTurningPlot(d){
@@ -44,7 +50,9 @@ export function pressureTurningPlot(d){
   for(const [i,j] of [[0,1],[0,2],[1,3],[2,4]]){
    addWave({kind:'Oblique shock',before:opposing[i],after:opposing[j]},`${names[i]} → ${names[j]}`);
   }
-  interactionMarkers=opposing.map((z,i)=>({name:names[i],x:deg(z.theta),y:z.p/reference}));
+  const phi=slipLineAngle(opposing);
+  interactionMarkers=opposing.map((z,i)=>({name:names[i],x:deg(z.theta),y:z.p/reference,
+   ...(i===3&&phi!==null?{detail:`φ = ${Number(phi.toFixed(2))}°`}:{})}));
   note='The four shock polars describe the first regular interaction. The incident shocks start at region 1. Regions 4 and 4′ share pressure and flow direction at the slip line.';
  }else if(r.bodyLab){
   reference=1;const w=r.wedge,free={M:w.M,p:1,theta:w.alpha};

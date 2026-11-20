@@ -4,7 +4,7 @@ import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} 
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261120-four-shock-polar';
-import {pressureTurningPlot} from './pressure-turning.js?v=20261120-four-shock-polar';
+import {pressureTurningPlot} from './pressure-turning.js?v=20261120-slip-angle';
 import {ramjetPlots} from './ramjet-inlet.js?v=20261114-region-markers';
 import {ductLongitudinalPlots} from './duct-contours.js?v=20261112-duct-contours';
 import {bodyPlots} from './wedge-cone.js?v=20261114-region-markers';
