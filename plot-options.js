@@ -8,10 +8,10 @@ import {pressureTurningPlot} from './pressure-turning.js?v=20261115-airfoil-regi
 import {ramjetPlots} from './ramjet-inlet.js?v=20261114-region-markers';
 import {ductLongitudinalPlots} from './duct-contours.js?v=20261112-duct-contours';
 import {bodyPlots} from './wedge-cone.js?v=20261114-region-markers';
-import {comparisonPlots} from './channel-comparison.js';
+import {comparisonPlots} from './channel-comparison.js?v=20261120-opposing-moc';
 import {trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
 import {regularChannelPlots} from './regular-channel.js?v=20261109-wedge-cone';
-import {mocProfilePlots} from './channel-moc.js?v=20261109-wedge-cone';
+import {mocProfilePlots} from './channel-moc.js?v=20261120-opposing-moc';
 import {channelPlots} from './wave-channel.js?v=20261109-wedge-cone';
 import {wallPlots} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilPlots} from './airfoil.js?v=20261109-wedge-cone';

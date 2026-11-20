@@ -1,12 +1,12 @@
 import {channelOrdinate} from './wave-channel.js';
-import {fittedState} from './channel-moc-shocks.js';
+import {fittedState,sampleOpposingRamps} from './channel-moc-shocks.js?v=20261120-opposing-moc';
 import {cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261113-rainbow-physical';
 export function fittedMocGeometry(s){
  const g=s.geometry,end=g.end,start=-.12*end,xs=[0,end,...g.lower.points.map(p=>p.x),...g.upper.points.map(p=>p.x)].filter(x=>x<=end),ys=xs.flatMap(x=>[channelOrdinate(g.lower,x),channelOrdinate(g.upper,x)]),lo=Math.min(...ys),hi=Math.max(...ys),scale=Math.min(560/(end-start),170/Math.max(hi-lo,.1*end)),X=x=>320+(x-(start+end)/2)*scale,Y=y=>145+((lo+hi)/2-y)*scale;
  return {end,start,lo,hi,scale,X,Y};
 }
 function at(s,row,y){const p=row.parts.find(p=>y>=p.lo-1e-9&&y<=p.hi+1e-9);if(!p)return null;const n=p.z.length,t=Math.max(0,Math.min(n-1,(y-p.lo)/(p.hi-p.lo||1)*(n-1))),j=Math.min(n-2,Math.floor(t)),a=p.z[j],b=p.z[j+1],f=t-j;return fittedState(s,{theta:a.theta+(b.theta-a.theta)*f,l:a.l+(b.l-a.l)*f,k:a.k+(b.k-a.k)*f});}
-export function probeFittedMOC(s,sx,sy){const v=fittedMocGeometry(s),x=(sx-320)/v.scale+(v.start+v.end)/2,y=(145-sy)/v.scale+(v.lo+v.hi)/2,rows=s.moc.rows;if(!rows.length||x<0||x>rows.at(-1).x||y<channelOrdinate(s.geometry.lower,x)||y>channelOrdinate(s.geometry.upper,x))return null;const row=rows.reduce((a,b)=>Math.abs(a.x-x)<Math.abs(b.x-x)?a:b),z=at(s,row,y);return z?{x,y,...z}:null;}
+export function probeFittedMOC(s,sx,sy){const v=fittedMocGeometry(s),x=(sx-320)/v.scale+(v.start+v.end)/2,y=(145-sy)/v.scale+(v.lo+v.hi)/2,rows=s.moc.rows;if(!rows.length||x<0||x>rows.at(-1).x||y<channelOrdinate(s.geometry.lower,x)||y>channelOrdinate(s.geometry.upper,x))return null;const row=rows.reduce((a,b)=>Math.abs(a.x-x)<Math.abs(b.x-x)?a:b),z=s.moc.slip?sampleOpposingRamps(s,x,y):at(s,row,y);return z?{x,y,...z}:null;}
 export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',showCharacteristics=true}){
  const rows=s.moc.rows,g=s.geometry,v=fittedMocGeometry(s),{X,Y,start,end}=v,last=rows.at(-1),options=['mach','pressure','temperature','density','speed'],key=options.includes(quantity)?quantity:'mach',get=z=>key==='mach'?z.M:key==='pressure'?z.p/1000:key==='temperature'?z.T:key==='density'?z.rho:z.u,labels={mach:'Mach number',pressure:'Static pressure',temperature:'Static temperature',density:'Density',speed:'Flow speed'},units={mach:'M',pressure:'kPa',temperature:'K',density:'kg/m³',speed:'m/s'};
  let min=Infinity,max=-Infinity;for(const row of rows)for(const p of row.parts)for(const z of p.z){const a=get(fittedState(s,z));min=Math.min(min,a);max=Math.max(max,a);}
@@ -20,7 +20,7 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
  inner+='<g clip-path="url(#fitted-domain)"><g shape-rendering="crispEdges">';
  // Meshes do not interpolate across shocks. Every smooth strip ends at its
  // own one-sided fitted boundary, retaining the physical contour jump.
- const strideY=Math.max(1,Math.ceil(s.moc.resolution/40));
+ const strideY=s.moc.slip?s.moc.resolution-1:Math.max(1,Math.ceil(s.moc.resolution/40));
  const strideX=Math.max(1,Math.ceil(rows.length/160));
  for(let i=0;i<rows.length-1;i+=strideX){
   const a=rows[i],b=rows[Math.min(rows.length-1,i+strideX)];if(b.x-a.x<1e-12||a.parts.length!==b.parts.length||a.shock?.id!==b.shock?.id)continue;
@@ -31,13 +31,24 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
  inner+='</g>';
  if(showCharacteristics)for(const family of [-1,1])for(const fraction of [.1,.35,.6])for(const eta of [.2,.5,.8]){
   const begin=rows.findIndex(r=>r.x>=last.x*fraction);if(begin<0)continue;let y=rows[begin].lower+(rows[begin].upper-rows[begin].lower)*eta,path=[[X(rows[begin].x),Y(y)]];
-  for(let i=begin;i<rows.length-1;i++){const a=rows[i],b=rows[i+1],z=at(s,a,y);if(!z)break;const yy=y+(b.x-a.x)*Math.tan(z.theta+family*Math.asin(1/z.M));if(yy<b.lower||yy>b.upper||(a.shock&&b.shock&&(y-a.shock.y)*(yy-b.shock.y)<0))break;y=yy;path.push([X(b.x),Y(y)]);}
+  for(let i=begin;i<rows.length-1;i++){const a=rows[i],b=rows[i+1],z=at(s,a,y);if(!z)break;const yy=y+(b.x-a.x)*Math.tan(z.theta+family*Math.asin(1/z.M));if(yy<b.lower||yy>b.upper||(a.shock&&b.shock&&(y-a.shock.y)*(yy-b.shock.y)<0))break;if(s.moc.slip){
+   const patch=a.parts.findIndex(p=>y>=p.lo&&y<=p.hi);
+   if(patch<0||a.parts.length!==b.parts.length||yy<b.parts[patch].lo||yy>b.parts[patch].hi)break;
+  }y=yy;path.push([X(b.x),Y(y)]);}
   if(path.length>1)inner+=`<polyline data-characteristic="${family}" points="${path.map(p=>p.join(',')).join(' ')}" stroke="${family===1?'#fff':'#20374b'}" stroke-width=".65" stroke-opacity=".55" fill="none"/>`;
  }
  for(const f of [.2,.5,.8]){const row=rows.reduce((a,b)=>Math.abs(a.x-last.x*f)<Math.abs(b.x-last.x*f)?a:b);for(const eta of [.2,.5,.8]){const y=row.lower+(row.upper-row.lower)*eta,z=at(s,row,y);if(!z)continue;const cx=X(row.x),cy=Y(y),dx=Math.cos(z.theta),dy=-Math.sin(z.theta),c='#243c50';inner+=line(cx-9*dx,cy-9*dy,cx+9*dx,cy+9*dy,c,1)+poly([[cx+9*dx,cy+9*dy],[cx+4*dx-2*dy,cy+4*dy+2*dx],[cx+4*dx+2*dy,cy+4*dy-2*dx]],c);}}
  inner+='</g>';
  for(const t of s.moc.traces){const p=t.points;inner+=`<polyline data-fitted-shock="${t.id}" points="${p.map(p=>[X(p.x),Y(p.y)].join(',')).join(' ')}" fill="none" stroke="#000" stroke-width="2"/>`;const m=p[Math.floor(p.length/2)];inner+=txt(X(m.x)+5,Y(m.y)-7,'S'+t.id,'#17212b',12);}
+ if(s.moc.slip){
+  const [a,b]=s.moc.slip.points;
+  inner+=`<g data-moc-slip-line="true">${line(X(a.x),Y(a.y),X(b.x),Y(b.y),'#17212b',1.5,'5 3')}</g>`;
+ }
+ const bookWaves=s.moc.slip?s.moc.traces.map(t=>{
+  const [a,b]=t.points;
+  return {kind:'Oblique shock',label:t.type,before:a.before,after:a.after,beta:a.beta,point:[X((a.x+b.x)/2),Y((a.y+b.y)/2)]};
+ }):[];
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(X(wall[i].x),Y(wall[i].y),X(wall[i+1].x),Y(wall[i+1].y),'#000',1.5);
  if(last.x<end-1e-8){inner+=line(X(last.x),43,X(last.x),245,'#8e6d42',1.2,'4 4')+txt(616,270,'Partial field · downstream not solved','#8e6d42',12,'end');}
- return {inner,densityCells,label:'Rotational characteristic field · fitted shocks',meta:'Black: fitted shocks · arrows: flow · refine characteristic resolution',field:{quantity:key,options,label:labels[key],min,max,units:units[key],palette:cornerPalette,note:'Numerical MOC · separate one-sided shock states'}};
+ return {inner,densityCells,bookWaves,label:'Rotational characteristic field · fitted shocks',meta:'Black: fitted shocks · arrows: flow · refine characteristic resolution',field:{quantity:key,options,label:labels[key],min,max,units:units[key],palette:cornerPalette,note:s.moc.slip?'Characteristic patches · fitted shocks and slip line':'Numerical MOC · separate one-sided shock states'}};
 }

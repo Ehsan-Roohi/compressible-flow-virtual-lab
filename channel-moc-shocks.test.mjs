@@ -2,6 +2,8 @@ import {fittedInspectionHTML,selectedFittedPoint,fittedPointHTML,fittedExportRow
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import {solveFittedChannelMOC,fittedState,fittedJumpResidual,fittedProfilePlots} from './channel-moc-shocks.js';
 import {solveChannelMOC} from './channel-moc.js';import {trackingPreset} from './wave-tracker.js';import {calculate,defaults} from './labs.js';import {sceneSVG} from './graphics.js';
+import {getChapter6BookExample} from './chapter6-book.js';
+import {comparisonProfile,sampleMOC} from './channel-comparison.js';
 import {probeFittedMOC,fittedMocGeometry} from './channel-moc-shocks-graphics.js';
 const near=(a,b,t=1e-8)=>assert.ok(Math.abs(a-b)<t*Math.max(1,Math.abs(a),Math.abs(b)),`${a} != ${b}`);
 const inputs=(name,N=61)=>({...defaults('wall'),...trackingPreset(name),channelSolver:'Method of characteristics',mocResolution:N});
@@ -37,8 +39,8 @@ test('One-sided profiles, dimensional contours, fitted black shocks and hover us
 test('Shock–Expansion is retained and remains a separate calculation for identical geometry',()=>{
  const x=inputs('shock-fan',31),m=calculate('wall',x),a=calculate('wall',{...x,channelSolver:'Shock–Expansion'});assert.ok(m.result.moc?.fitted);assert.equal(m.result.tracking,undefined);assert.ok(a.result.tracking);assert.equal(a.result.moc,undefined);
 });
-test('Unsupported shock/shock topology and detached/subsonic cases return explicit limits',()=>{
- const x=inputs('reflection',31),two=solveChannelMOC({...x,upperWallSegments:[{angle:-5,length:1}]});assert.equal(two.status,'unsupported');assert.equal(two.moc.rows.length,0);assert.match(two.reason,/shock\/shock\/contact/);
+test('Out-of-domain collisions and detached/subsonic cases return explicit limits',()=>{
+ const x=inputs('reflection',31),two=solveChannelMOC({...x,upperWallSegments:[{angle:-5,length:1}]});assert.equal(two.status,'unsupported');assert.equal(two.moc.rows.length,0);assert.match(two.reason,/meet inside the shared channel/);
  assert.throws(()=>solveFittedChannelMOC({...x,mocResolution:10}),/31–201/);
  const steep=solveChannelMOC({...x,wallSegments:[{angle:35,length:1}],channelHeight:3});assert.equal(steep.status,'unsupported');assert.match(steep.reason,/attached|detached|maximum/i);
 });
@@ -60,4 +62,37 @@ test('Upstream states inside the centered fan approach its independent geometric
   errors.push(Math.max(...ps.map(p=>Math.abs(Math.atan2(p.y-1,p.x)-(p.before.theta-Math.asin(1/p.before.M))))));
  }
  assert.ok(errors[1]<errors[0]&&errors[2]<errors[1]);assert.ok(errors[2]<.01);
+});
+
+
+test('Example 4 marches characteristic patches through two shocks and the slip line',()=>{
+ const x={...defaults('wall'),...getChapter6BookExample('6-4').inputs,channelSolver:'Method of characteristics'};
+ for(const mocResolution of [31,121]){
+  const d=calculate('wall',{...x,mocResolution}),r=d.result;
+  assert.equal(r.status,'partial');assert.equal(r.tracking,undefined);
+  assert.equal(r.moc.traces.length,4);
+  const {angle,pressure,pressureResidual,points}=r.moc.slip,[hit,end]=points;
+  near(hit.x,0.9569629155);near(hit.y,0.6088052211);
+  near(angle*180/Math.PI,9.54488816868);near(pressure/1000,101.0926478965);
+  near(end.x,1.3000466155);
+  assert.ok(pressureResidual<1e-9&&r.moc.maxMassResidual<1e-8&&r.moc.maxJumpResidual<1e-9);
+  const station=(hit.x+end.x)/2,slipY=hit.y+Math.tan(angle)*(station-hit.x);
+  const lo=sampleMOC(r,station,slipY-.003),hi=sampleMOC(r,station,slipY+.003);
+  near(lo.p,hi.p);near(lo.theta,hi.theta);assert.ok(Math.abs(lo.M-hi.M)>.05);
+  assert.equal(sampleMOC(r,end.x+.001,end.y),null);
+  const svg=sceneSVG(d.scene,d.inputs).svg;
+  assert.match(svg,/data-moc-slip-line/);assert.match(svg,/data-characteristic/);
+  assert.equal([...svg.matchAll(/data-fitted-shock=/g)].length,4);
+  assert.doesNotMatch(svg,/NaN|undefined|Infinity/);
+ }
+});
+
+test('Example 4 compares both methods in the common domain downstream of the intersection',()=>{
+ const x={...defaults('wall'),...getChapter6BookExample('6-4').inputs,channelSolver:'Compare both'};
+ const d=calculate('wall',x),r=d.result;
+ const station=(r.comparison.moc.moc.slip.points[0].x+r.comparison.end)/2;
+ const profile=comparisonProfile(r,station/r.geometry.end);
+ assert.equal(profile.samples.length,101);
+ for(const z of profile.samples){near(z.se.M,z.moc.M);near(z.se.p,z.moc.p);}
+ assert.ok(d.rows.some(z=>z.label==='Common accepted length'&&z.value>station));
 });

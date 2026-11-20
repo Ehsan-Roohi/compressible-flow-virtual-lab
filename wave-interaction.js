@@ -14,6 +14,17 @@ function outgoing(s,phi,side){
  return {...w,kind,before:s,after,side,rays};
 }
 export function interactionPair(r,phi){return {a:outgoing(r.lower,phi,-1),b:outgoing(r.upper,phi,1)};}
+export function matchInteractionStreams(lower,upper){
+ requireValue(lower.M>1&&upper.M>1,'The streams entering the interaction must remain supersonic. This regular attached-wave model does not resolve a Mach reflection.','unsupported-pattern');
+ const gamma=lower.gamma,maxNu=(Math.sqrt((gamma+1)/(gamma-1))-1)*Math.PI/2;
+ const lo=Math.max(lower.theta-shockLimit(lower.M,gamma).theta,upper.theta-(maxNu-prandtlMeyer(upper.M,gamma))+1e-8);
+ const hi=Math.min(upper.theta+shockLimit(upper.M,gamma).theta,lower.theta+(maxNu-prandtlMeyer(lower.M,gamma))-1e-8);
+ requireValue(lo<hi,'There is no shared angular interval for a regular attached-wave interaction.','unsupported-pattern');
+ const context={lower,upper};const f=phi=>{const {a,b}=interactionPair(context,phi);return Math.log(a.after.p/b.after.p);};
+ requireValue(f(lo)*f(hi)<=0,'No pressure-matched regular weak-wave solution exists. Detached shocks and Mach reflections are outside this model.','unsupported-pattern');
+ const root=bisect(f,lo,hi),phi=root.value,{a,b}=interactionPair(context,phi);
+ return {root,phi,a,b,lo,hi};
+}
 export function solveInteraction(x={}){
  const {M1=4,T1=300,p1=101,gamma=1.4,R=287,thetaUpper=10,thetaLower=20,interactionType='Opposing shocks',geometryMode='Educational'}=x;
  requireValue(['Opposing shocks','Same-direction shocks'].includes(interactionType),'Choose an interaction type.');
@@ -24,14 +35,7 @@ export function solveInteraction(x={}){
  requireValue(t1-alpha>0&&(same||t2+alpha>0),'Both prescribed incident waves must remain compression shocks at this incidence.','unsupported-pattern');
  const n2=obliqueShock(M1,t1-alpha,gamma),s2=apply(s1,n2,t1),n3=obliqueShock(same?s2.M:M1,same?t2:t2+alpha,gamma),s3=apply(same?s2:s1,n3,same?t1+t2:-t2);
  const lower=same?s3:s2,upper=same?s1:s3;
- requireValue(lower.M>1&&upper.M>1,'The streams entering the interaction must remain supersonic. This regular attached-wave model does not resolve a Mach reflection.','unsupported-pattern');
- const maxNu=(Math.sqrt((gamma+1)/(gamma-1))-1)*Math.PI/2;
- const lo=Math.max(lower.theta-shockLimit(lower.M,gamma).theta,upper.theta-(maxNu-prandtlMeyer(upper.M,gamma))+1e-8);
- const hi=Math.min(upper.theta+shockLimit(upper.M,gamma).theta,lower.theta+(maxNu-prandtlMeyer(lower.M,gamma))-1e-8);
- requireValue(lo<hi,'There is no shared angular interval for a regular attached-wave interaction.','unsupported-pattern');
- const context={lower,upper};const f=phi=>{const {a,b}=interactionPair(context,phi);return Math.log(a.after.p/b.after.p);};
- requireValue(f(lo)*f(hi)<=0,'No pressure-matched regular weak-wave solution exists. Detached shocks and Mach reflections are outside this model.','unsupported-pattern');
- const root=bisect(f,lo,hi),phi=root.value,{a,b}=interactionPair(context,phi),s4=a.after,s5=b.after;
+ const {root,phi,a,b,lo,hi}=matchInteractionStreams(lower,upper),s4=a.after,s5=b.after;
  const waves=[{...n2,kind:'Oblique shock',before:s1,after:s2,title:'Incident shock · 1 → 2'}, { ...n3,kind:'Oblique shock',before:same?s2:s1,after:s3,title:same?'Second incident shock · 2 → 3':'Incident shock · 1 → 3'}, {...a,title:same?'Reflected wave · 3 → 4':'Outgoing wave · 2 → 4'}, {...b,title:same?'Resultant shock · 1 → 5':'Outgoing wave · 3 → 5'}];
  const regions={1:s1,2:s2,3:s3,4:s4,5:s5};
  const r={status:'ok',alpha,same,interactionType,geometryMode,lower,upper,n2,n3,a,b,delta:phi,slipAngle:deg(phi),p4:s4.p/s1.p,p5:s5.p/s1.p,regions,waves,residual:root.residual,iterations:root.iterations,interval:[lo,hi]};

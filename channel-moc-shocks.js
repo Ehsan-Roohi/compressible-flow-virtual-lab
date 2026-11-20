@@ -1,12 +1,12 @@
 import {solveWaveChannel,channelOrdinate} from './wave-channel.js';
 import {state,obliqueShock,normalShock,turnAngle,shockLimit,prandtlMeyer,rad} from './physics.js';
+import {matchInteractionStreams} from './wave-interaction.js?v=20261120-opposing-moc';
 import {requireValue,PhysicsError} from './numerics.js';
 // Rotational planar characteristic marching with explicit, one-sided shock
 // boundaries. In smooth flow: d(theta) +/- sqrt(M²-1)/(gamma M²) d(ln p)=0
 // on C+/C-, while ln(p0) is transported on streamlines. T0 is constant.
-// The current topology handles one active fitted shock, regular wall
-// reflections and smooth shock/fan interaction. A second shock stops the
-// field before its unresolved intersection; no front-tracking result is used.
+// General marching handles one active fitted shock. For two straight
+// opposing ramps, constant characteristic patches meet at fitted waves.
 const mix=(a,b,t)=>({theta:a.theta+(b.theta-a.theta)*t,l:a.l+(b.l-a.l)*t,k:a.k+(b.k-a.k)*t});
 const coeff=z=>Math.sqrt(z.M*z.M-1)/(z.g*z.M*z.M);
 export function fittedJumpResidual(before,after,beta,g=1.4){
@@ -29,10 +29,81 @@ function interp(region,y,g){
 const angle=(z,f)=>z.theta+(f?f*Math.asin(1/z.M):0);
 function wallAngle(w,x){return (w.panels.find(p=>x<p.b.x-1e-10)??w.panels.at(-1)).theta;}
 export function needsShockFitting(x){for(const [segments,side]of [[x.wallSegments,1],[x.upperWallSegments,-1]]){let last=0;for(const p of segments??[]){if(side*(rad(p.angle)-last)>1e-10)return true;last=rad(p.angle);}}return false;}
+// With straight inlet ramps, every smooth patch has constant theta, ln p
+// and ln p0. Both characteristic compatibility equations and streamline
+// transport are then exact. Only the jump conditions couple the patches.
+function solveOpposingRamps(base,N){
+ const {geometry:g,gamma,s1}=base;
+ const lower=base.waves.find(w=>w.wall==='L'&&w.origin.x===0);
+ const upper=base.waves.find(w=>w.wall==='U'&&w.origin.x===0);
+ requireValue(lower?.kind==='Oblique shock'&&upper?.kind==='Oblique shock',
+  'Both inlet ramps must generate attached oblique shocks.','moc-topology');
+ const slope=w=>Math.tan(w.rays[0]),m1=slope(lower),m2=slope(upper);
+ const x=g.height/(m1-m2),y=m1*x;
+ const low=xx=>channelOrdinate(g.lower,xx),high=xx=>channelOrdinate(g.upper,xx);
+ requireValue(x>0&&x<g.end-1e-9&&low(x)<y&&y<high(x),
+  'The shocks must meet inside the shared channel.','moc-topology');
+ const {a,b,phi}=matchInteractionStreams({...lower.after,gamma,R:base.R},{...upper.after,gamma,R:base.R});
+ requireValue(a.kind==='Oblique shock'&&b.kind==='Oblique shock',
+  'The collision must produce two attached outgoing shocks and a slip line.','moc-topology');
+ const states=[s1,lower.after,upper.after,a.after,b.after];
+ const [inlet,postLower,postUpper,belowSlip,aboveSlip]=states.map(z=>decoded(packed(z,gamma),gamma));
+ const slopes=[Math.tan(a.rays[0].angle),Math.tan(phi),Math.tan(b.rays[0].angle)];
+ requireValue(slopes[0]<slopes[1]&&slopes[1]<slopes[2],
+  'The outgoing waves must bound two distinct downstream streams.','moc-topology');
+ const wallHits=slopes.flatMap(m=>[[low(x),Math.tan(g.lower.panels[0].theta)],
+  [high(x),Math.tan(g.upper.panels[0].theta)]].map(([wall,mw])=>(wall-y)/(m-mw)))
+  .filter(distance=>distance>1e-9&&Number.isFinite(distance));
+ const firstWall=x+Math.min(...wallHits),end=Math.min(g.end,firstWall);
+ requireValue(end-x>1e-8,'An outgoing wave reaches a wall at the interaction.','moc-topology');
+
+ const ray=(xx,m)=>y+m*(xx-x);
+ const mesh=(start,finish,lines,patches)=>{
+  const sections=Math.min(72,N);
+  return Array.from({length:sections+1},(_,i)=>{
+   const xx=i===sections?finish:start+(finish-start)*i/sections;
+   const lower=low(xx),upper=high(xx);
+   const bounds=[lower,...lines.map(f=>Math.max(lower,Math.min(upper,f(xx)))),upper];
+   return {x:xx,lower,upper,parts:patches.map((z,j)=>({lo:bounds[j],hi:bounds[j+1],z:Array(N).fill(z)}))};
+  });
+ };
+ const rows=[...mesh(0,x,[xx=>m1*xx,xx=>g.height+m2*xx],[postLower,inlet,postUpper]),
+  ...mesh(x,end,slopes.map(m=>xx=>ray(xx,m)),[postLower,belowSlip,aboveSlip,postUpper])];
+ const incident=(w,startY)=>({beta:w.beta,before:s1,after:w.after,start:[0,startY],end:[x,y]});
+ const outgoing=(w,m)=>({beta:w.beta,before:w.before,after:w.after,start:[x,y],end:[end,ray(end,m)]});
+ const waves=[incident(lower,0),incident(upper,g.height),outgoing(a,slopes[0]),outgoing(b,slopes[2])];
+ const traces=waves.map(({start,end,...jump},i)=>({id:i+1,side:[1,-1,-1,1][i],
+  type:i<2?'Incident shock':'Outgoing shock',points:[start,end].map(([x,y])=>({x,y,...jump}))}));
+ const inletFlux=s1.rho*s1.u*g.height;
+ const massResidual=row=>Math.abs(row.parts.reduce((sum,p)=>{
+  const z=fittedState(base,p.z[0]);
+  return sum+(p.hi-p.lo)*z.rho*z.u*Math.cos(z.theta);
+ },0)/inletFlux-1);
+ const maxMassResidual=Math.max(...rows.map(massResidual));
+ const maxJumpResidual=Math.max(...waves.map(w=>fittedJumpResidual(w.before,w.after,w.beta,gamma)));
+ requireValue(maxMassResidual<1e-7&&maxJumpResidual<1e-7,
+  'The matched shock field did not satisfy mass and shock conservation.','moc-accuracy');
+ const stopsAtWall=firstWall<=g.end+1e-9;
+ const status=end<g.end-1e-9?'partial':'ok';
+ const reason=stopsAtWall?'Regular shock interaction solved. The characteristic field ends at the first downstream wall encounter.':null;
+ const slip={angle:phi,pressure:(a.after.p+b.after.p)/2,pressureResidual:Math.abs(Math.log(a.after.p/b.after.p)),
+  points:[{x,y},{x:end,y:ray(end,slopes[1])}]};
+ return {...base,status,reason,limitX:stopsAtWall?end:null,
+  regions:{1:s1,2:lower.after,3:upper.after,'4′':a.after,4:b.after},
+  waves:traces.map(t=>({id:'S'+t.id,kind:'Oblique shock',title:t.type+' · S'+t.id,
+   origin:{x:t.points[0].x,y:t.points[0].y},before:t.points[0].before,after:t.points[0].after,beta:t.points[0].beta})),
+  moc:{fitted:true,status,rows,traces,resolution:N,slip,massResidual:massResidual(rows.at(-1)),
+   maxMassResidual,maxJumpResidual,events:[{type:'Wave interaction',x,y}]}};
+}
 export function solveFittedChannelMOC(x){
  const base=solveWaveChannel(x),g=base.gamma,R=base.R,G=base.geometry,N=Math.round(x.mocResolution??81),H=G.height,T0=base.s1.T0;
  requireValue(Number.isFinite(N)&&N>=31&&N<=201,'MOC resolution must be 31–201 points across each smooth region.');
  const r={...base,waves:[],panels:[],regions:{Inlet:base.s1},moc:{fitted:true,rows:[],traces:[],resolution:N,massResidual:0,maxMassResidual:0,maxJumpResidual:0,events:[]},status:'unsupported',reason:null,limitX:0};
+ const straight=w=>w.panels.every(p=>p.a.x>=G.end-1e-9||Math.abs(p.theta-w.panels[0].theta)<1e-10);
+ if(wallAngle(G.lower,0)>1e-10&&wallAngle(G.upper,0)<-1e-10&&straight(G.lower)&&straight(G.upper)){
+  try{return solveOpposingRamps(base,N);}
+  catch(e){if(!(e instanceof PhysicsError))throw e;return {...r,reason:e.message,moc:{...r.moc,status:'unsupported'}};}
+ }
  const inlet=packed(base.s1,g),traces=r.moc.traces;let front=null,traceId=0,reason=null,totalPoints=0;
  const fresh=(lo,hi,z)=>({lo,hi,z:Array.from({length:N},()=>({...z}))});
  const record=(f,xx)=>{r.moc.maxJumpResidual=Math.max(r.moc.maxJumpResidual,fittedJumpResidual(f.before,f.after,f.beta,g));const q={x:xx,y:f.y,beta:f.beta,before:f.before,after:f.after};f.trace.points.push(q);};
@@ -53,7 +124,7 @@ export function solveFittedChannelMOC(x){
  let first=topology(0,Array.from({length:N},()=>({...inlet})));
  try{
   let boundary=[null,null];
-  for(const [j,w,side]of [[0,G.lower,1],[1,G.upper,-1]]){const theta=wallAngle(w,0);if(side*theta>1e-10){requireValue(!front,'Two incident shocks require a shock/shock/contact topology not yet supported by fitted MOC. Use Shock–Expansion for that event sequence.','moc-topology');front=startShock({...base.s1,theta:0},theta,side,0,j?H:0,'Wall corner');boundary[j]=packed(front.after,g);}else{const nu=prandtlMeyer(base.s1.M,g)-side*theta;requireValue(nu>1e-8&&nu<prandtlMeyer(50,g),'The initial expansion exceeds the fitted MOC Mach range.','moc-limit');let lo=1.000001,hi=50;for(let k=0;k<65;k++){const m=(lo+hi)/2;if(prandtlMeyer(m,g)<nu)lo=m;else hi=m;}const M=(lo+hi)/2,factor=1+(g-1)*M*M/2;boundary[j]=packed({...state(M,T0/factor,base.s1.p0/factor**(g/(g-1)),g,R),theta},g);}}
+  for(const [j,w,side]of [[0,G.lower,1],[1,G.upper,-1]]){const theta=wallAngle(w,0);if(side*theta>1e-10){requireValue(!front,'This shock/shock/contact topology requires two straight inlet compression ramps in fitted MOC. Use Shock–Expansion for this geometry.','moc-topology');front=startShock({...base.s1,theta:0},theta,side,0,j?H:0,'Wall corner');boundary[j]=packed(front.after,g);}else{const nu=prandtlMeyer(base.s1.M,g)-side*theta;requireValue(nu>1e-8&&nu<prandtlMeyer(50,g),'The initial expansion exceeds the fitted MOC Mach range.','moc-limit');let lo=1.000001,hi=50;for(let k=0;k<65;k++){const m=(lo+hi)/2;if(prandtlMeyer(m,g)<nu)lo=m;else hi=m;}const M=(lo+hi)/2,factor=1+(g-1)*M*M/2;boundary[j]=packed({...state(M,T0/factor,base.s1.p0/factor**(g/(g-1)),g,R),theta},g);}}
   first=topology(0,Array.from({length:N},()=>({...inlet})));first.parts[0].z[0]=boundary[0];first.parts.at(-1).z[N-1]=boundary[1];finishRow(first);
   const corners=[...new Set([G.end,...G.lower.points.map(p=>p.x),...G.upper.points.map(p=>p.x)])].filter(v=>v>1e-9&&v<=G.end).sort((a,b)=>a-b);
   while(rows.at(-1).x<G.end-1e-9){
@@ -133,11 +204,20 @@ export function solveFittedChannelMOC(x){
  r.waves=(last?traces:[]).flatMap(t=>[t.points[0],...(t.points.length>1?[t.points.at(-1)]:[])].map((p,i)=>({id:`S${t.id}-${i}`,kind:'Oblique shock',title:`Fitted shock S${t.id} · ${i?'last station':'origin'}`,origin:{x:p.x,y:p.y},before:p.before,after:p.after,beta:p.beta})));
  return r;
 }
+export function sampleOpposingRamps(r,x,y){
+ const {rows}=r.moc;
+ if(x<0||x>rows.at(-1).x)return null;
+ const next=rows.findIndex(row=>row.x>x),a=rows[next<0?rows.length-1:next-1],b=next<0?a:rows[next];
+ const fraction=a===b?0:(x-a.x)/(b.x-a.x);
+ const boundary=(left,right)=>left+(right-left)*fraction;
+ const i=a.parts.findIndex((p,i)=>y>=boundary(p.lo,b.parts[i].lo)-1e-9&&y<=boundary(p.hi,b.parts[i].hi)+1e-9);
+ return i<0?null:fittedState(r,a.parts[i].z[0]);
+}
 export function fittedProfilePlots(r,fraction=1){
  const rows=r.moc.rows;if(!rows.length)return [];requireValue(Number.isFinite(fraction)&&fraction>=0&&fraction<=1,'Profile station x/L must be between 0 and 1.');const target=Math.min(rows.at(-1).x,r.geometry.end*fraction),row=rows.reduce((a,b)=>Math.abs(a.x-target)<Math.abs(b.x-target)?a:b);
  const properties=[['M','Mach number','M',z=>z.M],['p','Static pressure','p (kPa)',z=>z.p/1000],['T','Static temperature','T (K)',z=>z.T],['rho','Density','ρ (kg/m³)',z=>z.rho],['u','Flow speed','u (m/s)',z=>z.u],['theta','Flow direction','θ (°)',z=>z.theta*180/Math.PI],['p0','Stagnation pressure','p₀ (kPa)',z=>z.p0/1000]];
  return properties.map(([key,label,unit,value])=>{
   const points=row.parts.flatMap(p=>p.z.map((z,j)=>[p.lo+(p.hi-p.lo)*j/(p.z.length-1),value(fittedState(r,z))]));
-  return {key:'moc-'+key,label:'Cross-channel '+label.toLowerCase(),chart:{title:label+' · x = '+Number(row.x.toPrecision(5))+' m',xlabel:'Height y (m)',ylabel:unit,zeroBaseline:false,series:[{name:label,points}]},note:'Rotational numerical characteristics with one-sided fitted-shock jumps. Refine transverse resolution.'};
+  return {key:'moc-'+key,label:'Cross-channel '+label.toLowerCase(),chart:{title:label+' · x = '+Number(row.x.toPrecision(5))+' m',xlabel:'Height y (m)',ylabel:unit,zeroBaseline:false,series:[{name:label,points}]},note:r.moc.slip?'Characteristic patches with one-sided shock and slip-line states.':'Rotational numerical characteristics with one-sided fitted-shock jumps. Refine transverse resolution.'};
  });
 }

@@ -19,7 +19,7 @@ test('An expansion reflected from the opposite flat wall reaches the analytical 
  const r=solveChannelMOC({...base(),wallSegments:[{angle:-8,length:8}],upperWallSegments:[{angle:0,length:8}],mocResolution:151});assert.equal(r.status,'ok');assert.ok(Math.abs(r.regions['Upper outlet'].M-expansion(3,rad(16)).M2)<.001);near(r.regions['Upper outlet'].theta,0);
 });
 test('Unsupported two-incident-shock topology is rejected rather than plotted as isentropic MOC',()=>{
- const x={...base(),wallSegments:[{angle:8,length:3}],upperWallSegments:[{angle:-8,length:3}]},r=solveChannelMOC(x);assert.equal(r.status,'unsupported');assert.equal(r.moc.rows.length,0);assert.match(r.reason,/shock\/shock\/contact/);const svg=sceneSVG({kind:'wall',...r},x);assert.equal(svg.field,null);assert.ok(!svg.svg.includes('data-characteristic'));
+ const x={...base(),wallSegments:[{angle:8,length:1},{angle:10,length:2}],upperWallSegments:[{angle:-8,length:3}]},r=solveChannelMOC(x);assert.equal(r.status,'unsupported');assert.equal(r.moc.rows.length,0);assert.match(r.reason,/shock\/shock\/contact/);const svg=sceneSVG({kind:'wall',...r},x);assert.equal(svg.field,null);assert.ok(!svg.svg.includes('data-characteristic'));
 });
 test('MOC UI, sample table, numerical plots and all contour properties use the computed field',()=>{
  const x={...base(),wallSegments:[{angle:-8,length:3}],upperWallSegments:[{angle:8,length:3}],mocResolution:61},d=calculate('wall',x);assert.ok(inputDefinitions('wall',x).some(f=>f.key==='mocResolution'));assert.ok(d.result.regions['Centre outlet']);assert.equal(d.shockDetails.length,0);assert.ok(d.rows.some(r=>r.label==='Mass-flow residual'));assert.ok(mocProfilePlots(d.result).length===6);

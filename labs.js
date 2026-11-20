@@ -14,12 +14,12 @@ import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=2
 import {ductInputs} from './duct-input.js?v=20261112-state-inputs';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
 import {solveBodyLab,bodyPlots} from './wedge-cone.js?v=20261115-wedge-drag';
-import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './channel-comparison.js';
+import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './channel-comparison.js?v=20261120-opposing-moc';
 import {channelSolverName,solveShockExpansionChannel} from './channel-solver.js?v=20261117-example-numbers';
 import {solveWaveTracker,trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
 import {defaultTrackingEvent,selectTrackingEvent,trackingSummaryRows} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20261109-wedge-cone';
-import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261109-wedge-cone';
+import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261120-opposing-moc';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261109-wedge-cone';
 import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-wedge-drag';
@@ -465,6 +465,11 @@ export function calculate(id,x){
   if(result.limitX!==null)rows.push(row(result.interaction?'View limit before next reflection':'Local-solution limit',result.limitX,'m'));
   if(result.comparison)rows.push(row('Common accepted length',result.comparison.end,'m'),...comparisonExportRows(result,x.comparisonStation));
   if(result.tracking){rows.push(...trackingSummaryRows(result));shockDetails=trackingShockDetails(result);checks={trackingPressure:result.tracking.maxPressureResidual,trackingMass:result.tracking.maxMassResidual};}
+  if(result.moc?.slip){
+   const slip=result.moc.slip;
+   rows.unshift(row('Signed slip-line angle φ',p.deg(slip.angle),'°'),row('Common downstream pressure',slip.pressure/1000,'kPa'));
+   rows.push(row('Interaction x',slip.points[0].x,'m'),row('Interaction y',slip.points[0].y,'m'));
+  }
   if(result.moc?.massResidual!==undefined)rows.push(row('Mass-flow residual',result.moc.massResidual*100,'%'));
   if(result.moc?.fitted){rows.push(row('Maximum cross-section mass residual',result.moc.maxMassResidual*100,'%'),row('Fitted shocks',result.moc.traces.length,''),row('Maximum shock-jump residual',result.moc.maxJumpResidual,''));checks={mocMass:result.moc.maxMassResidual,shockJump:result.moc.maxJumpResidual};}
   scene={kind:result.interaction?'collision':'wall',...result};chart=(result.comparison?comparisonPlots(result,x.comparisonStation):result.tracking?trackingPlots(result,x.trackingStation):result.interaction?regularChannelPlots(result):result.moc?mocProfilePlots(result,x.mocStation):wallPlots(result))[0]?.chart??{title:'No accepted characteristic field',xlabel:'Height y (m)',ylabel:'M',series:[]};
