@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {calculate,defaults,inputDefinitions} from './labs.js';
 import {sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
+import {opposingShockSlipAngle} from './pressure-turning.js';
 import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js';
 
 const run=(number,patch={})=>{
@@ -32,6 +33,8 @@ test('The consecutive-ramp and shock–fan examples resolve their characteristic
  const consecutive=run(5,{channelSolver:'Method of characteristics',mocResolution:41});
  assert.equal(consecutive.result.moc.traces.length,3);
  assert.ok(consecutive.result.moc.fan);
+ assert.equal(opposingShockSlipAngle(consecutive.result),null);
+ assert.equal(opposingShockSlipAngle(run(5,{channelSolver:'Compare both',mocResolution:41}).result),null);
  assert.ok(consecutive.result.moc.maxMassResidual<.002);
  const {svg}=sceneSVG(consecutive.scene,consecutive.inputs);
  assert.match(svg,/data-moc-slip-line/);

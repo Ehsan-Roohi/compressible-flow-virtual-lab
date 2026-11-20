@@ -1,10 +1,10 @@
 import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {obliqueShock,expansion,deg,rad} from './physics.js';
-import {mocProfilePlots} from './channel-moc.js';
-import {comparisonProfile} from './channel-comparison.js';
+import {mocProfilePlots} from './channel-moc.js?v=20261120-wall-methods';
+import {comparisonProfile} from './channel-comparison.js?v=20261120-wall-methods';
 function opposingShockRegions(r){
  const fitted=r.comparison?.moc??r;
- if(fitted.moc?.slip){
+ if(fitted.moc?.slip&&fitted.regions?.['4′']){
   const z=fitted.regions;
   return [z[1],z[2],z[3],z['4′'],z[4]];
  }
