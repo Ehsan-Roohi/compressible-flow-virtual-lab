@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {isentropicRelations} from './physics.js';
-import {calculate,defaults} from './labs.js';
+import {calculate,defaults,inputDefinitions} from './labs.js';
 const near=(a,b,t=1e-8)=>assert.ok(Math.abs(a-b)<t,`${a} vs ${b}`);
 test('Isentropic results reproduce the M=2, gamma=1.4 reference table',()=>{
  const r=isentropicRelations(2,1.4);
@@ -17,4 +17,14 @@ test('Sonic and zero-speed limits and subsonic angle domains are explicit',()=>{
 test('Ratios are independent of dimensional conditions and included in exports',()=>{
  const x=defaults('foundations'),a=calculate('foundations',x),b=calculate('foundations',{...x,T1:900,p1:650});assert.deepEqual(a.result.relations,b.result.relations);
  assert.equal(a.rows.filter(r=>r.panel==='isentropic').length,10);assert.ok(a.rows.some(r=>r.label==='p/p*'));assert.notDeepEqual(isentropicRelations(2,1.67),isentropicRelations(2,1.4));
+});
+test('Legacy example selections open the plain isentropic calculator',()=>{
+ const inputs=defaults('foundations');
+ const fields=inputDefinitions('foundations',inputs);
+ const {rows}=calculate('foundations',inputs);
+ for(const bookExample of ['1-1','2-1']){
+  const legacy={...inputs,bookExample,wingSpeed:67};
+  assert.deepEqual(inputDefinitions('foundations',legacy),fields);
+  assert.deepEqual(calculate('foundations',legacy).rows,rows);
+ }
 });

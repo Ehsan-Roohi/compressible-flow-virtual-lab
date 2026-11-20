@@ -331,7 +331,6 @@ body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px;
   body[data-lab] .lab-header:has(#modelDetails[hidden]) #description { display: none; }
   body[data-lab] .scene-card > .card-head { align-items: center; padding-block: 3px; }
 }
-nav .chapter-number { flex: none; display: inline-block; min-width: 1.8em; font: 12px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
 #chapterPrimary[hidden], #rayleighBookAction[hidden], #chapterShortcuts[hidden] { display: none; }
 #rayleighBookAction { margin: 8px var(--card-inset); }
 #loadRayleighBook, #chapterShortcuts button {

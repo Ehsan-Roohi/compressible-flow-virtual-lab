@@ -36,11 +36,10 @@ import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} fr
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261119-compact-layout';
 import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
-import {foundationExampleEntries} from './foundation-exercises.js?v=20261120-example-sequence';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-example-sequence';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-section-labels';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-example-sequence';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
@@ -103,12 +102,11 @@ function defaults(id,selection={}){
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261120-example-sequence',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261120-section-labels',import.meta.url),{type:'module'});
 function renderNav(){
- $('chapters').innerHTML=chapters.map(([n,title,,ids])=>{
-  const number=n===1?'1–2':n;
+ $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
-  return `<a href="#${ids[0]}" class="${active?'active':''}" ${active?'aria-current="page"':''}><span class="chapter-number">${number}</span><span class="nav-title">${title}</span></a>`;
+  return `<a href="#${ids[0]}" class="${active?'active':''}" ${active?'aria-current="page"':''}><span class="nav-title">${title}</span></a>`;
  }).join('');
 }
 function canonicalExample(value){
@@ -193,10 +191,6 @@ function openLab(){
  const hideTabs=l.chapter===6||chapter[3].length<2;
  $('labTabs').hidden=hideTabs;
  $('labTabs').innerHTML=hideTabs?'':chapter[3].map(k=>`<button type="button" data-lab="${k}" class="${id===k?'active':''}">${labs[k].title}</button>`).join('');
- if(id==='foundations'){
-  const tabs=$('labTabs');tabs.hidden=false;
-  tabs.innerHTML='<button type="button" data-lab="foundations?example=1-1">Ch. 1 · Wing pressure</button><button type="button" data-lab="foundations?example=2-1">Ch. 2 · Euler state and flux</button>';
- }
  $('labTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(location.hash==='#'+b.dataset.lab)openLab();else location.hash=b.dataset.lab;});renderNav();
  if(id==='nozzle'){
   const code=example==='8-1'||example==='8-2'?example+'a':example;
@@ -560,10 +554,6 @@ function renderIsentropicRelations(d){
  const panel=$('isentropicPanel');panel.hidden=d.id!=='foundations';if(panel.hidden)return;
  const rows=d.rows.filter(r=>r.panel==='isentropic');
  const [mach,machAngle,prandtlMeyer]=rows.filter(r=>!/[₀*]/.test(r.label));
- const exercise=d.rows.filter(r=>r.panel==='book-exercise');
- const index=foundationExampleEntries.findIndex(entry=>entry.value===d.inputs.bookExample);
- const preset=foundationExampleEntries[index];
- const exerciseResults=preset?`<section id="foundationBookResults" aria-label="Example results"><h3 class="isentropic-group-title">Example ${index+1} · ${preset.label}</h3>${exercise.length?`<dl class="isentropic-grid">${exercise.map(r=>`<div><dt>${r.label}</dt><dd>${fmt(r.value,8)} <small>${r.unit}</small></dd></div>`).join('')}</dl>`:`<p class="isentropic-note">${d.notice}</p>`}</section>`:'';
  const soundSpeed={label:'Speed of sound a',display:fmt(d.result.a),unit:'m/s'};
  const groups=[
   ['Flow properties',[mach,soundSpeed,machAngle,prandtlMeyer]],
@@ -571,8 +561,8 @@ function renderIsentropicRelations(d){
   ['Sonic ratios',rows.filter(r=>r.label.endsWith('*'))]
  ];
  const [angles,...ratios]=groups.map(([title,items])=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${items.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??fmt(r.value,8)}${r.unit?` <small>${r.unit}</small>`:''}</dd></div>`).join('')}</dl></section>`);
- panel.innerHTML=`<div class="card-head"><h2>Isentropic Flow Calculator</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${exerciseResults}${angles}<div class="isentropic-ratio-columns">${ratios.join('')}</div><p class="isentropic-note">Subscript 0: stagnation state. Asterisk *: sonic reference at the same stagnation state; A* is the corresponding critical area for the same mass flow. Angles are in degrees.</p>`;
- addDataExport(panel,'isentropic',()=>({rows:[...rows,{...soundSpeed,value:d.result.a},...exercise]}));
+ panel.innerHTML=`<div class="card-head"><h2>Isentropic Flow Calculator</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${angles}<div class="isentropic-ratio-columns">${ratios.join('')}</div><p class="isentropic-note">Subscript 0: stagnation state. Asterisk *: sonic reference at the same stagnation state; A* is the corresponding critical area for the same mass flow. Angles are in degrees.</p>`;
+ addDataExport(panel,'isentropic',()=>({rows:[...rows,{...soundSpeed,value:d.result.a}]}));
 }
 function renderBalanceDetails(){
  const panel=$('balancePanel');panel.hidden=current.id!=='balances';if(panel.hidden)return;
@@ -982,7 +972,6 @@ function renderExamples(){
   entries.push({value:'7–13',label:'Finite shock tube',note:'Air in both chambers. Driver: 4 m, 200 kPa, 20 °C. Driven: 6 m, 5 kPa, 25 °C. Diameter 0.30 m. The sample is 3 m downstream of the diaphragm. Passage times use the initial analytical wave speeds. The simulation initially runs to 30 ms.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,p4:200,p1:5,T4:293.15,T1:298.15,finiteDriverLength:4,finiteDrivenLength:6,finiteDiameter:.3},'7–13');}});
  }
  if(id==='tube')entries.push({value:'sinusoidal-ten-cycles',label:'Sinusoidal piston (10 cycles)',note:'Air at 100 kPa and 300 K in a 6 m closed tube. The piston completes 10 cycles at 100 Hz with ε = 0.1. Press Play to watch the full 100 ms from the start.',apply:()=>{stopAnimation();load({unsteadyExperiment:sinusoidalExperiment,pistonEpsilon:0.1,pistonFrequency:100,pistonCycles:10,pistonTubeLength:6,finiteEndTime:100,finiteCells:1200,p1:100,T1:300},'sinusoidal-ten-cycles');plotSelection.tube='finite-map-pressure';}});
- if(id==='foundations')entries=foundationExampleEntries.map(e=>({...e,apply:()=>load(e.inputs,e.value)}));
  if(id==='normal')entries=[
   {value:'3-1',label:'Downstream shock state',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load({M1:2,p1:137.9,T1:277.78},'3-1')},
   {value:'3-2',label:'Shock ratios and entropy',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
