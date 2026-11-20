@@ -1,3 +1,4 @@
+import {regionLabelPosition,regionNumber} from './region-labels.js?v=20261120-region-numbers';
 import {channelOrdinate} from './wave-channel.js';
 import {fittedState,sampleOpposingRamps} from './channel-moc-shocks.js?v=20261120-opposing-moc';
 import {cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261113-rainbow-physical';
@@ -39,10 +40,31 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
  }
  for(const f of [.2,.5,.8]){const row=rows.reduce((a,b)=>Math.abs(a.x-last.x*f)<Math.abs(b.x-last.x*f)?a:b);for(const eta of [.2,.5,.8]){const y=row.lower+(row.upper-row.lower)*eta,z=at(s,row,y);if(!z)continue;const cx=X(row.x),cy=Y(y),dx=Math.cos(z.theta),dy=-Math.sin(z.theta),c='#243c50';inner+=line(cx-9*dx,cy-9*dy,cx+9*dx,cy+9*dy,c,1)+poly([[cx+9*dx,cy+9*dy],[cx+4*dx-2*dy,cy+4*dy+2*dx],[cx+4*dx+2*dy,cy+4*dy-2*dx]],c);}}
  inner+='</g>';
- for(const t of s.moc.traces){const p=t.points;inner+=`<polyline data-fitted-shock="${t.id}" points="${p.map(p=>[X(p.x),Y(p.y)].join(',')).join(' ')}" fill="none" stroke="#000" stroke-width="2"/>`;const m=p[Math.floor(p.length/2)];inner+=txt(X(m.x)+5,Y(m.y)-7,'S'+t.id,'#17212b',12);}
+ for(const t of s.moc.traces){const p=t.points;inner+=`<polyline data-fitted-shock="${t.id}" points="${p.map(p=>[X(p.x),Y(p.y)].join(',')).join(' ')}" fill="none" stroke="#000" stroke-width="2"/>`;if(!s.moc.slip){const m=p[Math.floor(p.length/2)];inner+=txt(X(m.x)+5,Y(m.y)-7,'S'+t.id,'#17212b',12);}}
  if(s.moc.slip){
   const [a,b]=s.moc.slip.points;
   inner+=`<g data-moc-slip-line="true">${line(X(a.x),Y(a.y),X(b.x),Y(b.y),'#17212b',1.5,'5 3')}</g>`;
+ }
+ if(s.moc.slip){
+  const polygons=new Map();
+  // Opposing ramp meshes are ordered from the lower wall to the upper wall.
+  // Across the interaction, the incident inlet patch is replaced by 4′ and 4.
+  for(const [regionIds,group]of [
+   [['2','1','3'],rows.filter(row=>row.parts.length===3)],
+   [['2','4′','4','3'],rows.filter(row=>row.parts.length===4)]
+  ]){
+   if(group.length<2)continue;
+   for(const [i,id]of regionIds.entries()){
+    const polygon=[...group.map(row=>[X(row.x),Y(row.parts[i].lo)]),
+     ...[...group].reverse().map(row=>[X(row.x),Y(row.parts[i].hi)])];
+    if(!polygons.has(id))polygons.set(id,[]);
+    polygons.get(id).push(polygon);
+   }
+  }
+  for(const [id,cells]of polygons){
+   const position=regionLabelPosition(cells);
+   if(position)inner+=regionNumber(position.point,id,color(s.regions[id]));
+  }
  }
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(X(wall[i].x),Y(wall[i].y),X(wall[i+1].x),Y(wall[i+1].y),'#000',1.5);
  if(last.x<end-1e-8){inner+=line(X(last.x),43,X(last.x),245,'#8e6d42',1.2,'4 4')+txt(616,270,'Partial field · downstream not solved','#8e6d42',12,'end');}

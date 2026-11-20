@@ -3,7 +3,7 @@ import {state,normalShock,obliqueShock,expansion,shockLimit,rad,deg} from './phy
 import {requireValue} from './numerics.js';
 import {clipPolygon} from './wave-interaction.js';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js';
-import {regionLabelPosition} from './region-labels.js';
+import {regionLabelPosition,regionNumber} from './region-labels.js?v=20261120-region-numbers';
 export const multiRampMode='Ramjet inlet · multiple ramps';
 export const multiRampProblemPreset={wallShape:'Custom wall',customInteraction:multiRampMode,inletFlowSide:'Flow above wedge',inletLowerDefinition:'Mirror upper side',inletSolutionVersion:2,inletReference:1,inletHeightRatio:.3,inletCowlRatio:1,inletTerminal:'Normal shock',inletLowerSegments:[{angle:7,length:.5},{angle:15,length:.5}],inletUpperWallRatio:1,inletUpperStartRatio:0,M1:2.5,T1:216.65,p1:11.6,inletPressureType:'Static pressure',temperatureInput:'Static temperature',bookExample:'6–P1b'};
 export const multiRampPreset={...multiRampProblemPreset,inletTerminal:'Wall reflections',inletReference:2,inletHeightRatio:.5,M1:2,inletLowerSegments:[{angle:8,length:1}],p1:101.325,T1:300,bookExample:'6–9'};
@@ -100,8 +100,8 @@ export function multiRampDrawing(r,x,quantity='pressure',frame=null){
  for(const w of r.waves)if(w.beta&&w.origin[0]<g.end){const xx=Math.min(g.end-.04*(g.end-g.start),w.origin[0]+.20*g.wedgeLength),yy=w.origin[1]+Math.tan(w.rays[0])*(xx-w.origin[0]);if(xx>w.origin[0])content+=text([xx,Math.min(g.H-.04*(g.hi-g.lo),yy+.03*(g.hi-g.lo))],`β = ${deg(w.beta).toFixed(2)}°`);}
  // Label a bounded number of substantial regions. Searching the union of every
  // tiny fan cell was quadratic and could freeze the picture after a valid solve.
- const labels=new Map();for(const c of cells){const polygon=clipPolygon(clipPolygon(c.poly,p=>p[0]-g.start),p=>g.end-p[0]).map(V);if(polygon.length<3)continue;const area=Math.abs(polygon.reduce((sum,p,i)=>{const n=polygon[(i+1)%polygon.length];return sum+p[0]*n[1]-n[0]*p[1];},0))/2,previous=labels.get(String(c.region));if(!previous||area>previous.area)labels.set(String(c.region),{polygon,area});}
- for(const [region,{polygon}] of [...labels].sort((a,b)=>b[1].area-a[1].area).slice(0,24)){const label=regionLabelPosition([polygon]);if(label&&label.clearance>=8)content+=`<text x="${label.point[0]}" y="${label.point[1]}" fill="white" font-size="20" text-anchor="middle">${f.prefix??''}${region}</text>`;}
+ const labels=new Map();for(const c of cells){const polygon=clipPolygon(clipPolygon(c.poly,p=>p[0]-g.start),p=>g.end-p[0]).map(V);if(polygon.length<3)continue;const area=Math.abs(polygon.reduce((sum,p,i)=>{const n=polygon[(i+1)%polygon.length];return sum+p[0]*n[1]-n[0]*p[1];},0))/2,previous=labels.get(String(c.region));if(!previous||area>previous.area)labels.set(String(c.region),{polygon,area,state:c.state});}
+ for(const [region,{polygon,state}] of [...labels].sort((a,b)=>b[1].area-a[1].area).slice(0,24)){const label=regionLabelPosition([polygon]);if(label&&label.clearance>=8)content+=regionNumber(label.point,(f.prefix??'')+region,color(state));}
 
  let walls='';const wallEnd=Math.min(g.end,g.upperWall.b[0]);
  if(wallEnd>g.upperWall.a[0]){const a=g.upperWall.a,b=[wallEnd,g.H];walls+=`<g data-solid="${f.mirror?'lower-horizontal-wall':'upper-horizontal-wall'}">${poly([a,b,[b[0],g.H+g.pad],[a[0],g.H+g.pad]],'#a8adb3')}${line(a,b,'#56616a',3)}</g>`;}

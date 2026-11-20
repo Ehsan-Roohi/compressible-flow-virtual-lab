@@ -1,6 +1,6 @@
 import {finiteTubeMode,finiteTubeFrame,closedPistonMode,sinusoidalExperiment} from './finite-tube.js?v=20261118-restore-sample';
 import {valveExperiment} from './valve-closure.js';
-import {multiRampMode,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261118-wave-density';
+import {multiRampMode,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261120-region-numbers';
 import {probeAirfoilField} from './airfoil-field.js?v=20261117-multi-inlet';
 import {shockFanMode} from './shock-fan-example.js?v=20261118-wave-density';
 import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
@@ -18,7 +18,7 @@ import {chartWorkbook} from './chart-export.js';
 import {probeBody} from './body-probe.js?v=20261110-simple-examples';
 import {comparisonHTML} from './channel-comparison.js?v=20261120-opposing-moc';
 import {fittedInspectionHTML,fittedPointHTML,selectedFittedPoint,fittedExportRows} from './channel-moc-shocks-tables.js';
-import {probeFittedMOC} from './channel-moc-shocks-graphics.js?v=20261120-chapter6-clean';
+import {probeFittedMOC} from './channel-moc-shocks-graphics.js?v=20261120-region-numbers';
 import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
@@ -40,7 +40,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-opposing-moc';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-slip-angle';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-region-numbers';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
@@ -635,11 +635,11 @@ function renderRegionTable(d){
  if(d.result.comparison){$('regionTablePanel').hidden=false;$('regionTableTitle').textContent='Method comparison';$('regionTable').innerHTML=comparisonHTML(d.result,inputs.comparisonStation,fmt);return;}
  const panel=$('regionTablePanel');panel.hidden=!['collision','wall'].includes(d.id)||!d.result.regions;
  if(panel.hidden){$('regionTable').innerHTML='';return;}
- $('regionTableTitle').textContent=d.inspectTrackingEvent?'Selected event region properties':d.result.finalStreamMatch?'Final-stream region properties':d.result.tracking?(d.result.tracking.events.find(e=>e.index===d.result.selectedTrackingEvent)?.bookCase?'Book-example regions':(d.result.status==='partial'?'Last accepted region properties':'Final accepted region properties')):d.result.moc?'Inlet and outlet samples':'Flow properties by region';
+ $('regionTableTitle').textContent=d.inspectTrackingEvent?'Selected event region properties':d.result.finalStreamMatch?'Final-stream region properties':d.result.tracking?(d.result.tracking.events.find(e=>e.index===d.result.selectedTrackingEvent)?.bookCase?'Book-example regions':(d.result.status==='partial'?'Last accepted region properties':'Final accepted region properties')):d.result.moc&&!d.result.moc.slip?'Inlet and outlet samples':'Flow properties by region';
  const regions=Object.entries((d.inspectTrackingEvent?null:d.result.finalStreamMatch)?.regions??d.result.regions);if(d.id==='collision'&&!d.result.same)regions.sort(([a],[b])=>({1:0,2:1,3:2,5:3,4:4}[a])-({1:0,2:1,3:2,5:3,4:4}[b]));
  const properties=[['Mach number','M','',z=>z.M],['Static pressure','p','kPa',z=>z.p/1000],['Static temperature','T','K',z=>z.T],['Density','ρ','kg/m³',z=>z.rho],['Flow speed','u','m/s',z=>z.u],['Flow angle','θ','°',z=>z.theta*180/Math.PI],['Stagnation pressure','p₀','kPa',z=>z.p0/1000],['Stagnation temperature','T₀','K',z=>z.T0]];
  if(d.result.interaction||d.result.tracking)properties.push(['Entropy rise from inlet','Δs','J/(kg·K)',z=>-(d.result.R??d.inputs.R??287)*Math.log(z.p0/d.result.s1.p0)]);
- $('regionTable').innerHTML=`<div class="region-table-scroll" tabindex="0" role="region" aria-label="Flow properties for all regions; scroll horizontally on smaller screens"><table class="region-table"><caption>${d.inspectTrackingEvent?'Selected event states':d.result.finalStreamMatch?'Final-stream matching reference':d.result.tracking?(d.result.status==='partial'?'Last accepted states · incomplete field':'Final accepted states'):d.result.moc?'Inlet and outlet samples':'Analytical states · '+regions.length+' regions'}</caption><thead><tr><th scope="col">Property</th>${regions.map(([n])=>`<th scope="col">${d.result.moc||d.result.tracking?n:'Region '+(d.result.regionLabels?.[n]??n)}</th>`).join('')}</tr></thead><tbody>${properties.map(([name,symbol,unit,get])=>`<tr><th scope="row">${name} <span>${symbol}${unit?` · ${unit}`:''}</span></th>${regions.map(([,z])=>`<td>${fmt(get(z),6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+ $('regionTable').innerHTML=`<div class="region-table-scroll" tabindex="0" role="region" aria-label="Flow properties for all regions; scroll horizontally on smaller screens"><table class="region-table"><caption>${d.inspectTrackingEvent?'Selected event states':d.result.finalStreamMatch?'Final-stream matching reference':d.result.tracking?(d.result.status==='partial'?'Last accepted states · incomplete field':'Final accepted states'):d.result.moc&&!d.result.moc.slip?'Inlet and outlet samples':'Analytical states · '+regions.length+' regions'}</caption><thead><tr><th scope="col">Property</th>${regions.map(([n])=>`<th scope="col">${d.result.moc&&!d.result.moc.slip||d.result.tracking?n:'Region '+(d.result.regionLabels?.[n]??n)}</th>`).join('')}</tr></thead><tbody>${properties.map(([name,symbol,unit,get])=>`<tr><th scope="row">${name} <span>${symbol}${unit?` · ${unit}`:''}</span></th>${regions.map(([,z])=>`<td>${fmt(get(z),6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 function renderFlowRelations(d){
  const box=$('flowRelationsPanel'),t=d.result.fannoRelations??(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure?null:d.result.referenceTable);box.hidden=!t;

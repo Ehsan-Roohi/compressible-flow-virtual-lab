@@ -81,3 +81,18 @@ test('Chapter 6 diagrams omit supplementary annotation boxes and leaders',()=>{
  assert.match(schlieren,/data-schlieren-outline="true"/);
  assert.doesNotMatch(schlieren,/data-wave-readout/);
 });
+
+test('Chapter 6 solved interaction regions use the same numbers in each figure as in the table',()=>{
+ const numbers=svg=>[...svg.matchAll(/data-flow-region-number="([^"]+)"/g)].map(m=>m[1]).sort();
+ for(const [example,channelSolver]of [[4,'Shock–Expansion'],[4,'Method of characteristics'],[5,'Shock–Expansion']]){
+  const d=run(example,{channelSolver});
+  const expected=Object.keys(d.result.regions).map(name=>name.replace(/^Region /,'')).sort();
+  assert.deepEqual(numbers(sceneSVG(d.scene,d.inputs).svg),expected);
+ }
+ const compare=run(4,{channelSolver:'Compare both'}),svg=sceneSVG(compare.scene,compare.inputs).svg;
+ assert.deepEqual(numbers(svg),['1','1','2','2','3','3','4','4','4′','4′']);
+ for(const example of [14,15]){
+  const d=run(example);
+  assert.match(sceneSVG(d.scene,d.inputs).svg,/data-airfoil-region="1"/);
+ }
+});

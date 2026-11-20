@@ -1,3 +1,4 @@
+import {regionLabelPosition,regionNumber} from './region-labels.js?v=20261120-region-numbers';
 import {channelOrdinate} from './wave-channel.js';
 import {trackingProfile} from './wave-tracker.js';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js?v=20261113-rainbow-physical';
@@ -22,9 +23,22 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',
  const densityCells=[];
  if(key==='density')densityCells.push({points:[[X(start),Y(0)],[X(0),Y(0)],[X(0),Y(g.height)],[X(start),Y(g.height)]],rho:s.s1.rho});
  inner+=poly([[X(start),Y(0)],[X(0),Y(0)],[X(0),Y(g.height)],[X(start),Y(g.height)]],color(value(s.s1)));
+ const event=t.events.find(e=>e.index===s.selectedTrackingEvent);
+ const referenceRegions=event?s.regions:t.events.find(e=>e.bookRegions)?.bookRegions??s.regions;
+ const labels=new Map(Object.entries(referenceRegions??{}).flatMap(([name,state])=>{
+  const id=/^(?:Region )?([0-9]+[′]?)$/.exec(name)?.[1];
+  return id&&state?.stateId!=null?[[state.stateId,{id,state,cells:[]}]]:[];
+ }));
+ const upstream=labels.get(s.s1.stateId);
+ if(upstream)upstream.cells.push([[X(start),Y(0)],[X(0),Y(0)],[X(0),Y(g.height)],[X(start),Y(g.height)]]);
  const paths=new Map();for(const slab of t.slabs)for(let i=0;i<slab.states.length;i++){
   const bucket=Math.round((max-min<1e-10?.5:(value(slab.states[i])-min)/(max-min))*255),d=`M${point(slab.left,slab.bottoms[i])}L${point(slab.right,slab.tops[i])}L${point(slab.right,slab.tops[i+1])}L${point(slab.left,slab.bottoms[i+1])}Z`;
-  if(key==='density')densityCells.push({points:[[X(slab.left),Y(slab.bottoms[i])],[X(slab.right),Y(slab.tops[i])],[X(slab.right),Y(slab.tops[i+1])],[X(slab.left),Y(slab.bottoms[i+1])]],rho:slab.states[i].rho});
+  const region=labels.get(slab.states[i].stateId);
+  if(key==='density'||region){
+   const polygon=[[X(slab.left),Y(slab.bottoms[i])],[X(slab.right),Y(slab.tops[i])],[X(slab.right),Y(slab.tops[i+1])],[X(slab.left),Y(slab.bottoms[i+1])]];
+   if(key==='density')densityCells.push({points:polygon,rho:slab.states[i].rho});
+   if(region)region.cells.push(polygon);
+  }
   paths.set(bucket,(paths.get(bucket)??'')+d);
  }
  for(const [bucket,d]of paths)inner+=`<path d="${d}" fill="${cornerContourColor(bucket/255)}" shape-rendering="crispEdges"/>`;
@@ -48,6 +62,12 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',
   const y=p.ys[0]+eta*(p.ys.at(-1)-p.ys[0]),z=p.states[Math.max(0,p.ys.findIndex((v,i)=>i>0&&y<=v)-1)],a=z.theta,dx=Math.cos(a),dy=-Math.sin(a),cx=X(p.x),cy=Y(y),c='#172f45';
   inner+=`<g data-flow-angle="${a*180/Math.PI}">`+line(cx-9*dx,cy-9*dy,cx+9*dx,cy+9*dy,c,1)+poly([[cx+9*dx,cy+9*dy],[cx+4*dx-2*dy,cy+4*dy+2*dx],[cx+4*dx+2*dy,cy+4*dy-2*dx]],c)+'</g>';
  }}
+ for(const {id,state,cells}of labels.values()){
+  // Limit the placement search in finely subdivided fields.
+  const area=([a,b,c,d])=>Math.abs((b[0]-a[0])*(Math.abs(a[1]-d[1])+Math.abs(b[1]-c[1])));
+  const position=regionLabelPosition(cells.sort((a,b)=>area(b)-area(a)).slice(0,12));
+  if(position)inner+=regionNumber(position.point,id,color(value(state)));
+ }
  if(t.endX<end-1e-8)inner+=`<rect x="${X(t.endX)}" y="40" width="${Math.max(0,X(end)-X(t.endX))}" height="${height-90}" fill="#fff" opacity=".88"/>`;
  inner+='</g>';
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(...V(wall[i]),...V(wall[i+1]),'#111',1.6);

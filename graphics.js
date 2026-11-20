@@ -3,19 +3,19 @@ import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261118-fan-
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
-import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261118-wave-density';
-import {shockFanDrawing} from './shock-fan-example.js?v=20261120-chapter6-clean';
+import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261120-region-numbers';
+import {shockFanDrawing} from './shock-fan-example.js?v=20261120-region-numbers';
 import {wedgeWallDrawing} from './wedge-wall.js?v=20261114-region-markers';
-import {ramjetInletDrawing} from './ramjet-inlet-graphics.js?v=20261120-chapter6-clean';
+import {ramjetInletDrawing} from './ramjet-inlet-graphics.js?v=20261120-region-numbers';
 import {fannoSystemDrawing} from './fanno-system-graphics.js?v=20261119-fanno-station-alignment';
 import {ductContourDrawing} from './duct-contours.js?v=20261119-fanno-station-alignment';
 import {uniformDiagramText,backPressureHTML} from './diagram-typography.js?v=20261119-latin-back-pressure';
 import {ductSystemSVG,rayleighBoundarySVG} from './duct-system-graphics.js?v=20261114-region-markers';
 import {coneAnnotations} from './cone-annotations.js?v=20261119-cone-clean-diagram';
 import {wedgeDrawing} from './wedge-graphics.js?v=20261114-region-markers';
-import {trackingDrawing,trackingCoordinates} from './wave-tracker-graphics.js?v=20261120-chapter6-clean';
-import {wallDrawing} from './wave-wall-graphics.js?v=20261120-chapter6-clean';
-import {airfoilDrawing} from './airfoil-graphics.js?v=20261120-chapter6-clean';
+import {trackingDrawing,trackingCoordinates} from './wave-tracker-graphics.js?v=20261120-region-numbers';
+import {wallDrawing} from './wave-wall-graphics.js?v=20261120-region-numbers';
+import {airfoilDrawing} from './airfoil-graphics.js?v=20261120-region-numbers';
 import {coneGeometry} from './cone-probe.js?v=20261110-cone-conditions';
 import {diagramFontFamily,diagramFontStyle} from './diagram-font.js?v=20261109-wedge-cone';
 import {cornerDrawing,cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261120-chapter6-clean';
@@ -243,7 +243,7 @@ if(s.comparison){
   if(s.sample!=null)inner+=tubeSampleMark(X(s.sample),92,213);
   label='Analytical similarity field · pressure shading';meta='Expansion fan + uniform regions';}
  else if(s.kind==='wall'){const view=(s.tracking?trackingDrawing:wallDrawing)(s,{txt,line,poly,fmt,quantity,range:inputs.comparisonRange,showOutgoingWaves:/^6[-–](?:[1-9]|1[0-5]|P1[ab])$/.test(inputs.bookExample??''),showCharacteristics:inputs.mocLines!=='Hidden'});inner+=view.inner;label=view.label;meta=view.meta;field=view.field;densityCells=view.densityCells;}
- else if(s.kind==='airfoil'){const view=airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity});inner+=view.inner;label=view.label;meta=view.meta;field=view.field;}
+ else if(s.kind==='airfoil'){const view=airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity,showInletRegion:/^6[-–]/.test(inputs.bookExample??'')});inner+=view.inner;label=view.label;meta=view.meta;field=view.field;}
  else if(s.kind==='linear'){let t=inputs.thickness*440/2,x=90,y=150;inner+=poly([[x,y],[x+220,y-t],[x+440,y],[x+220,y+t]],'#b4c7ad','#66806a',2);for(const [a,b,v] of [[[x,y],[x+220,y-t],s.CpUF],[[x+220,y-t],[x+440,y],s.CpUR],[[x,y],[x+220,y+t],s.CpLF],[[x+220,y+t],[x+440,y],s.CpLR]])inner+=line(...a,...b,shade(v),9);inner+=incidenceGlyph(rad(inputs.alpha??0),20,150,60)+txt(320,65,`UPPER  Cₚ,f ${fmt(s.CpUF)}   Cₚ,r ${fmt(s.CpUR)}`,undefined,11,'middle')+txt(320,234,`LOWER  Cₚ,f ${fmt(s.CpLF)}   Cₚ,r ${fmt(s.CpLR)}`,undefined,11,'middle')+txt(320,267,`α = ${inputs.alpha}° · t/c = ${inputs.thickness}`,undefined,10,'middle');label='Linearized surface Cp · specified angle of attack';meta='Body-fixed chord · incident arrows at α · linearized theory';}
  else if(s.kind==='collision'){
   const z=s.geometry,points=z.domain,x0=z.startX,x1=z.endX,y0=Math.min(...points.map(p=>p[1])),y1=Math.max(...points.map(p=>p[1])),scale=Math.min(500/(x1-x0),190/(y1-y0));

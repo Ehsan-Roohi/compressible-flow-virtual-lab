@@ -1,5 +1,5 @@
 import {cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261113-rainbow-physical';
-import {regionLabelPosition,pointInPolygon} from './region-labels.js';
+import {regionLabelPosition,pointInPolygon,regionNumber} from './region-labels.js?v=20261120-region-numbers';
 const quantities={pressure:['Static pressure','kPa',z=>z.p/1000],mach:['Mach number','M',z=>z.M],temperature:['Static temperature','K',z=>z.T],density:['Density','kg/m³',z=>z.rho],speed:['Flow speed','m/s',z=>z.u]};
 export function inletViewGeometry(r){const g=r.geometry,scale=Math.min(550/(g.end-g.start),215/g.H),ox=45-g.start*scale,oy=280;return {scale,ox,oy,V:([x,y])=>[ox+x*scale,oy-(r.mirror?g.H-y:y)*scale]};}
 export function probeInlet(r,x,y){const {scale,ox,oy}=inletViewGeometry(r),physical=[(x-ox)/scale,(oy-y)/scale],p=[physical[0],r.mirror?r.geometry.H-physical[1]:physical[1]],cell=r.geometry.cells.find(c=>pointInPolygon(p,c.poly));return cell?{...cell.state,x:physical[0],y:physical[1],region:cell.region}:null;}
@@ -10,7 +10,8 @@ export function ramjetInletDrawing(r,inputs,quantity='pressure'){
  const solid='#a8adb3',rampSolid='#d5b488',pad=28/scale;
  inner+=`<g data-inlet-solid="ramp">`+poly([[0,g.H],[g.end,g.H],[g.end,g.H-g.mt*g.end]],rampSolid)+line([0,g.H],[g.end,g.H],1.3,'#4c5964')+line([g.end,g.H],[g.end,g.H-g.mt*g.end],1.3,'#4c5964')+'</g>';
  inner+=`<g data-inlet-solid="reflecting-wall">`+poly([[g.start,0],[g.end,0],[g.end,-pad],[g.start,-pad]],solid)+'</g>';
- for(const c of g.cells)inner+=poly(c.poly,inputs.cornerView==='Textbook schematic'?'#f5f9fa':cornerContourColor((read(c.state)-min)/(max-min||1)));
+ const fill=z=>inputs.cornerView==='Textbook schematic'?'#f5f9fa':cornerContourColor((read(z)-min)/(max-min||1));
+ for(const c of g.cells)inner+=poly(c.poly,fill(c.state));
  inner+='<g clip-path="url(#inletGas)">';
  for(const f of [.15,.35,.55,.75,.92]){const y=g.H*f,xi=(g.H-y)/g.mi,xr=(y+g.mt*xi+g.mr*g.hit)/(g.mt+g.mr),yr=g.mr*(xr-g.hit),pts=xr<g.end?[[g.start,y],[xi,y],[xr,yr],[g.end,yr]]:[[g.start,y],[xi,y],[g.end,y-g.mt*(g.end-xi)]];inner+=`<polyline data-inlet-streamline="true" points="${pts.map(V).map(p=>p.join(',')).join(' ')}" fill="none" stroke="#315965" stroke-width="1.1" marker-mid="url(#inletArrow)" marker-end="url(#inletArrow)"/>`;}
  inner+='</g>'+line([g.start,g.H],[0,g.H],3,'#4c5964')+line([0,g.H],[g.end,g.H-g.mt*g.end],3,'#4c5964')+line([g.start,0],[g.end,0],3,'#4c5964');
@@ -18,7 +19,7 @@ export function ramjetInletDrawing(r,inputs,quantity='pressure'){
  const arc=(origin,a,b,name,radius)=>{const p=Array.from({length:25},(_,i)=>{const t=a+(b-a)*i/24;return V([origin[0]+radius/scale*Math.cos(t),origin[1]+radius/scale*Math.sin(t)]);});const mid=(a+b)/2,C=V(origin);return `<polyline points="${p.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#17212b" stroke-width="1"/>`+text([C[0]+(radius+12)*Math.cos(mid),C[1]-(r.mirror?-1:1)*(radius+12)*Math.sin(mid)],name);};
  inner+=line([0,g.H],[.65*g.H,g.H],1,'#617585','4 3')+arc([0,g.H],-r.a.beta,0,'β₁',42);
  inner+=line([g.hit,0],[g.hit+.5*g.H,-g.mt*.5*g.H],1,'#617585','4 3')+arc([g.hit,0],-r.theta,r.b.beta-r.theta,'β₂',36);
- for(const c of g.cells){const p=regionLabelPosition([c.poly.map(V)])?.point;if(p)inner+=`<circle cx="${p[0]}" cy="${p[1]}" r="14" fill="none" stroke="none"/>`+text([p[0],p[1]+5],c.region,15)+(c.region===1||c.region===3?`<g>`+text([p[0],p[1]<140?p[1]+40:p[1]-30],c.region===1?`M₁ = ${inputs.M1}`:'θ₃ = 0°',12)+'</g>':'');}
+ for(const c of g.cells){const p=regionLabelPosition([c.poly.map(V)])?.point;if(p)inner+=regionNumber(p,c.region,fill(c.state))+(c.region===1||c.region===3?`<g>`+text([p[0],p[1]<140?p[1]+40:p[1]-30],c.region===1?`M₁ = ${inputs.M1}`:'θ₃ = 0°',12)+'</g>':'');}
  inner+=text(V([g.end*.75,g.H-g.mt*g.end*.28]),`θw = ${inputs.theta}°`,12)+text((()=>{const p=V([(g.start+g.end)/2,-pad*.5]);return [p[0],p[1]+4];})(),'Wall',17);
 
  return {densityCells:key==='density'&&inputs.cornerView!=='Textbook schematic'?g.cells.map(c=>({points:c.poly.map(V),rho:c.state.rho})):[],svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 38 640 285" role="img" aria-label="Ramjet inlet with incident and reflected shocks and regions 1, 2, 3">${inner}</svg>`,label:'Weak regular reflection · three analytical regions',meta:'Two successive oblique-shock solutions',field:{quantity:key,label,min,max,units,options:Object.keys(quantities),palette:cornerPalette,note:'Analytical uniform regions · normal-to-shock jump relations'}};

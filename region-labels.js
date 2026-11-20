@@ -1,3 +1,9 @@
+import {readableInk} from './scene-labels.js';
+
+export function regionNumber([x,y],label,background){
+ return `<g data-flow-region-number="${label}"><text x="${x}" y="${y+5}" text-anchor="middle" font-size="16" style="fill:${readableInk(background)}">${label}</text></g>`;
+}
+
 // Place labels inside the union of a region's painted cells, ignoring internal cuts.
 export function pointInPolygon([x,y],poly){let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [a,b]=poly[i],[c,d]=poly[j];if((b>y)!==(d>y)&&x<(c-a)*(y-b)/(d-b)+a)yes=!yes;}return yes;}
 // A finite search replaces the former +/-32 oscillation between occupied slots.

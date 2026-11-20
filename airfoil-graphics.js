@@ -11,7 +11,7 @@ function surfaceColor(t){
 }
 
 // Local analytical shock/expansion states; unresolved wave interactions remain unfilled.
-export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pressure'}){
+export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pressure',showInletRegion=false}){
  const available=s.models.includes('nonlinear')&&s.nonlinear.status==='ok';
  const model=available?'nonlinear':s.models.includes('linear')?'linear':null,z=model?s[model]:null;
  const trailing=available&&s.trailingEdge?.status==='ok'?s.trailingEdge:null;
@@ -101,7 +101,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
   }
   if(mx+nx*19<flowRight-5)inner+=`<g data-airfoil-region="${airfoilRegionLabel(s,p.id)}">${txt(mx+nx*19,my+ny*19+4,airfoilRegionLabel(s,p.id),'#253945',17,'middle')}</g>`;
  }
- if(s.geometry.diamond||isFlatPlate(s))inner+=`<g data-airfoil-region="1">${txt(60,85,'1','#253945',17,'middle')}</g>`;
+ if(s.geometry.diamond||isFlatPlate(s)||showInletRegion)inner+=`<g data-airfoil-region="1">${txt(60,85,'1','#253945',17,'middle')}</g>`;
  if(trailing&&flowRight>trailingX+45){
   const origin=V(s.geometry.upper.at(-1)),end=ray(origin,trailing.phi,173);
   inner+=`<g data-trailing-interface="${trailing.interfaceKind}">`+line(...origin,...end,'#344652',1,'5 4')+`<circle cx="${origin[0]}" cy="${origin[1]}" r="2.3" fill="#17212b"/>`+'</g>';
