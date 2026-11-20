@@ -586,10 +586,19 @@ function renderTrackingPanel(d){
  }
  const panel=$('trackingEventPanel'),chartCard=$('chart').closest('.chart-card');panel.hidden=!d.result.tracking;
  if(panel.hidden){panel.innerHTML='';$('trackingViewControls')?.remove();chartCard.hidden=false;return;}
- const final=d.result.finalStreamMatch;if(!final)d.inspectTrackingEvent=true;
- let views=$('trackingViewControls');if(!views){views=document.createElement('div');views.id='trackingViewControls';views.className='tracking-view-controls';$('scene').before(views);}
- views.innerHTML=`<label for="trackingSolutionView">Solution view</label><select id="trackingSolutionView">${final?`<option value="matching" ${!d.inspectTrackingEvent?'selected':''}>Final-stream matching · schematic</option>`:''}<option value="events" ${d.inspectTrackingEvent?'selected':''}>Event-driven solution · computed field</option></select><p>${d.inspectTrackingEvent?'Follows successive wave interactions in the actual channel. Expansion fans are discretized; the displayed field may stop before the channel exit.':'Matches pressure and direction of the fully turned uniform streams. This is a separate reference calculation, not a continuation of the event-driven field; its geometry is schematic.'}</p>`;
- $('trackingSolutionView').onchange=()=>{d.inspectTrackingEvent=$('trackingSolutionView').value==='events';renderResult();};
+ const final=d.result.finalStreamMatch;
+ let views=$('trackingViewControls');
+ if(!final){
+  d.inspectTrackingEvent=true;
+  views?.remove();
+ }else{
+  if(!views){
+   views=document.createElement('div');views.id='trackingViewControls';views.className='tracking-view-controls';
+   $('scene').before(views);
+  }
+  views.innerHTML=`<label for="trackingSolutionView">Solution view</label><select id="trackingSolutionView"><option value="matching" ${!d.inspectTrackingEvent?'selected':''}>Final-stream matching · schematic</option><option value="events" ${d.inspectTrackingEvent?'selected':''}>Event-driven solution · computed field</option></select><p>${d.inspectTrackingEvent?'Follows successive wave interactions in the actual channel. Expansion fans are discretized; the displayed field may stop before the channel exit.':'Matches pressure and direction of the fully turned uniform streams. This is a separate reference calculation, not a continuation of the event-driven field; its geometry is schematic.'}</p>`;
+  $('trackingSolutionView').onchange=()=>{d.inspectTrackingEvent=$('trackingSolutionView').value==='events';renderResult();};
+ }
  chartCard.hidden=!!final&&!!d.inspectTrackingEvent;
  if(!d.inspectTrackingEvent){panel.innerHTML=`<div class="final-result-summary"><strong>Final-stream matching · schematic</strong><span>φ = ${fmt(final.slipAngle,6)}° to horizontal · p₄ = p₅ = ${fmt(final.regions[4].p/1000,6)} kPa</span><p>The table and pressure–deflection diagram below belong to this matching reference. Internal shock–fan interactions are not resolved.</p></div>`;return;}
  const events=d.result.tracking.events,drawable=drawableTrackingEvents(d.result);
