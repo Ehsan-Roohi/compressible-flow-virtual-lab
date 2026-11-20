@@ -24,7 +24,7 @@ import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
-import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-wall-methods';
+import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-wave-geometry';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
@@ -127,7 +127,8 @@ function chapter6WallDefaults(selection){
   if(['reflection','shock-fan','fans'].includes(selection.bookExample))return {...trackingPreset(selection.bookExample),bookExample:selection.bookExample};
   const selected=getChapter6BookExample(selection.bookExample);
   if(selected?.inputs.wallShape===selection.wallShape&&selected.inputs.boundaryMode===selection.boundaryMode)return selected.inputs;
-  if(selection.boundaryMode==='Single wall')return {wallShape:'Custom wall',wallSegments:wallPresets['Custom wall']};
+  if(selection.boundaryMode==='Channel')return {wallShape:'Custom wall',boundaryMode:'Channel'};
+  return {wallShape:'Custom wall',wallSegments:wallPresets['Custom wall']};
  }
  return chapter6ResetExample('wall',selection)?.inputs;
 }
@@ -140,7 +141,8 @@ function openLab(){
  stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;
  const [section,query]=location.hash.slice(1).split('?',2);
  const next=section||'rayleigh';
- const example=canonicalExample(new URLSearchParams(query).get('example'));
+ const params=new URLSearchParams(query),example=canonicalExample(params.get('example'));
+ const wallSolver=id==='wall'&&next==='wall'?inputs.channelSolver:undefined;
  const chapter6Target=getChapter6BookExample(example)?.lab;
  if(['wall','airfoil','collision'].includes(next)&&chapter6Target&&chapter6Target!==next){location.hash=chapter6ExampleHash(example);return;}
  if(['oblique','expansion'].includes(next)){pendingLegacyCorner=next;location.hash='wall';return;}
@@ -177,10 +179,14 @@ function openLab(){
   }
   pendingLegacyCorner=null;
  }
- if(pendingCustomChannel&&id==='wall'){inputs=defaults('wall',{wallShape:'Custom wall'});pendingCustomChannel=false;}
+ if(id==='wall'&&(pendingCustomChannel||(params.get('geometry')==='custom-wall'&&activeChapter6WallGeometry(inputs)!=='Custom wall'))){
+  const boundaryMode=pendingCustomChannel?'Channel':'Single wall';
+  inputs=defaults('wall',{wallShape:'Custom wall',boundaryMode,channelSolver:wallSolver??inputs.channelSolver});
+  pendingCustomChannel=false;
+ }
  inputs.fluid=gasInfo(inputs).name;
  if(id==='collision')inputs.geometryMode='Custom geometry';
- if(id==='wall')inputs.channelSolver=channelSolverName(inputs.channelSolver);
+ if(id==='wall')inputs.channelSolver=channelSolverName(wallSolver??inputs.channelSolver);
  const l=labs[id],chapter=chapters.find(x=>x[0]===l.chapter);
  $('labTitle').textContent=l.chapter===6?'Supersonic Wave Lab':l.title;
  $('description').textContent=l.description;$('model').textContent=l.model;$('limitations').textContent=l.limitations;
@@ -203,22 +209,19 @@ function openLab(){
  if(match){select.value=match.value;select.onchange({target:select});return;}
  solve();
 }
-const waveShapes=['Compression ramp','Expansion corner','Custom wall',shockFanMode,ramjetMode];
 function waveGeometrySelector(){
  if(labs[id].chapter!==6)return '';
- const value=id==='wall'?inputs.wallShape:'';
- const interaction=id==='collision'?inputs.interactionType:inputs.customInteraction===multiRampMode?multiRampMode:
-  ({'6–4':'Opposing shocks','6–5':'Same-direction shocks'}[inputs.bookExample]??'');
- const interactionControl=id==='collision'||value==='Custom wall'?`<div class="input-group"><div class="input-top"><label for="waveInteractionSelect">Wave Interaction</label></div><select id="waveInteractionSelect"><option value="" disabled ${!interaction?'selected':''}>Select interaction…</option>${['Opposing shocks','Same-direction shocks',multiRampMode].map(v=>`<option ${v===interaction?'selected':''}>${v}</option>`).join('')}</select></div>`:'';
- return `<div class="input-group"><div class="input-top"><label for="waveGeometrySelect">Geometry</label></div><select id="waveGeometrySelect"><option value="" disabled ${!value?'selected':''}>Select geometry…</option>${waveShapes.map(v=>`<option ${v===value?'selected':''}>${v}</option>`).join('')}</select></div>`+interactionControl;
+ const value=id==='wall'?activeChapter6WallGeometry(inputs):inputs.interactionType;
+ return `<div class="input-group"><div class="input-top"><label for="waveGeometrySelect">Geometry</label></div><select id="waveGeometrySelect"><option value="" disabled ${!value?'selected':''}>Select geometry…</option>${chapter6WallGeometries.map(g=>`<option ${g.name===value?'selected':''}>${g.name}</option>`).join('')}</select></div>`;
 }
 function bindWaveGeometrySelector(){
  const select=$('waveGeometrySelect');if(!select)return;
- select.onchange=()=>{const example=chapter6GeometryExample(select.value);if(example)openChapter6Example(example.value);};
- const interaction=$('waveInteractionSelect');
- if(interaction)interaction.onchange=()=>{
-  const example=interaction.value===multiRampMode?'6–P1b':interaction.value==='Same-direction shocks'?'6–5':'6–4';
-  openChapter6Example(example);
+ select.onchange=()=>{
+  const geometry=chapter6WallGeometries.find(g=>g.name===select.value);
+  if(!geometry)return;
+  if(geometry.example){openChapter6Example(geometry.example);return;}
+  const hash='#wall?geometry=custom-wall';
+  if(location.hash===hash)openLab();else location.hash=hash;
  };
 }
 function wallSegmentEditor(f){
@@ -227,7 +230,7 @@ function wallSegmentEditor(f){
 }
 function bindWallSegments(f){
  const key=f.key,box=$('editor-'+key);
- for(const n of box.querySelectorAll('input')){const wasPreset=inputs.wallShape!=='Custom wall';n.oninput=()=>{const methodChoice=hasWallMethodChoice(inputs);inputs.wallShape='Custom wall';if($('waveGeometrySelect'))$('waveGeometrySelect').value='Custom wall';inputs[key]=inputs[key].map((p,i)=>i===Number(n.dataset.index)?{...p,[n.dataset.property]:n.value.trim()===''?NaN:Number(n.value)}:p);request++;schedule();if(wasPreset||methodChoice!==hasWallMethodChoice(inputs)){renderInputs();$('editor-'+key).querySelector(`[data-index="${n.dataset.index}"][data-property="${n.dataset.property}"]`)?.focus();}};}
+ for(const n of box.querySelectorAll('input')){const wasPreset=inputs.wallShape!=='Custom wall';n.oninput=()=>{const methodChoice=hasWallMethodChoice(inputs);inputs.wallShape='Custom wall';inputs[key]=inputs[key].map((p,i)=>i===Number(n.dataset.index)?{...p,[n.dataset.property]:n.value.trim()===''?NaN:Number(n.value)}:p);request++;schedule();if(wasPreset||methodChoice!==hasWallMethodChoice(inputs)){renderInputs();$('editor-'+key).querySelector(`[data-index="${n.dataset.index}"][data-property="${n.dataset.property}"]`)?.focus();}};}
  for(const b of box.querySelectorAll('[data-remove]'))b.onclick=()=>{inputs[key]=inputs[key].filter((_,i)=>i!==Number(b.dataset.remove));renderInputs();request++;schedule();};
  box.querySelector('.segment-add').onclick=()=>{if(inputs[key].length>=8)return;inputs[key]=[...inputs[key],{angle:inputs[key].at(-1).angle,length:1}];inputs.wallShape='Custom wall';renderInputs();request++;schedule();};
 }
@@ -301,7 +304,7 @@ function arrangeWallInputs(){
  const editorsOpen=sameChapter&&panel.querySelector('#wallEditors')?.open;
  const settingsOpen=sameChapter&&panel.querySelector('#wallSolverSettings')?.open;
  panel.innerHTML=`<div class="card-head"><h2>Geometry & solution</h2></div><div id="wallSetupControls" class="wall-setup-grid"></div><div class="wall-setup-details"><details id="wallEditors" ${editorsOpen?'open':''}><summary>${id==='airfoil'?'Edit surface geometry':'Edit wall segments'}</summary><div id="wallEditorControls" class="wall-editor-grid"></div></details><details id="wallSolverSettings" ${settingsOpen?'open':''}><summary>Solver settings</summary><div id="wallSolverControls" class="wall-setup-grid"></div></details></div>`;
- for(const key of ['bodyGeometry','nearbyWall','wallDistance','thetaCone','wedgeAlpha','waveGeometrySelect','waveInteractionSelect','theta','branch','cornerView','boundaryMode','channelSolver','channelHeight','ramjetOrientation','inletFlowSide','inletLowerDefinition','inletLowerHeightRatio','inletLowerWallLengthRatio','inletLowerStartRatio','inletLowerCowlRatio','inletReference','inletHeightRatio','inletCowlRatio','inletUpperWallRatio','inletUpperStartRatio','inletTerminal','wallSide','thetaUpper','thetaLower','fanShockAngle','fanExpansionAngle','cornerSpacing','airfoilShape','geometryInput','airfoilMethod','alpha','thickness','peak','camber','diamondFrontAngle','diamondRearAngle','diamondFrontLength','diamondRearLength','bendHeight','bendPosition','plateDefinition','plateLengthMode']){
+ for(const key of ['bodyGeometry','nearbyWall','wallDistance','thetaCone','wedgeAlpha','waveGeometrySelect','theta','branch','cornerView','boundaryMode','channelSolver','channelHeight','ramjetOrientation','inletFlowSide','inletLowerDefinition','inletLowerHeightRatio','inletLowerWallLengthRatio','inletLowerStartRatio','inletLowerCowlRatio','inletReference','inletHeightRatio','inletCowlRatio','inletUpperWallRatio','inletUpperStartRatio','inletTerminal','wallSide','thetaUpper','thetaLower','fanShockAngle','fanExpansionAngle','cornerSpacing','airfoilShape','geometryInput','airfoilMethod','alpha','thickness','peak','camber','diamondFrontAngle','diamondRearAngle','diamondFrontLength','diamondRearLength','bendHeight','bendPosition','plateDefinition','plateLengthMode']){
   const control=$(key.startsWith('wave')?key:'value-'+key);if(control)$('wallSetupControls').append(control.closest('.input-group'));
  }
  if(id==='wall'&&inputs.customInteraction===multiRampMode){

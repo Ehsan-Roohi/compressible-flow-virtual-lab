@@ -4,7 +4,7 @@ import {calculate,defaults,inputDefinitions} from './labs.js';
 import {sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 import {opposingShockSlipAngle} from './pressure-turning.js';
-import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js';
+import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6GeometryExample,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js';
 
 const run=(number,patch={})=>{
  const {lab,inputs}=getChapter6BookExample(`6-${number}`);
@@ -64,8 +64,18 @@ test('All listed textbook examples load a physical scene in the appropriate lab'
 
 test('Geometry defaults select the corresponding textbook example and Reset keeps an active case',()=>{
  assert.equal(chapter6GeometryExample('Compression ramp').number,2);
- assert.equal(chapter6GeometryExample('Custom wall').number,4);
+ assert.equal(chapter6GeometryExample('Custom wall'),undefined);
  assert.equal(chapter6GeometryExample('Expansion corner').number,6);
+ for(const [name,number] of [['Opposing shocks',4],['Same-direction shocks',5]]){
+  const example=chapter6GeometryExample(name);
+  assert.equal(example.number,number);
+  assert.equal(activeChapter6WallGeometry(example.inputs),name);
+  assert.equal(activeChapter6WallGeometry({...example.inputs,bookExample:`6-${number}`}),name);
+  assert.equal(activeChapter6WallGeometry({...example.inputs,bookExample:''}),'Custom wall');
+ }
+ const inlet=chapter6WallGeometries.find(g=>g.example==='6–P1b');
+ assert.equal(activeChapter6WallGeometry({wallShape:'Custom wall',customInteraction:inlet.name}),inlet.name);
+ assert.equal(chapter6ResetExample('wall',{wallShape:'Custom wall'}),undefined);
  for(const [shape,number] of [['Diamond',10],['Flat plate',12],['Asymmetric double wedge',14],['Connected flat plates',15]])
   assert.equal(chapter6ResetExample('airfoil',{airfoilShape:shape}).number,number);
  for(const number of [3,5,8,9,11,13]){

@@ -2,6 +2,7 @@ import {deg,rad} from './physics.js';
 import {chapter6Example} from './regular-channel.js?v=20261109-wedge-cone';
 import {ramjetMode,ramjetPreset} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {shockFanMode,shockFanPreset} from './shock-fan-example.js?v=20261118-wave-density';
+import {multiRampMode} from './multi-ramp-inlet.js?v=20261120-region-numbers';
 
 const air={fluid:'Air',gamma:1.4,R:287,p1:101.325,T1:300,inletPressureType:'Static pressure',temperatureInput:'Static temperature'};
 const compression={wallShape:'Compression ramp',boundaryMode:'Single wall',wallSide:'Gas above wall',branch:'weak'};
@@ -38,10 +39,28 @@ export function getChapter6BookExample(value){
  return chapter6BookExamples.find(e=>e.number===(number===8?7:number));
 }
 
+export const chapter6WallGeometries=[
+ {name:'Compression ramp',example:'6–2'},
+ {name:'Expansion corner',example:'6–6'},
+ {name:'Opposing shocks',example:'6–4'},
+ {name:'Same-direction shocks',example:'6–5'},
+ {name:shockFanMode,example:'6–7'},
+ {name:ramjetMode,example:'6–9'},
+ {name:multiRampMode,example:'6–P1b'},
+ {name:'Custom wall'}
+];
+
 export function chapter6GeometryExample(shape){
- const cases={'Compression ramp':'6–2','Custom wall':'6–4','Expansion corner':'6–6',
-  [shockFanMode]:'6–7',[ramjetMode]:'6–9'};
- return getChapter6BookExample(cases[shape]);
+ return getChapter6BookExample(chapter6WallGeometries.find(g=>g.name===shape)?.example);
+}
+
+export function activeChapter6WallGeometry(inputs){
+ if(inputs.customInteraction===multiRampMode)return multiRampMode;
+ const example=getChapter6BookExample(inputs.bookExample);
+ if(inputs.wallShape==='Custom wall'&&example?.inputs.wallShape==='Custom wall'&&
+    inputs.boundaryMode===example.inputs.boundaryMode)
+  return chapter6WallGeometries.find(g=>g.example===example.value)?.name??inputs.wallShape;
+ return inputs.wallShape;
 }
 
 export function chapter6ResetExample(lab,inputs){
