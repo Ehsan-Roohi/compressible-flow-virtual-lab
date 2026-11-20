@@ -39,7 +39,8 @@ test('Integration exposes only relevant controls, regional results and pressureâ
  const x={...defaults('wall'),...ramjetPreset},d=calculate('wall',x),fields=inputDefinitions('wall',x);
  assert.equal(x.wallShape,ramjetMode);assert.ok(d.result.ramjet);assert.equal(d.shockDetails.length,2);
  assert.deepEqual(Object.keys(d.result.regions),['1','2','3']);
- assert.ok(!fields.some(f=>['wallSide','wallSegments','channelSolver','branch'].includes(f.key)));
+ assert.ok(fields.some(f=>f.key==='channelSolver'));
+ assert.ok(!fields.some(f=>['wallSide','wallSegments','branch'].includes(f.key)));
  const c=plotOptions(d)[0].chart;assert.match(c.xlabel,/Î¸/);assert.equal(c.series.length,3);
  near(c.markers[2].x,0);near(c.markers[2].y,d.result.regions[3].p/d.result.s1.p);
  assert.ok(ramjetPlots(d.result).every(p=>p.chart.series.every(s=>s.points.every(p=>p.every(Number.isFinite)))));

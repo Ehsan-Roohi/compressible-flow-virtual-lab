@@ -1,6 +1,7 @@
 import {solveWaveChannel,channelOrdinate} from './wave-channel.js';
 import {state,obliqueShock,normalShock,turnAngle,shockLimit,prandtlMeyer,rad} from './physics.js';
 import {matchInteractionStreams} from './wave-interaction.js?v=20261120-opposing-moc';
+import {regularPattern,solveRegularChannel} from './regular-channel.js';
 import {requireValue,PhysicsError} from './numerics.js';
 // Rotational planar characteristic marching with explicit, one-sided shock
 // boundaries. In smooth flow: d(theta) +/- sqrt(M²-1)/(gamma M²) d(ln p)=0
@@ -100,6 +101,10 @@ export function solveFittedChannelMOC(x){
  requireValue(Number.isFinite(N)&&N>=31&&N<=201,'MOC resolution must be 31–201 points across each smooth region.');
  const r={...base,waves:[],panels:[],regions:{Inlet:base.s1},moc:{fitted:true,rows:[],traces:[],resolution:N,massResidual:0,maxMassResidual:0,maxJumpResidual:0,events:[]},status:'unsupported',reason:null,limitX:0};
  const straight=w=>w.panels.every(p=>p.a.x>=G.end-1e-9||Math.abs(p.theta-w.panels[0].theta)<1e-10);
+ if(regularPattern(G)?.same){
+  try{return solveSuccessiveRamps(x,base,N);}
+  catch(e){if(!(e instanceof PhysicsError))throw e;}
+ }
  if(wallAngle(G.lower,0)>1e-10&&wallAngle(G.upper,0)<-1e-10&&straight(G.lower)&&straight(G.upper)){
   try{return solveOpposingRamps(base,N);}
   catch(e){if(!(e instanceof PhysicsError))throw e;return {...r,reason:e.message,moc:{...r.moc,status:'unsupported'}};}
@@ -157,7 +162,12 @@ export function solveFittedChannelMOC(x){
 
      for(let it=0;it<12;it++){
       const upZ=upstreamAt(fit.y),before=fittedState(r,upZ),limit=shockLimit(before.M,g),mu=limit.mu+1e-8;let hi=limit.beta;
-      while(shock(before,hi,side).M<=1.0001)hi=(hi+mu)/2;
+      const marchesDownstream=b=>{const s=shock(before,b,side);return s.M>1.0001&&Math.abs(s.theta)+Math.asin(1/s.M)<Math.PI/2-1e-5;};
+      if(!marchesDownstream(hi)){
+       let valid=mu,invalid=hi;
+       for(let k=0;k<32;k++){const mid=(valid+invalid)/2;if(marchesDownstream(mid))valid=mid;else invalid=mid;}
+       hi=valid;
+      }
       const residual=b=>{const after=shock(before,b,side),z=packed(after,g),foot=interp(downPart,fit.y-dx*.5*(Math.tan(angle(z,side))+Math.tan(angle(interp(downPart,fit.y-dx*Math.tan(angle(z,side)),g),side))),g),A=(coeff(z)+coeff(foot))/2;return {value:z.theta-foot.theta+side*A*(z.l-foot.l),after};};
       let lo=mu,a=residual(lo),b=residual(hi);requireValue(a.value*b.value<=0,'No attached, supersonic fitted-shock compatibility root remains. Detached shocks and Mach reflections are outside this solver.','moc-shock-limit');
       for(let k=0;k<38;k++){beta=(lo+hi)/2;const f=residual(beta);if(Math.abs(f.value)<2e-11)break;if(a.value*f.value<=0)hi=beta;else{lo=beta;a=f;}}
@@ -204,14 +214,77 @@ export function solveFittedChannelMOC(x){
  r.waves=(last?traces:[]).flatMap(t=>[t.points[0],...(t.points.length>1?[t.points.at(-1)]:[])].map((p,i)=>({id:`S${t.id}-${i}`,kind:'Oblique shock',title:`Fitted shock S${t.id} · ${i?'last station':'origin'}`,origin:{x:p.x,y:p.y},before:p.before,after:p.after,beta:p.beta})));
  return r;
 }
-export function sampleOpposingRamps(r,x,y){
+function solveSuccessiveRamps(input,base,N){
+ const r=solveRegularChannel(input,{fallback:false}),g=base.geometry;
+ requireValue(r.interaction&&r.a.kind==='Expansion fan'&&r.b.kind==='Oblique shock',
+  r.reason??'The characteristic patches require a regular outgoing expansion and shock.');
+ const {A,C,B,endX}=r.geometry,[x,y]=B,[start]=C;
+ const pack=s=>decoded(packed(s,base.gamma),base.gamma);
+ const [s1,s2,s3,s4,s5]=Object.values(r.regions).map(pack);
+ const slope=angle=>{requireValue(Math.cos(angle)>1e-5,'A characteristic is directed upstream.');return Math.tan(angle);};
+ const line=(p,m)=>xx=>p[1]+m*(xx-p[0]);
+ const first=line(A,slope(r.n2.beta)),second=line(C,slope(r.regions[2].theta+r.n3.beta));
+ const fan=r.a.rays.map(z=>({m:slope(z.angle),z:pack(z.state)})).sort((a,b)=>a.m-b.m);
+ const head=line(B,fan[0].m),tail=line(B,fan.at(-1).m);
+ const slip=line(B,slope(r.delta)),shock=line(B,slope(r.b.rays[0].angle));
+ requireValue(tail(endX)<slip(endX)&&slip(endX)<shock(endX),'The outgoing characteristic patches overlap.');
+ const minSlope=fan[0].m,maxSlope=fan.at(-1).m;
+ const fanValues=Array.from({length:N},(_,i)=>{
+  const m=minSlope+(maxSlope-minSlope)*i/(N-1);
+  const j=Math.max(0,fan.findIndex((v,j)=>j<fan.length-1&&m<=fan[j+1].m+1e-12));
+  const a=fan[j],b=fan[j+1];
+  return decoded(mix(a.z,b.z,(m-a.m)/(b.m-a.m)),base.gamma);
+ });
+ const mesh=(from,to,lines,patches)=>Array.from({length:Math.min(72,N)+1},(_,i)=>{
+  const xx=i===Math.min(72,N)?to:from+(to-from)*i/Math.min(72,N);
+  const lower=channelOrdinate(g.lower,xx),upper=channelOrdinate(g.upper,xx);
+  const bounds=[lower,...lines.map(fn=>Math.max(lower,Math.min(upper,fn(xx)))),upper];
+  return {x:xx,lower,upper,parts:patches.map((z,j)=>({lo:bounds[j],hi:bounds[j+1],z:Array.isArray(z)?z:Array(N).fill(z)}))};
+ });
+ const rows=[
+  ...mesh(0,start,[first],[s2,s1]),
+  ...mesh(start,x,[second,first],[s3,s2,s1]),
+  ...mesh(x,endX,[head,tail,slip,shock],[s3,fanValues,s4,s5,s1])
+ ];
+ const traces=[
+  [A,B,r.waves[0],1],
+  [C,B,r.waves[1],1],
+  [B,[endX,shock(endX)],r.b,1]
+ ].map(([origin,end,w,side],i)=>({id:i+1,side,type:i<2?'Incident shock':'Outgoing shock',
+  points:[origin,end].map(([x,y])=>({x,y,beta:w.beta,before:w.before,after:w.after}))}));
+ const inletFlux=base.s1.rho*base.s1.u*g.height;
+ const massResidual=row=>Math.abs(row.parts.reduce((sum,p)=>{
+  const flow=p.z.reduce((total,z,i)=>{
+   const s=fittedState(base,z);
+   return total+(i===0||i===N-1?.5:1)*s.rho*s.u*Math.cos(s.theta);
+  },0);
+  return sum+(p.hi-p.lo)*flow/(N-1);
+ },0)/inletFlux-1);
+ const maxMassResidual=Math.max(...rows.map(massResidual));
+ const maxJumpResidual=Math.max(...traces.map(t=>{const p=t.points[0];return fittedJumpResidual(p.before,p.after,p.beta,base.gamma);}));
+ requireValue(maxMassResidual<.02&&maxJumpResidual<1e-7,'Characteristic patches did not satisfy conservation tolerances.');
+ const status=endX<g.end-1e-9?'partial':'ok';
+ return {...base,status,reason:r.reason,limitX:r.limitX,regions:r.regions,
+  waves:traces.map(t=>({id:'S'+t.id,kind:'Oblique shock',title:t.type+' · S'+t.id,
+   origin:{x:t.points[0].x,y:t.points[0].y},before:t.points[0].before,after:t.points[0].after,beta:t.points[0].beta})),
+  moc:{fitted:true,status,rows,traces,resolution:N,successiveRamps:true,
+   fan:[{x,y},{x:endX,head:head(endX),tail:tail(endX)}],
+   slip:{angle:r.delta,pressure:r.regions[4].p,points:[{x,y},{x:endX,y:slip(endX)}]},
+   massResidual:massResidual(rows.at(-1)),maxMassResidual,maxJumpResidual,events:[{type:'Wave interaction',x,y}]}};
+}
+
+export function sampleFittedPatches(r,x,y){
  const {rows}=r.moc;
  if(x<0||x>rows.at(-1).x)return null;
  const next=rows.findIndex(row=>row.x>x),a=rows[next<0?rows.length-1:next-1],b=next<0?a:rows[next];
  const fraction=a===b?0:(x-a.x)/(b.x-a.x);
  const boundary=(left,right)=>left+(right-left)*fraction;
  const i=a.parts.findIndex((p,i)=>y>=boundary(p.lo,b.parts[i].lo)-1e-9&&y<=boundary(p.hi,b.parts[i].hi)+1e-9);
- return i<0?null:fittedState(r,a.parts[i].z[0]);
+ if(i<0)return null;
+ const p=a.parts[i],q=b.parts[i],lo=boundary(p.lo,q.lo),hi=boundary(p.hi,q.hi);
+ const t=Math.max(0,Math.min(p.z.length-1,(y-lo)/(hi-lo||1)*(p.z.length-1)));
+ const j=Math.min(p.z.length-2,Math.floor(t)),f=t-j;
+ return fittedState(r,mix(p.z[j],p.z[j+1],f));
 }
 export function fittedProfilePlots(r,fraction=1){
  const rows=r.moc.rows;if(!rows.length)return [];requireValue(Number.isFinite(fraction)&&fraction>=0&&fraction<=1,'Profile station x/L must be between 0 and 1.');const target=Math.min(rows.at(-1).x,r.geometry.end*fraction),row=rows.reduce((a,b)=>Math.abs(a.x-target)<Math.abs(b.x-target)?a:b);

@@ -1,13 +1,13 @@
 import {regionLabelPosition,regionNumber} from './region-labels.js?v=20261120-region-numbers';
 import {channelOrdinate} from './wave-channel.js';
-import {fittedState,sampleOpposingRamps} from './channel-moc-shocks.js?v=20261120-opposing-moc';
+import {fittedState,sampleFittedPatches} from './channel-moc-shocks.js?v=20261120-wall-methods';
 import {cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261113-rainbow-physical';
 export function fittedMocGeometry(s){
  const g=s.geometry,end=g.end,start=-.12*end,xs=[0,end,...g.lower.points.map(p=>p.x),...g.upper.points.map(p=>p.x)].filter(x=>x<=end),ys=xs.flatMap(x=>[channelOrdinate(g.lower,x),channelOrdinate(g.upper,x)]),lo=Math.min(...ys),hi=Math.max(...ys),scale=Math.min(560/(end-start),170/Math.max(hi-lo,.1*end)),X=x=>320+(x-(start+end)/2)*scale,Y=y=>145+((lo+hi)/2-y)*scale;
  return {end,start,lo,hi,scale,X,Y};
 }
 function at(s,row,y){const p=row.parts.find(p=>y>=p.lo-1e-9&&y<=p.hi+1e-9);if(!p)return null;const n=p.z.length,t=Math.max(0,Math.min(n-1,(y-p.lo)/(p.hi-p.lo||1)*(n-1))),j=Math.min(n-2,Math.floor(t)),a=p.z[j],b=p.z[j+1],f=t-j;return fittedState(s,{theta:a.theta+(b.theta-a.theta)*f,l:a.l+(b.l-a.l)*f,k:a.k+(b.k-a.k)*f});}
-export function probeFittedMOC(s,sx,sy){const v=fittedMocGeometry(s),x=(sx-320)/v.scale+(v.start+v.end)/2,y=(145-sy)/v.scale+(v.lo+v.hi)/2,rows=s.moc.rows;if(!rows.length||x<0||x>rows.at(-1).x||y<channelOrdinate(s.geometry.lower,x)||y>channelOrdinate(s.geometry.upper,x))return null;const row=rows.reduce((a,b)=>Math.abs(a.x-x)<Math.abs(b.x-x)?a:b),z=s.moc.slip?sampleOpposingRamps(s,x,y):at(s,row,y);return z?{x,y,...z}:null;}
+export function probeFittedMOC(s,sx,sy){const v=fittedMocGeometry(s),x=(sx-320)/v.scale+(v.start+v.end)/2,y=(145-sy)/v.scale+(v.lo+v.hi)/2,rows=s.moc.rows;if(!rows.length||x<0||x>rows.at(-1).x||y<channelOrdinate(s.geometry.lower,x)||y>channelOrdinate(s.geometry.upper,x))return null;const row=rows.reduce((a,b)=>Math.abs(a.x-x)<Math.abs(b.x-x)?a:b),z=s.moc.slip?sampleFittedPatches(s,x,y):at(s,row,y);return z?{x,y,...z}:null;}
 export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',showCharacteristics=true}){
  const rows=s.moc.rows,g=s.geometry,v=fittedMocGeometry(s),{X,Y,start,end}=v,last=rows.at(-1),options=['mach','pressure','temperature','density','speed'],key=options.includes(quantity)?quantity:'mach',get=z=>key==='mach'?z.M:key==='pressure'?z.p/1000:key==='temperature'?z.T:key==='density'?z.rho:z.u,labels={mach:'Mach number',pressure:'Static pressure',temperature:'Static temperature',density:'Density',speed:'Flow speed'},units={mach:'M',pressure:'kPa',temperature:'K',density:'kg/m³',speed:'m/s'};
  let min=Infinity,max=-Infinity;for(const row of rows)for(const p of row.parts)for(const z of p.z){const a=get(fittedState(s,z));min=Math.min(min,a);max=Math.max(max,a);}
@@ -21,10 +21,12 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
  inner+='<g clip-path="url(#fitted-domain)"><g shape-rendering="crispEdges">';
  // Meshes do not interpolate across shocks. Every smooth strip ends at its
  // own one-sided fitted boundary, retaining the physical contour jump.
- const strideY=s.moc.slip?s.moc.resolution-1:Math.max(1,Math.ceil(s.moc.resolution/40));
+ const strideY=s.moc.slip&&!s.moc.fan?s.moc.resolution-1:Math.max(1,Math.ceil(s.moc.resolution/40));
  const strideX=Math.max(1,Math.ceil(rows.length/160));
  for(let i=0;i<rows.length-1;i+=strideX){
-  const a=rows[i],b=rows[Math.min(rows.length-1,i+strideX)];if(b.x-a.x<1e-12||a.parts.length!==b.parts.length||a.shock?.id!==b.shock?.id)continue;
+  const a=rows[i];let endIndex=Math.min(rows.length-1,i+strideX);
+  while(endIndex>i+1&&(a.parts.length!==rows[endIndex].parts.length||a.shock?.id!==rows[endIndex].shock?.id))endIndex--;
+  const b=rows[endIndex];if(b.x-a.x<1e-12||a.parts.length!==b.parts.length||a.shock?.id!==b.shock?.id)continue;
   for(let q=0;q<a.parts.length;q++){const p=a.parts[q],r=b.parts[q],N=p.z.length,y=(p,j)=>p.lo+(p.hi-p.lo)*j/(N-1);
    for(let j=0;j<N-1;j+=strideY){const k=Math.min(N-1,j+strideY),z=fittedState(s,p.z[Math.floor((j+k)/2)]),c=color(z);inner+=paint([[X(a.x),Y(y(p,j))],[X(b.x),Y(y(r,j))],[X(b.x),Y(y(r,k))],[X(a.x),Y(y(p,k))]],c,z.rho,.1);}
   }
@@ -45,16 +47,21 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
   const [a,b]=s.moc.slip.points;
   inner+=`<g data-moc-slip-line="true">${line(X(a.x),Y(a.y),X(b.x),Y(b.y),'#17212b',1.5,'5 3')}</g>`;
  }
+ if(s.moc.fan&&showCharacteristics){
+  const [a,b]=s.moc.fan;
+  for(let i=0;i<=10;i++)inner+=line(X(a.x),Y(a.y),X(b.x),Y(b.head+(b.tail-b.head)*i/10),'#fff',.75);
+ }
  if(s.moc.slip){
   const polygons=new Map();
-  // Opposing ramp meshes are ordered from the lower wall to the upper wall.
-  // Across the interaction, the incident inlet patch is replaced by 4′ and 4.
-  for(const [regionIds,group]of [
-   [['2','1','3'],rows.filter(row=>row.parts.length===3)],
-   [['2','4′','4','3'],rows.filter(row=>row.parts.length===4)]
-  ]){
+  const labels=s.moc.successiveRamps?
+   [['2','1'],['3','2','1'],[],['3',null,'4','5','1']]:
+   [[],['2','1','3'],['2','4′','4','3']];
+  for(const [j,regionIds]of labels.entries()){
+   if(!regionIds.length)continue;
+   const group=rows.filter(row=>row.parts.length===j+2);
    if(group.length<2)continue;
    for(const [i,id]of regionIds.entries()){
+    if(!id)continue;
     const polygon=[...group.map(row=>[X(row.x),Y(row.parts[i].lo)]),
      ...[...group].reverse().map(row=>[X(row.x),Y(row.parts[i].hi)])];
     if(!polygons.has(id))polygons.set(id,[]);

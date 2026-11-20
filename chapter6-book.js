@@ -21,7 +21,7 @@ export const chapter6BookExamples=[
  entry(4,'Opposing shock interaction','Inspect regions 2, 3, 4, and 4′ and the slip-line angle. Temperature and channel dimensions are reference values.',chapter6Example(4)),
  entry(5,'Successive compression corners','Two successive 10° turns on one wall produce interacting shocks. Inspect regions 2–5 and the slip-line angle.',{...chapter6Example(5),boundaryMode:'Single wall',wallSide:'Gas above wall'}),
  entry(6,'Prandtl–Meyer expansion','The inlet is at 1.8 kPa and 250 °C. Read the two fan-ray inclinations relative to the inlet direction.',{wallShape:'Expansion corner',boundaryMode:'Single wall',wallSide:'Gas above wall',M1:2,p1:1.8,T1:523.15,theta:20}),
- entry(7,'Shock–expansion interaction','Read the matched pressure, Mach numbers, and slip-line angle. The pressure–deflection diagram shows all four wave paths and the matched state. Inlet temperature is a reference value.',shockFanPreset),
+ entry(7,'Shock–expansion interaction','Read the matched pressure, Mach numbers, and slip-line angle. The pressure–deflection diagram shows all four wave paths and the matched state. Inlet temperature is a reference value.',{...shockFanPreset,trackingStep:2}),
  entry(9,'Ramjet inlet regular reflection','An 8° ramp at Mach 2 produces an incident shock and one regular reflection. Read both shock angles and pressure ratios.',ramjetPreset),
  entry(10,'Symmetric diamond airfoil','The 3° half-angle diamond at zero incidence has zero lift and finite wave drag. Inlet temperature is a reference value.',{...airfoil,...diamond(3),M:3,alpha:0,p1:6.895},'airfoil'),
  entry(11,'Sonic-boom interval','Extend the nose and tail shocks as straight rays to ground level to estimate the time between arrivals.',{...airfoil,...diamond(5),M:2.5,alpha:0,p1:100,T1:293,bookAirfoilChord:4,bookFlightHeight:150},'airfoil'),
@@ -90,10 +90,12 @@ function sonicBoom(inputs,result){
 export function chapter6BookResult(d){
  const {inputs:x,result:r}=d;
  const n=getChapter6BookExample(x.bookExample)?.number;
- if(n===6&&r.cornerKind==='expansion'){
+ const corner=r.wallReference??r;
+ if(n===6&&corner.cornerKind==='expansion'){
   const side=x.wallSide==='Gas below wall'?-1:1;
-  return {rows:[row('Leading ray · to inlet direction',side*r.mu1,'°'),
-   row('Trailing ray · to inlet direction',deg(r.regions[2].theta)+side*r.mu2,'°')]};
+  const reference=r.wallReference?'Analytical reference · ':'';
+  return {rows:[row(reference+'Leading ray · to inlet direction',side*corner.mu1,'°'),
+   row(reference+'Trailing ray · to inlet direction',deg(corner.regions[2].theta)+side*corner.mu2,'°')]};
  }
  if(d.id==='airfoil'&&(n===11||n===13)){
   if(!r.models.includes('nonlinear')||r.nonlinear.status!=='ok')return {notice:'Select a valid Shock–Expansion solution for the textbook result.'};

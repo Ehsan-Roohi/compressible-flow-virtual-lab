@@ -8,10 +8,10 @@ import {pressureTurningPlot} from './pressure-turning.js?v=20261120-slip-axis';
 import {ramjetPlots} from './ramjet-inlet.js?v=20261114-region-markers';
 import {ductLongitudinalPlots} from './duct-contours.js?v=20261112-duct-contours';
 import {bodyPlots} from './wedge-cone.js?v=20261114-region-markers';
-import {comparisonPlots} from './channel-comparison.js?v=20261120-opposing-moc';
+import {comparisonPlots} from './channel-comparison.js?v=20261120-wall-methods';
 import {trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
 import {regularChannelPlots} from './regular-channel.js?v=20261120-single-wall';
-import {mocProfilePlots} from './channel-moc.js?v=20261120-opposing-moc';
+import {mocProfilePlots} from './channel-moc.js?v=20261120-wall-methods';
 import {channelPlots} from './wave-channel.js?v=20261109-wedge-cone';
 import {wallPlots} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilPlots} from './airfoil.js?v=20261109-wedge-cone';
@@ -187,7 +187,15 @@ function basePlotOptions(d,time=.001){
  return options.filter(o=>id!=='normal'||['normal-M','normal-p','normal-rho','normal-T','normal-p0','normal-dsR'].includes(o.key)).filter(o=>o.chart.series.some(s=>s.points.length));
 }
 
-export function plotOptions(d,time=.001){if(d.result.multiRamp)return basePlotOptions(d,time);if(d.id==='airfoil'||d.id==='cone'&&d.inputs.bodyGeometry==='Wedge')return [];if(d.id==='collision'||d.result.shockFan||d.result.tracking){let source=d;if(d.result.finalStreamMatch)source={...d,result:d.result.finalStreamMatch};else if(d.result.tracking){const result={...d.result};selectTrackingEvent(result,defaultTrackingEvent(result));source={...d,result};}const turning=pressureTurningPlot(source);return turning?[annotateTurningRegions(source,turning)]:[];}const plots=basePlotOptions(d,time),turning=pressureTurningPlot(d);const expansion=d.id==='expansion'||d.result.simpleCorner&&d.result.cornerKind==='expansion';
+export function plotOptions(d,time=.001){if(d.result.multiRamp)return basePlotOptions(d,time);if(d.id==='airfoil'||d.id==='cone'&&d.inputs.bodyGeometry==='Wedge')return [];
+ if(d.result.wallReference){
+  const source={...d,result:d.result.wallReference};
+  const turning=source.result.ramjet?ramjetPlots(source.result)[0]:pressureTurningPlot(source);
+  const plots=basePlotOptions(d,time);
+  if(turning)plots.push(annotateTurningRegions(source,{...turning,label:'Pressure–deflection · analytical reference'}));
+  return plots;
+ }
+ if(d.id==='collision'||d.result.shockFan||d.result.tracking){let source=d;if(d.result.finalStreamMatch)source={...d,result:d.result.finalStreamMatch};else if(d.result.tracking){const result={...d.result};selectTrackingEvent(result,defaultTrackingEvent(result));source={...d,result};}const turning=pressureTurningPlot(source);return turning?[annotateTurningRegions(source,turning)]:[];}const plots=basePlotOptions(d,time),turning=pressureTurningPlot(d);const expansion=d.id==='expansion'||d.result.simpleCorner&&d.result.cornerKind==='expansion';
  const formulas={overview:'ν(M) = √((γ+1)/(γ−1)) atan√((γ−1)(M²−1)/(γ+1)) − atan√(M²−1)\nν(M₂) = ν(M₁) + |θ₂ − θ₁|', 'wave-p':'p₂/p₁ = [(1 + (γ−1)M₁²/2)/(1 + (γ−1)M₂²/2)]^(γ/(γ−1))','wave-T':'T₂/T₁ = (1 + (γ−1)M₁²/2)/(1 + (γ−1)M₂²/2)','wave-rho':'ρ₂/ρ₁ = (T₂/T₁)^(1/(γ−1))','wave-p0':'p₀₂/p₀₁ = 1 (isentropic expansion)','wave-speed':'u₂/u₁ = (M₂/M₁) √(T₂/T₁)','pressure-turning':'p/p₁ = [(1 + (γ−1)M₁²/2)/(1 + (γ−1)M(θ)²/2)]^(γ/(γ−1)); ν(M(θ)) − ν(M₁) = |θ − θ₁|'};
  const choices=turning?(turning.chart.interactionPolar?[turning,...plots]:[...plots,turning]):plots;
  return choices.filter(p=>!expansion||p.key!=='wave-M'&&!p.key.startsWith('wave-dimensional-')).map(p=>annotateTurningRegions(d,expansion?{...p,formula:formulas[p.key]}:p));}

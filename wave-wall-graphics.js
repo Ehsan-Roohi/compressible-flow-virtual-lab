@@ -1,4 +1,4 @@
-import {channelDrawing} from './wave-channel-graphics.js?v=20261120-region-numbers';
+import {channelDrawing} from './wave-channel-graphics.js?v=20261120-wall-methods';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js?v=20261118-wave-density';
 export function wallDrawing(s,{txt,line,poly,fmt,quantity,range,showCharacteristics}){
  if(s.channel)return channelDrawing(s,{txt,line,poly,fmt,quantity,range,showCharacteristics});

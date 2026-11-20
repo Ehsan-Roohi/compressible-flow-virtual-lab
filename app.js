@@ -3,6 +3,7 @@ import {valveExperiment} from './valve-closure.js';
 import {multiRampMode,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261120-region-numbers';
 import {probeAirfoilField} from './airfoil-field.js?v=20261117-multi-inlet';
 import {shockFanMode} from './shock-fan-example.js?v=20261118-wave-density';
+import {hasWallMethodChoice} from './wall-methods.js?v=20261120-wall-methods';
 import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
@@ -16,20 +17,20 @@ import {rayleighHeatBounds} from './rayleigh-input.js?v=20261110-rayleigh-audit'
 import {reservoirExamples} from './reservoir-examples.js?v=20261119-open-intake';
 import {chartWorkbook} from './chart-export.js';
 import {probeBody} from './body-probe.js?v=20261110-simple-examples';
-import {comparisonHTML} from './channel-comparison.js?v=20261120-opposing-moc';
+import {comparisonHTML} from './channel-comparison.js?v=20261120-wall-methods';
 import {fittedInspectionHTML,fittedPointHTML,selectedFittedPoint,fittedExportRows} from './channel-moc-shocks-tables.js';
-import {probeFittedMOC} from './channel-moc-shocks-graphics.js?v=20261120-region-numbers';
+import {probeFittedMOC} from './channel-moc-shocks-graphics.js?v=20261120-wall-methods';
 import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
-import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-merge-examples';
+import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-wall-methods';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261120-slip-axis';
+import {plotOptions} from './plot-options.js?v=20261120-wall-methods';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-slip-axis';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261120-chapter-eight';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
@@ -39,8 +40,8 @@ import {foundationExampleEntries} from './foundation-exercises.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-single-wall';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-slip-axis';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-wall-methods';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-wall-methods';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
@@ -87,7 +88,7 @@ function rayleighModeDefaults(base,selection){
 }
 function defaults(id,selection={}){
  const inputs=experimentDefaults(id);
- if(id==='wall')return {...inputs,...chapter6WallDefaults(selection)};
+ if(id==='wall')return {...inputs,...chapter6WallDefaults(selection),channelSolver:channelSolverName(selection.channelSolver)};
  if(id==='airfoil'){
   const geometry={...inputs,airfoilShape:selection.airfoilShape??inputs.airfoilShape,bookAirfoilChord:1,bookFlightHeight:150};
   if(selection.bookExample==='9-7'&&selection.airfoilShape===chapter9Triangle.airfoilShape)return {...geometry,...chapter9Triangle};
@@ -102,7 +103,7 @@ function defaults(id,selection={}){
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261120-single-wall',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261120-wall-methods',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([n,title,,ids])=>{
   const number=n===1?'1–2':n;
@@ -122,10 +123,11 @@ const chapter9Triangle={...chapter9TriangleGeometry,geometryInput:'Angles & leng
 function chapter6WallDefaults(selection){
  if(selection.customInteraction===multiRampMode)return {...multiRampProblemPreset,bookExample:'6–P1b'};
  if(selection.wallShape==='Custom wall'){
-  if(selection.boundaryMode==='Single wall')return {wallShape:'Custom wall',wallSegments:wallPresets['Custom wall']};
-  if(selection.channelSolver&&channelSolverName(selection.channelSolver)!=='Shock–Expansion')
-   return {...expansionChannelPreset,channelSolver:channelSolverName(selection.channelSolver)};
+  if(selection.bookExample==='expansion')return expansionChannelPreset;
   if(['reflection','shock-fan','fans'].includes(selection.bookExample))return {...trackingPreset(selection.bookExample),bookExample:selection.bookExample};
+  const selected=getChapter6BookExample(selection.bookExample);
+  if(selected?.inputs.wallShape===selection.wallShape&&selected.inputs.boundaryMode===selection.boundaryMode)return selected.inputs;
+  if(selection.boundaryMode==='Single wall')return {wallShape:'Custom wall',wallSegments:wallPresets['Custom wall']};
  }
  return chapter6ResetExample('wall',selection)?.inputs;
 }
@@ -225,7 +227,7 @@ function wallSegmentEditor(f){
 }
 function bindWallSegments(f){
  const key=f.key,box=$('editor-'+key);
- for(const n of box.querySelectorAll('input')){const wasPreset=inputs.wallShape!=='Custom wall';n.oninput=()=>{inputs.wallShape='Custom wall';if($('waveGeometrySelect'))$('waveGeometrySelect').value='Custom wall';inputs[key]=inputs[key].map((p,i)=>i===Number(n.dataset.index)?{...p,[n.dataset.property]:n.value.trim()===''?NaN:Number(n.value)}:p);request++;schedule();if(wasPreset){renderInputs();$('editor-'+key).querySelector(`[data-index="${n.dataset.index}"][data-property="${n.dataset.property}"]`)?.focus();}};}
+ for(const n of box.querySelectorAll('input')){const wasPreset=inputs.wallShape!=='Custom wall';n.oninput=()=>{const methodChoice=hasWallMethodChoice(inputs);inputs.wallShape='Custom wall';if($('waveGeometrySelect'))$('waveGeometrySelect').value='Custom wall';inputs[key]=inputs[key].map((p,i)=>i===Number(n.dataset.index)?{...p,[n.dataset.property]:n.value.trim()===''?NaN:Number(n.value)}:p);request++;schedule();if(wasPreset||methodChoice!==hasWallMethodChoice(inputs)){renderInputs();$('editor-'+key).querySelector(`[data-index="${n.dataset.index}"][data-property="${n.dataset.property}"]`)?.focus();}};}
  for(const b of box.querySelectorAll('[data-remove]'))b.onclick=()=>{inputs[key]=inputs[key].filter((_,i)=>i!==Number(b.dataset.remove));renderInputs();request++;schedule();};
  box.querySelector('.segment-add').onclick=()=>{if(inputs[key].length>=8)return;inputs[key]=[...inputs[key],{angle:inputs[key].at(-1).angle,length:1}];inputs.wallShape='Custom wall';renderInputs();request++;schedule();};
 }
@@ -507,7 +509,7 @@ if(id==='rayleigh'&&x.key==='ductProblem'){
   if(inputs.finiteEndTime>limit)inputs.finiteEndTime=defaults('tube').finiteEndTime;
  }
  stopAnimation();renderInputs();$('value-'+x.key)?.focus();
-}if(x.key==='fluid'){inputs=selectGas(inputs,n.value);renderInputs();$('value-fluid').focus();}if(id==='nozzle'&&(x.key==='nozzleView'||x.key==='MIn'&&(inputs.MIn===1||!!$('value-sonicBranch')))){renderInputs();$('value-'+x.key)?.focus();}if(['temperatureInput','inletPressureType','nozzlePressureType','nozzleTemperatureType','driverPressureType','driverTemperatureType','supplyTemperatureType','reservoirPressureType','inverseTemperatureType','outletTemperatureType','outletPressureType'].includes(x.key))renderInputs();if(!commitOutletMach&&['rayleigh','fanno'].includes(id)&&['rayleighInput','fannoInput','targetMach','ductProblem','ductSolve','shockCase','fannoSystemSolve','fannoCondition','fannoUnknown','systemInletType','referenceTemperatureType','referencePressureType','reservoirPressureType','inletPressureType','velocityInput','temperatureInput','frictionInput','ductSection','frictionConvention'].includes(x.key)){renderInputs();}if(id==='cone'&&['bodyGeometry','nearbyWall'].includes(x.key)){renderInputs();$('value-bodyGeometry')?.focus();}if(id==='wall'&&['inletTerminal','inletFlowSide','inletLowerDefinition'].includes(x.key)){renderInputs();}if(id==='wall'&&x.key==='channelSolver'){renderInputs();}if(id==='wall'&&x.key==='boundaryMode'){if(inputs.boundaryMode==='Channel')inputs.wallShape='Custom wall';renderInputs();}if(id==='wall'&&x.key==='wallSide'){renderInputs();}if(id==='balances'&&x.key==='balanceMode'||id==='collision'&&['interactionType','geometryMode','thetaUpper'].includes(x.key)||id==='airfoil'&&['airfoilShape','airfoilMethod'].includes(x.key))renderInputs();syncRayleighHeat();schedule(x.key==='backRatio'||commitOutletMach||(id==='rayleigh'&&x.key==='q'));};
+}if(x.key==='fluid'){inputs=selectGas(inputs,n.value);renderInputs();$('value-fluid').focus();}if(id==='nozzle'&&(x.key==='nozzleView'||x.key==='MIn'&&(inputs.MIn===1||!!$('value-sonicBranch')))){renderInputs();$('value-'+x.key)?.focus();}if(['temperatureInput','inletPressureType','nozzlePressureType','nozzleTemperatureType','driverPressureType','driverTemperatureType','supplyTemperatureType','reservoirPressureType','inverseTemperatureType','outletTemperatureType','outletPressureType'].includes(x.key))renderInputs();if(!commitOutletMach&&['rayleigh','fanno'].includes(id)&&['rayleighInput','fannoInput','targetMach','ductProblem','ductSolve','shockCase','fannoSystemSolve','fannoCondition','fannoUnknown','systemInletType','referenceTemperatureType','referencePressureType','reservoirPressureType','inletPressureType','velocityInput','temperatureInput','frictionInput','ductSection','frictionConvention'].includes(x.key)){renderInputs();}if(id==='cone'&&['bodyGeometry','nearbyWall'].includes(x.key)){renderInputs();$('value-bodyGeometry')?.focus();}if(id==='wall'&&['inletTerminal','inletFlowSide','inletLowerDefinition'].includes(x.key)){renderInputs();}if(id==='wall'&&['channelSolver','branch'].includes(x.key)){renderInputs();$('value-'+x.key)?.focus();}if(id==='wall'&&x.key==='boundaryMode'){if(inputs.boundaryMode==='Channel')inputs.wallShape='Custom wall';renderInputs();}if(id==='wall'&&x.key==='wallSide'){renderInputs();}if(id==='balances'&&x.key==='balanceMode'||id==='collision'&&['interactionType','geometryMode','thetaUpper'].includes(x.key)||id==='airfoil'&&['airfoilShape','airfoilMethod'].includes(x.key))renderInputs();syncRayleighHeat();schedule(x.key==='backRatio'||commitOutletMach||(id==='rayleigh'&&x.key==='q'));};
 if(commitOutletMach){
  n.onchange=n.oninput;
  n.oninput=null;
@@ -958,7 +960,8 @@ function renderExamples(){
  if(id==='cone'&&coneExampleChanged())inputs.bookExample='';
  const box=$('examplesPanel');let entries=[];
  const load=(preset,bookExample)=>{
-  inputs={...defaults(id,preset),...preset,bookExample};
+  const wallSolver=id==='wall'?{channelSolver:channelSolverName(inputs.channelSolver)}:{};
+  inputs={...defaults(id,preset),...preset,bookExample,...wallSolver};
   if(id==='tube'){
    const slider=$('unsteadyProfileTime');
    slider.min='0';slider.step='0.001';slider.value=bookExample==='sinusoidal-ten-cycles'?'0':bookExample==='7–10'?'0.1875':bookExample==='7–3'?'0.067':'0.133';

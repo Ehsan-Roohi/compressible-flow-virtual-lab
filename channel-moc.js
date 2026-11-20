@@ -1,4 +1,4 @@
-import {needsShockFitting,solveFittedChannelMOC,fittedProfilePlots} from './channel-moc-shocks.js?v=20261120-opposing-moc';
+import {needsShockFitting,solveFittedChannelMOC,fittedProfilePlots} from './channel-moc-shocks.js?v=20261120-wall-methods';
 import {solveWaveChannel,channelOrdinate} from './wave-channel.js';
 import {prandtlMeyer,state} from './physics.js';
 import {requireValue,PhysicsError} from './numerics.js';

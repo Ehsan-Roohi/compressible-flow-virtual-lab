@@ -1,4 +1,5 @@
 import {solveSingleWall} from './single-wall-interaction.js';
+import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-wall-methods';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {foundationExerciseNotice,foundationExerciseRows} from './foundation-exercises.js';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261118-restore-sample';
@@ -15,12 +16,12 @@ import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=2
 import {ductInputs} from './duct-input.js?v=20261112-state-inputs';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
 import {solveBodyLab,bodyPlots} from './wedge-cone.js?v=20261115-wedge-drag';
-import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './channel-comparison.js?v=20261120-opposing-moc';
+import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './channel-comparison.js?v=20261120-wall-methods';
 import {channelSolverName,solveShockExpansionChannel} from './channel-solver.js?v=20261117-example-numbers';
 import {solveWaveTracker,trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
 import {defaultTrackingEvent,selectTrackingEvent,trackingSummaryRows} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20261120-single-wall';
-import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261120-opposing-moc';
+import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261120-wall-methods';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261120-single-wall';
 import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-wedge-drag';
@@ -92,7 +93,7 @@ export const labs={
  {key:'wallShape',label:'Wall template',value:'Compression ramp',options:['Compression ramp','Expansion corner','Custom wall']},
  input('theta','Turn angle',12,0,60,.1,'°'),{key:'branch',label:'Shock branch',value:'weak',options:['weak','strong']},cornerView,
  {key:'boundaryMode',label:'Boundary layout',value:'Single wall',options:['Single wall','Channel']},
- {key:'channelSolver',label:'Channel solution',value:'Shock–Expansion',options:['Shock–Expansion','Method of characteristics','Compare both']},
+ {key:'channelSolver',label:'Solution method',value:'Shock–Expansion',options:['Shock–Expansion','Method of characteristics','Compare both']},
  input('trackingStep','Fan angular step Δθfan',.5,.25,2,.25,'°'),
  input('comparisonStation','Comparison station x/L',1,0,1,.01,''),
  input('trackingStation','Profile station x/L',1,0,1,.01,''),
@@ -150,6 +151,15 @@ export const labs={
  linear:{chapter:9,title:'Linearized diamond airfoil',tag:'SMALL-DISTURBANCE THEORY',description:'Inspect surface pressure, lift and wave drag for a thin, symmetric double-wedge airfoil.',inputs:[input('M','Freestream Mach',3,1.1,8,.01,'M∞'),input('alpha','Angle of attack',4,-10,10,.1,'°'),input('thickness','Thickness-to-chord ratio',.08,0,.2,.005,'t/c')],model:'Linearized supersonic flow · small slopes and angle of attack',equation:'Cᴸ = 4α/√(M∞² − 1)   ·   Cᴰ = 4[α² + (t/c)²]/√(M∞² − 1)',limitations:'Angles in the equations are radians. This is an approximation, especially near Mach 1. Viscous drag and finite-span effects are absent.'},
  cone:{chapter:10,title:'Wedge & Cone Lab',tag:'AXISYMMETRIC SIMILARITY',description:'Compare two-dimensional wedge flow with axisymmetric cone flow; inspect shock angles and surface properties.',inputs:[{key:'bodyGeometry',label:'Geometry',value:'Cone',options:['Cone','Wedge','Compare both']},{key:'nearbyWall',label:'Nearby wall',value:'None',options:['None','Below wedge','Above wedge','Both walls']},input('wallDistance','Tip-to-wall distance',1,.001,100,.01,'m'),input('wedgeAlpha','Wedge angle of attack α',0,-20,20,.1,'°'),input('M','Freestream Mach',2,1.2,6,.0001,'M∞'),input('thetaCone','Cone half-angle',10,1,35,.1,'°'),T,P,g],model:'Steady, inviscid, axisymmetric sharp cone · zero angle of attack',equation:'dVᵣ/dθ = Vθ   ·   Vθ(θc) = 0',limitations:'Adaptive RK4 step doubling and a bracketed shock-angle search. Strong branches and detached cones are outside this release. Full book-example acceptance is pending.'}
 };
+const wallSolverKeys=['channelSolver','comparisonStation','trackingStep','trackingStation','trackingRefine','mocResolution','mocStation','mocLines'];
+function wallSolverFields(x,channel=false){
+ if(!hasWallMethodChoice(x))return [];
+ const method=channelSolverName(x.channelSolver),keys=['channelSolver'];
+ if(method==='Compare both')keys.push('comparisonStation','trackingStep','trackingRefine','mocResolution','mocLines');
+ if(method==='Method of characteristics')keys.push('mocResolution','mocStation','mocLines');
+ if(method==='Shock–Expansion'&&channel)keys.push('trackingStep','trackingStation','trackingRefine');
+ return labs.wall.inputs.filter(f=>keys.includes(f.key));
+}
 function experimentInputs(id,x={}){
  if(id==='tube'&&x.unsteadyExperiment===sinusoidalExperiment){
   const keys=['unsteadyExperiment','pistonEpsilon','pistonFrequency','pistonCycles','pistonTubeLength','finiteEndTime','finiteCells','p1','T1'];
@@ -188,11 +198,12 @@ function experimentInputs(id,x={}){
   if(flow==='Flow below wedge'&&!independent)for(const f of fields){if(f.key==='inletLowerSegments')f.label='Reference wedge segments · mirrored below';else if(['inletHeightRatio','inletUpperWallRatio','inletUpperStartRatio','inletCowlRatio'].includes(f.key))f.label=f.label.replace('Upper','Upper reference');}
   return [...fields,M('M1',2),T,P,g];
  }
- if(id==='wall'&&x.wallShape===ramjetMode)return [{key:'ramjetOrientation',label:'Inlet orientation',value:ramjetOrientations[0],options:ramjetOrientations},input('theta','Ramp turn angle',8,.01,40,.1,'°'),input('channelHeight','Inlet channel height',1,.01,100,.01,'m'),cornerView,M('M1',2),T,P,g];
- if(id==='wall'&&x.wallShape===shockFanMode)return [...labs.wall.inputs.filter(f=>['M1','T1','p1'].includes(f.key)),input('fanShockAngle','Lower-wall angle θₗ',10,.1,30,.1,'°'),input('fanExpansionAngle','Upper-wall angle θᵤ',10,.1,30,.1,'°')];
+ if(id==='wall'&&x.wallShape===ramjetMode)return [{key:'ramjetOrientation',label:'Inlet orientation',value:ramjetOrientations[0],options:ramjetOrientations},input('theta','Ramp turn angle',8,.01,40,.1,'°'),input('channelHeight','Inlet channel height',1,.01,100,.01,'m'),...(channelSolverName(x.channelSolver)==='Shock–Expansion'?[cornerView]:[]),...wallSolverFields(x),M('M1',2),T,P,g];
+ if(id==='wall'&&x.wallShape===shockFanMode)return [...labs.wall.inputs.filter(f=>['M1','T1','p1'].includes(f.key)),input('fanShockAngle','Lower-wall angle θₗ',10,.1,30,.1,'°'),input('fanExpansionAngle','Upper-wall angle θᵤ',10,.1,30,.1,'°'),...wallSolverFields(x)];
  if(id==='wall'){
-  const channel=x.wallShape==='Custom wall'&&x.boundaryMode==='Channel',compare=channel&&x.channelSolver==='Compare both',moc=channel&&(compare||x.channelSolver==='Method of characteristics'),tracking=channel&&(compare||channelSolverName(x.channelSolver)==='Shock–Expansion');
-  return labs.wall.inputs.filter(f=>(f.key!=='comparisonStation'||compare)&&(!compare||!['trackingStation','mocStation'].includes(f.key))&&f.key!=='wallShape'&&(!['theta','cornerView'].includes(f.key)||x.wallShape!=='Custom wall')&&(f.key!=='branch'||x.wallShape==='Compression ramp')&&(f.key!=='wallSegments'||x.wallShape==='Custom wall')&&(f.key!=='boundaryMode'||x.wallShape==='Custom wall')&&(!['channelHeight','upperWallSegments','channelSolver'].includes(f.key)||channel)&&(!['trackingStep','trackingStation','trackingRefine'].includes(f.key)||tracking)&&(!['mocResolution','mocStation','mocLines'].includes(f.key)||moc)&&(f.key!=='wallSide'||!channel)).map(f=>f.key==='theta'?{...f,label:x.wallShape==='Expansion corner'?'Expansion turn angle':'Ramp turn angle',max:x.wallShape==='Expansion corner'?60:40}:f.key==='wallSegments'?{...f,label:channel?'Lower wall segments':'Wall segments'}:f);
+  const channel=x.wallShape==='Custom wall'&&x.boundaryMode==='Channel';
+  const keys=wallSolverFields(x,channel).map(f=>f.key),spatial=hasWallMethodChoice(x)&&channelSolverName(x.channelSolver)!=='Shock–Expansion';
+  return labs.wall.inputs.filter(f=>(!wallSolverKeys.includes(f.key)||keys.includes(f.key))&&f.key!=='wallShape'&&(f.key!=='theta'||x.wallShape!=='Custom wall')&&(f.key!=='cornerView'||x.wallShape!=='Custom wall'&&!spatial)&&(f.key!=='branch'||x.wallShape==='Compression ramp')&&(!['wallSegments','boundaryMode'].includes(f.key)||x.wallShape==='Custom wall')&&(!['channelHeight','upperWallSegments'].includes(f.key)||channel)&&(f.key!=='wallSide'||!channel)).map(f=>f.key==='theta'?{...f,label:x.wallShape==='Expansion corner'?'Expansion turn angle':'Ramp turn angle',max:x.wallShape==='Expansion corner'?60:40}:f.key==='wallSegments'?{...f,label:channel?'Lower wall segments':'Wall segments'}:f);
  }
  if(id==='airfoil')return labs.airfoil.inputs.filter(f=>{
   const flat=['Flat plate','Bent flat plate','Connected flat plates'].includes(x.airfoilShape),custom=x.airfoilShape==='Custom panels',angles=x.geometryInput==='Angles & lengths';
@@ -343,8 +354,10 @@ export function calculate(id,x){
   }
   return {id,inputs:x,gas:workingGas,model:result.wallReflections?'Computed supersonic wall waves and regular reflections':'Sequential wall shocks/expansions + optional terminal normal shock',result,rows,shockDetails,chart,scene,checks,notice:result.inletSides||result.wallReflections?result.note:'Independent-wave inlet estimate. '+(result.overlap?'Ramp waves intersect before the cowl; interactions are not solved. ':'')+'The field is schematic. Horizontal wall lengths control the drawing, not subsonic diffuser pressure; downstream colour denotes the entry state only.'};
  }
- if(id==='wall'&&x.wallShape===shockFanMode){const solved=solveShockFan(x),r=solved.result;const rows=[row('Slip-line angle φ · to horizontal',r.slipAngle,'°'),row('Common pressure p₄ = p₅',r.regions[4].p/1000,'kPa')];return {id,inputs:x,gas:workingGas,model:'Uniform-stream shock–expansion matching',result:r,rows,shockDetails:[],chart:{title:'Pressure–deflection diagram',xlabel:'θ (°)',ylabel:'p/p₁',series:[]},scene:{kind:'shockFanReference',...r},checks:{pressure:Math.abs(r.residual)},notice:solved.notice};}
- if(id==='wall'&&['Compression ramp','Expansion corner'].includes(x.wallShape)){
+ const wallMethod=id==='wall'&&hasWallMethodChoice(x)?channelSolverName(x.channelSolver):'Shock–Expansion';
+ const derivedWall=id==='wall'&&wallMethod!=='Shock–Expansion'&&!(x.wallShape==='Custom wall'&&x.boundaryMode==='Channel');
+ if(id==='wall'&&x.wallShape===shockFanMode&&!derivedWall){const solved=solveShockFan(x),r=solved.result;const rows=[row('Slip-line angle φ · to horizontal',r.slipAngle,'°'),row('Common pressure p₄ = p₅',r.regions[4].p/1000,'kPa')];return {id,inputs:x,gas:workingGas,model:'Uniform-stream shock–expansion matching',result:r,rows,shockDetails:[],chart:{title:'Pressure–deflection diagram',xlabel:'θ (°)',ylabel:'p/p₁',series:[]},scene:{kind:'shockFanReference',...r},checks:{pressure:Math.abs(r.residual)},notice:solved.notice};}
+ if(id==='wall'&&!derivedWall&&['Compression ramp','Expansion corner'].includes(x.wallShape)){
   const cornerKind=x.wallShape==='Compression ramp'?'oblique':'expansion',theta=x.theta??Math.abs(x.wallSegments?.[0]?.angle??12),side=x.wallSide==='Gas below wall'?-1:1,turn=side*(cornerKind==='oblique'?theta:-theta),d=calculate(cornerKind,{...x,theta,alpha:0}),ratios=d.result;
   const s1={...p.state(x.M1,x.T1,x.p1*1000,g,R),theta:0},s2={...p.state(ratios.M2,x.T1*ratios.T,x.p1*1000*ratios.p,g,R),theta:p.rad(turn)},geometry=wallGeometry({...x,wallSegments:[{angle:turn,length:x.wallSegments?.[0]?.length??1}]});
   const result={...ratios,simpleCorner:true,cornerKind,s1,regions:{1:s1,2:s2},geometry,panels:[{...geometry.panels[0],state:s2}],waves:[],gamma:g,R};
@@ -447,14 +460,27 @@ export function calculate(id,x){
   }
 
  }
- else if(id==='wall'&&x.wallShape===ramjetMode){
+ else if(id==='wall'&&x.wallShape===ramjetMode&&!derivedWall){
   result=solveRamjetInlet({...x,gamma:g,R});scene={kind:'ramjetInlet',...result};chart=ramjetPlots(result)[0].chart;checks=result.checks;
   const {a,b,regions:z}=result;
   rows=[row('Incident shock angle β₁',p.deg(a.beta),'°'),row('Reflected shock angle β₂',p.deg(b.beta),'°'),row('Mach number after incident shock',z[2].M),row('Mach number after reflected shock',z[3].M),row('Incident pressure ratio',a.p,'p₂/p₁'),row('Reflected pressure ratio',b.p,'p₃/p₂'),row('Overall pressure ratio',z[3].p/z[1].p,'p₃/p₁'),row('Total-pressure recovery',z[3].p0/z[1].p0,'p₀₃/p₀₁'),row('Reflected-shock flow direction',0,'°'),row('Reflection location x',result.geometry.hit,'m')];
   for(const [title,before,after,n]of [['Incident shock · 1 → 2',z[1],z[2],a],['Reflected shock · 2 → 3',z[2],z[3],b]])shockDetails.push(shockStateSection({kind:'oblique',title,location:'Weak regular reflection · β measured from local upstream flow',before,after,gamma:g,R,extra:[{label:'Shock angle β',value:p.deg(n.beta),unit:'°'},{label:'Flow turn',value:p.deg(after.theta-before.theta),unit:'°'}]}));
  }
  else if(id==='wall'){
-  result=(x.wallShape==='Custom wall'&&x.boundaryMode==='Channel'?(x.channelSolver==='Compare both'?solveChannelComparison:channelSolverName(x.channelSolver)==='Method of characteristics'?solveChannelMOC:solveShockExpansionChannel):solveSingleWall)({...x,gamma:g,R});notice=result.reason;
+  let config={...x,gamma:g,R},reference,domainNote;
+  if(derivedWall){
+   reference=calculate(id,{...x,channelSolver:'Shock–Expansion'});
+   ({config,note:domainNote}=wallMethodDomain(config,reference.result));
+  }
+  const channel=config.wallShape==='Custom wall'&&config.boundaryMode==='Channel';
+  const solve=wallMethod==='Compare both'?solveChannelComparison:wallMethod==='Method of characteristics'?solveChannelMOC:solveShockExpansionChannel;
+  result=(channel?solve:solveSingleWall)(config);
+  notice=[result.reason,domainNote].filter(Boolean).join(' ')||null;
+  if(reference){
+   result.wallReference=reference.result;
+   if(reference.result.shockFan||reference.result.ramjet||reference.result.simpleCorner)
+    rows.push(...reference.rows.filter(r=>!r.panel).map(r=>({...r,label:'Analytical reference · '+r.label})));
+  }
   if(result.tracking)selectTrackingEvent(result,defaultTrackingEvent(result));
   for(const [n,z]of Object.entries(result.regions))rows.push(...[['Mach',z.M,''],['Pressure',z.p/1000,'kPa'],['Temperature',z.T,'K'],['Density',z.rho,'kg/m³'],['Speed',z.u,'m/s'],['Flow angle',p.deg(z.theta),'°'],['Stagnation pressure',z.p0/1000,'kPa'],['Stagnation temperature',z.T0,'K']].map(([label,value,unit])=>({...row(`${result.tracking?n:'Region '+(result.regionLabels?.[n]??n)} · ${label}`,value,unit),panel:'wall'})));
   for(const w of result.waves)if(w.kind==='Oblique shock'){

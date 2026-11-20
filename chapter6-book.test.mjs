@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {calculate,defaults} from './labs.js';
+import {calculate,defaults,inputDefinitions} from './labs.js';
 import {sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js';
@@ -10,6 +10,40 @@ const run=(number,patch={})=>{
  return calculate(lab,{...defaults(lab),...inputs,...patch});
 };
 const near=(actual,expected,tolerance)=>assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} ≠ ${expected}`);
+
+test('Supported wave examples offer a characteristic solution and a common-section comparison',()=>{
+ for(const e of chapter6BookExamples.filter(e=>e.lab==='wall')){
+  const input={...defaults(e.lab),...e.inputs,mocResolution:41};
+  const fields=inputDefinitions(e.lab,input);
+  assert.deepEqual(fields.find(f=>f.key==='channelSolver').options,
+   ['Shock–Expansion','Method of characteristics','Compare both'],e.label);
+  const moc=run(e.number,{channelSolver:'Method of characteristics',mocResolution:41});
+  assert.ok(moc.result.moc.rows.at(-1)?.x>0,e.label);
+  const compare=run(e.number,{channelSolver:'Compare both',mocResolution:41});
+  assert.ok(compare.result.comparison.end>0,e.label);
+  assert.ok(plotOptions(compare).some(p=>p.key==='compare-mach'),e.label);
+  assert.doesNotMatch(sceneSVG(moc.scene,moc.inputs).svg,/NaN|undefined|Infinity/,e.label);
+ }
+ const e=getChapter6BookExample('6-2');
+ assert.ok(!inputDefinitions('wall',{...defaults('wall'),...e.inputs,branch:'strong'}).some(f=>f.key==='channelSolver'));
+});
+
+test('The consecutive-ramp and shock–fan examples resolve their characteristic interaction',()=>{
+ const consecutive=run(5,{channelSolver:'Method of characteristics',mocResolution:41});
+ assert.equal(consecutive.result.moc.traces.length,3);
+ assert.ok(consecutive.result.moc.fan);
+ assert.ok(consecutive.result.moc.maxMassResidual<.002);
+ const {svg}=sceneSVG(consecutive.scene,consecutive.inputs);
+ assert.match(svg,/data-moc-slip-line/);
+ for(const n of [1,2,3,4,5])assert.ok(svg.includes(`data-flow-region-number="${n}"`));
+ const fan=run(7,{channelSolver:'Method of characteristics',mocResolution:61});
+ const shock=fan.result.moc.traces[0].points;
+ assert.ok(shock.at(-1).before.M-shock[0].before.M>.3);
+ assert.ok(Math.abs(shock.at(-1).beta-shock[0].beta)>.05);
+ assert.ok(fan.result.moc.maxMassResidual<.01);
+ assert.ok(plotOptions(fan).some(p=>p.key==='pressure-turning'&&p.chart.series.length===4));
+ assert.ok(fan.rows.some(r=>r.label==='Analytical reference · Common pressure p₄ = p₅'));
+});
 
 test('All listed textbook examples load a physical scene in the appropriate lab',()=>{
  assert.deepEqual(chapter6BookExamples.map(e=>e.number),[1,2,3,4,5,6,7,9,10,11,12,13,14,15]);

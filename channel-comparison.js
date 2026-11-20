@@ -1,13 +1,13 @@
 import {solveShockExpansionChannel} from './channel-solver.js';
-import {solveChannelMOC,mocState} from './channel-moc.js?v=20261120-opposing-moc';
-import {fittedState,sampleOpposingRamps} from './channel-moc-shocks.js?v=20261120-opposing-moc';
+import {solveChannelMOC,mocState} from './channel-moc.js?v=20261120-wall-methods';
+import {fittedState,sampleFittedPatches} from './channel-moc-shocks.js?v=20261120-wall-methods';
 import {trackingProfile} from './wave-tracker.js';
 import {channelOrdinate} from './wave-channel.js';
 export const comparisonProperties=[['mach','Mach number','',s=>s.M],['pressure','Static pressure','kPa',s=>s.p/1000],['temperature','Static temperature','K',s=>s.T],['density','Density','kg/m³',s=>s.rho],['speed','Flow speed','m/s',s=>s.u],['angle','Flow angle','°',s=>s.theta*180/Math.PI],['stagnation','Stagnation pressure','kPa',s=>s.p0/1000]];
 const mix=(a,b,f)=>a+(b-a)*f;
 function transverse(a,t){const q=Math.max(0,Math.min(a.length-1,t*(a.length-1))),i=Math.min(a.length-2,Math.floor(q)),f=q-i;return {a:a[i],b:a[i+1],f};}
 export function sampleMOC(r,x,y){
- if(r.moc?.slip)return sampleOpposingRamps(r,x,y);
+ if(r.moc?.slip)return sampleFittedPatches(r,x,y);
  const rows=r.moc?.rows;if(!rows?.length||x<0||x>rows.at(-1).x+1e-9)return null;
  let i=0;while(i+1<rows.length&&rows[i+1].x<=x+1e-12)i++;
  const a=rows[i],b=rows[Math.min(i+1,rows.length-1)],f=b.x>a.x?(x-a.x)/(b.x-a.x):0;
@@ -32,7 +32,7 @@ export function solveChannelComparison(x){
  const run=fn=>{try{return {result:fn(x)};}catch(e){return {error:e.message};}},a=run(solveShockExpansionChannel),b=run(solveChannelMOC),base=a.result??b.result;if(!base)throw new Error(a.error??b.error);
  const end=Math.min(a.result?.tracking?.endX??0,b.result?.moc?.rows?.at(-1)?.x??0),comparison={se:a.result,moc:b.result,seError:a.error,mocError:b.error,end};
  const r={geometry:base.geometry,s1:base.s1,gamma:base.gamma,R:base.R,channel:true,channelMethod:'Compare both',regions:{},waves:[],panels:[],limitX:null,comparison,status:end>0?(end<base.geometry.end-1e-8?'partial':'ok'):'unsupported'};
- r.reason=b.result?.moc?.slip&&end>0?'Compared at the same physical points. Uniform characteristic patches and Shock–Expansion share the local shock jump and slip-line matching equations.':end>0?'Differences compare the same physical points within the common accepted domain. They are method differences, not an absolute error estimate. Refine both methods to check sensitivity.':'No common accepted downstream field. Quantitative comparison is unavailable.';
+ r.reason=b.result?.moc?.slip&&end>0?'Compared at the same physical points. Characteristic patches and Shock–Expansion share the local shock jump and slip-line matching equations.':end>0?'Differences compare the same physical points within the common accepted domain. They are method differences, not an absolute error estimate. Refine both methods to check sensitivity.':'No common accepted downstream field. Quantitative comparison is unavailable.';
  return r;
 }
 export function comparisonPlots(r,fraction){const p=comparisonProfile(r,fraction);if(!p?.samples.length)return [];return comparisonProperties.map(([key,label,unit,get])=>({key:'compare-'+key,label,chart:{title:label+' · both methods',xlabel:'Height y (m)',ylabel:unit||'M',zeroBaseline:false,series:['se','moc'].map((name,i)=>({name:i?'Method of characteristics':'Shock–Expansion',dash:i?'6 3':'',points:p.samples.map(z=>[z.y,get(z[name])])}))}}));}
