@@ -1,3 +1,4 @@
+import {solveSingleWall} from './single-wall-interaction.js';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {foundationExerciseNotice,foundationExerciseRows} from './foundation-exercises.js';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261118-restore-sample';
@@ -18,10 +19,10 @@ import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './cha
 import {channelSolverName,solveShockExpansionChannel} from './channel-solver.js?v=20261117-example-numbers';
 import {solveWaveTracker,trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
 import {defaultTrackingEvent,selectTrackingEvent,trackingSummaryRows} from './wave-tracker-tables.js?v=20261115-visible-regions';
-import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20261109-wedge-cone';
+import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20261120-single-wall';
 import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261120-opposing-moc';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
-import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261109-wedge-cone';
+import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261120-single-wall';
 import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-wedge-drag';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261119-cone-limit-help';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
@@ -453,7 +454,7 @@ export function calculate(id,x){
   for(const [title,before,after,n]of [['Incident shock · 1 → 2',z[1],z[2],a],['Reflected shock · 2 → 3',z[2],z[3],b]])shockDetails.push(shockStateSection({kind:'oblique',title,location:'Weak regular reflection · β measured from local upstream flow',before,after,gamma:g,R,extra:[{label:'Shock angle β',value:p.deg(n.beta),unit:'°'},{label:'Flow turn',value:p.deg(after.theta-before.theta),unit:'°'}]}));
  }
  else if(id==='wall'){
-  result=(x.wallShape==='Custom wall'&&x.boundaryMode==='Channel'?(x.channelSolver==='Compare both'?solveChannelComparison:channelSolverName(x.channelSolver)==='Method of characteristics'?solveChannelMOC:solveShockExpansionChannel):solveWaveWall)({...x,gamma:g,R});notice=result.reason;
+  result=(x.wallShape==='Custom wall'&&x.boundaryMode==='Channel'?(x.channelSolver==='Compare both'?solveChannelComparison:channelSolverName(x.channelSolver)==='Method of characteristics'?solveChannelMOC:solveShockExpansionChannel):solveSingleWall)({...x,gamma:g,R});notice=result.reason;
   if(result.tracking)selectTrackingEvent(result,defaultTrackingEvent(result));
   for(const [n,z]of Object.entries(result.regions))rows.push(...[['Mach',z.M,''],['Pressure',z.p/1000,'kPa'],['Temperature',z.T,'K'],['Density',z.rho,'kg/m³'],['Speed',z.u,'m/s'],['Flow angle',p.deg(z.theta),'°'],['Stagnation pressure',z.p0/1000,'kPa'],['Stagnation temperature',z.T0,'K']].map(([label,value,unit])=>({...row(`${result.tracking?n:'Region '+(result.regionLabels?.[n]??n)} · ${label}`,value,unit),panel:'wall'})));
   for(const w of result.waves)if(w.kind==='Oblique shock'){
@@ -461,7 +462,7 @@ export function calculate(id,x){
    const location=result.interaction?'Regular shock interaction · '+(/incident/i.test(w.title)?'incident wave':'matched outgoing wave'):`x = ${w.origin.x.toPrecision(6)} m`;
    shockDetails.push(shockStateSection({kind:'oblique',title,location,before:w.before,after:w.after,gamma:g,R,extra:[{label:'Shock angle β',value:p.deg(w.beta),unit:'°'},{label:'Flow turn',value:p.deg(w.after.theta-w.before.theta),unit:'°'}]}));
   }
-  if(result.interaction){rows.unshift(row('Signed slip-line angle φ',result.slipAngle,'°'),row('Common downstream pressure',result.regions[4].p/1000,'kPa'));rows.push(row('Interaction x',result.geometry.B[0],'m'),row('Interaction y',result.geometry.B[1],'m'));checks={pressureMatch:Math.abs(result.residual),directionMatch:Math.abs(result.regions[4].theta-result.regions[5].theta)};}
+  if(result.interaction){rows.unshift(row('Common downstream pressure',result.regions[4].p/1000,'kPa'));if(Number.isFinite(result.slipAngle))rows.unshift(row('Signed slip-line angle φ',result.slipAngle,'°'));rows.push(row('Interaction x',result.geometry.B[0],'m'),row('Interaction y',result.geometry.B[1],'m'));checks={pressureMatch:Math.abs(result.residual),directionMatch:Math.abs(result.regions[4].theta-result.regions[5].theta)};}
   if(result.limitX!==null)rows.push(row(result.interaction?'View limit before next reflection':'Local-solution limit',result.limitX,'m'));
   if(result.comparison)rows.push(row('Common accepted length',result.comparison.end,'m'),...comparisonExportRows(result,x.comparisonStation));
   if(result.tracking){rows.push(...trackingSummaryRows(result));shockDetails=trackingShockDetails(result);checks={trackingPressure:result.tracking.maxPressureResidual,trackingMass:result.tracking.maxMassResidual};}

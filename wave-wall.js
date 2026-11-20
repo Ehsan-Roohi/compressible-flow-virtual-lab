@@ -40,11 +40,12 @@ export function solveWaveWall(x){
  for(let i=0;i<rays.length;i++)for(let j=i+1;j<rays.length;j++){
   const a=rays[i],b=rays[j];if(a.id===b.id||Math.abs(a.m-b.m)<1e-12)continue;
   const xx=(b.origin.y-a.origin.y+a.m*a.origin.x-b.m*b.origin.x)/(a.m-b.m),yy=a.origin.y+a.m*(xx-a.origin.x),wall=ywall(xx);
-  if(xx>Math.max(a.origin.x,b.origin.x)+1e-8&&xx<geometry.end&&wall!==null&&sign*(yy-wall)>1e-9)hits.push({x:xx,reason:'Emitted waves intersect; their subsequent interaction requires a separate solution.'});
+  if(xx>Math.max(a.origin.x,b.origin.x)+1e-8&&xx<geometry.end&&wall!==null&&sign*(yy-wall)>1e-9)hits.push({x:xx,y:yy,waveIds:[a.id,b.id],reason:'Emitted waves intersect; their subsequent interaction requires a separate solution.'});
  }
  hits.sort((a,b)=>a.x-b.x);if(hits[0]&&hits[0].x<limitX){limitX=hits[0].x;reason=hits[0].reason;}
+ const intersection=hits[0]?.waveIds&&hits[0].x===limitX?hits[0]:null;
  const accepted=panels.filter(p=>p.a.x<limitX-1e-9),acceptedRegions={1:s1};for(const p of accepted)acceptedRegions[p.id]=p.state;
- return {status:reason?'partial':'ok',geometry,s1,panels:accepted,waves:waves.filter(w=>Number(w.id)<=accepted.length+1),regions:acceptedRegions,limitX:Number.isFinite(limitX)?limitX:null,reason,gamma:g,R};
+ return {status:reason?'partial':'ok',geometry,intersection,s1,panels:accepted,waves:waves.filter(w=>Number(w.id)<=accepted.length+1),regions:acceptedRegions,limitX:Number.isFinite(limitX)?limitX:null,reason,gamma:g,R};
 }
 export function wallPlots(r){
  const samples=[[-r.geometry.end*.18,r.s1],[0,r.s1]];

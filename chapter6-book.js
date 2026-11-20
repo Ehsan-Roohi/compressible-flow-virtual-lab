@@ -19,7 +19,7 @@ export const chapter6BookExamples=[
  entry(2,'Oblique-shock states','Find the shock angle and downstream static and stagnation properties for a 20° ramp.',{...compression,M1:3,theta:20,p1:101,T1:288}),
  entry(3,'Stronger ramp compression','Repeat Example 2 with a 30° ramp and inspect downstream pressure and Mach number.',{...compression,M1:3,theta:30,p1:101,T1:288}),
  entry(4,'Opposing shock interaction','Inspect regions 2, 3, 4, and 4′ and the slip-line angle. Temperature and channel dimensions are reference values.',chapter6Example(4)),
- entry(5,'Successive compression corners','Two 10° turns give wall inclinations of 10° and 20°. Inspect regions 2–5 and the common downstream flow direction.',chapter6Example(5)),
+ entry(5,'Successive compression corners','Two successive 10° turns on one wall produce interacting shocks. Inspect regions 2–5 and the slip-line angle.',{...chapter6Example(5),boundaryMode:'Single wall',wallSide:'Gas above wall'}),
  entry(6,'Prandtl–Meyer expansion','The inlet is at 1.8 kPa and 250 °C. Read the two fan-ray inclinations relative to the inlet direction.',{wallShape:'Expansion corner',boundaryMode:'Single wall',wallSide:'Gas above wall',M1:2,p1:1.8,T1:523.15,theta:20}),
  entry(7,'Shock–expansion interaction','Read the matched pressure, Mach numbers, and slip-line angle for the incident shock and expansion. Inlet temperature is a reference value.',shockFanPreset),
  entry(8,'Shock–expansion pressure–deflection diagram','Plot the paths through the four waves in Example 7 and locate their pressure–direction match.',shockFanPreset),

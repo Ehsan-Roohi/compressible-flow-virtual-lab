@@ -105,3 +105,22 @@ test('Compression ramps show both region numbers directly on the flow',()=>{
   assert.doesNotMatch(svg,/<circle/);
  }
 });
+
+test('Example 5 solves its first regular interaction on a single physical wall',()=>{
+ const preset=getChapter6BookExample('6–5');
+ assert.equal(preset.inputs.boundaryMode,'Single wall');
+ const result=run(5).result;
+ assert.ok(result.singleWallInteraction);
+ assert.deepEqual(Object.keys(result.geometry.walls),['Gas above wall']);
+ near(result.geometry.B[0],1.908668771529,1e-8);
+ near(result.slipAngle,20.1426632123,1e-7);
+ near(result.regions[4].p,result.regions[5].p,1e-5);
+ assert.deepEqual([result.a.kind,result.b.kind],['Expansion fan','Oblique shock']);
+ assert.ok(sceneSVG(run(5).scene,preset.inputs).svg.includes('data-slip-line'));
+ const mirrored=run(5,{wallSide:'Gas below wall',wallSegments:preset.inputs.wallSegments.map(p=>({...p,angle:-p.angle}))});
+ near(mirrored.result.slipAngle,-result.slipAngle,1e-8);
+ near(mirrored.result.geometry.B[1],-result.geometry.B[1],1e-8);
+ const short=run(5,{wallSegments:[preset.inputs.wallSegments[0],{angle:20,length:.3}]});
+ assert.equal(short.result.singleWallInteraction,undefined);
+ assert.ok(!short.rows.some(r=>r.label.includes('slip-line')));
+});

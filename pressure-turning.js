@@ -44,7 +44,13 @@ export function pressureTurningPlot(d){
  };
  const conePath=(c,name)=>{if(!c?.history?.length)return;series.push({name,points:c.history.map(z=>[deg(z.theta+Math.atan2(z.vt,z.vr)),z.p])});note='Conical-flow curve uses the actual velocity direction θ + atan2(Vθ,Vr), not the polar position angle. Wedge paths use 2D shock/expansion relations; each is normalized by its freestream pressure.';};
  const opposing=opposingShockRegions(r);
- if(opposing){
+ if(r.singleWallInteraction){
+  reference=r.s1.p;
+  for(const w of r.waves)addWave(w,w.title);
+  interactionMarkers=Object.entries(r.regions).map(([name,z])=>({name,x:deg(z.theta),y:z.p/reference,
+   ...(name==='4'&&Number.isFinite(r.slipAngle)?{detail:`φ = ${Number(r.slipAngle.toFixed(2))}°`}:{})}));
+  note='The incident and outgoing wave paths use the actual one-sided states. Matched states share pressure and flow direction.';
+ }else if(opposing){
   reference=opposing[0].p;
   const names=['1','2','3','4′','4'];
   for(const [i,j] of [[0,1],[0,2],[1,3],[2,4]]){

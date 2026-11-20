@@ -23,14 +23,14 @@ import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
-import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-result-cleanup';
+import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-single-wall';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261120-slip-angle';
-import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-slip-angle';
+import {plotOptions} from './plot-options.js?v=20261120-single-wall';
+import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-single-wall';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261120-chapter-eight';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261119-compact-layout';
@@ -39,8 +39,8 @@ import {foundationExampleEntries} from './foundation-exercises.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-opposing-moc';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-compression-regions';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-single-wall';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-single-wall';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
@@ -102,7 +102,7 @@ function defaults(id,selection={}){
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261120-opposing-moc',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261120-single-wall',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([n,title,,ids])=>{
   const number=n===1?'1–2':n;
@@ -1002,7 +1002,7 @@ function renderExamples(){
   entries=cases.map(e=>({...e,apply:()=>{
    if(id!==e.lab){openChapter6Example(e.value);return false;}
    load(e.inputs,e.value);
-   if(e.number===4||e.number===8)plotSelection.wall='pressure-turning';
+   if(e.number===4||e.number===5||e.number===8)plotSelection.wall='pressure-turning';
    if(e.number===9)plotSelection.wall='inlet-p-theta';
   }}));
  }

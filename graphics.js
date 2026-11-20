@@ -253,14 +253,14 @@ if(s.comparison){
   for(const wall of Object.values(z.walls))for(let i=1;i<wall.length;i++)inner+=line(...V(wall[i-1]),...V(wall[i]),'#52616c',3);
   for(const w of z.incident)inner+=line(...V(w.origin),...V(w.end),'#000000',2.2);
   for(const w of z.outgoing)if(w.kind!=='No wave')inner+=line(...V(w.origin),...V(w.end),w.kind==='Oblique shock'?'#000000':'#52616c',w.kind==='Oblique shock'?2.2:.65);
-  inner+=line(...V(z.slip.origin),...V(z.slip.end),'#000000',1.8,'6 4');
+  if(z.slip)inner+=`<g data-slip-line="true">${line(...V(z.slip.origin),...V(z.slip.end),'#000000',1.8,'6 4')}</g>`;
   const callouts=[];
   for(const [n,state] of Object.entries(s.regions)){
    const polygons=z.fields.filter(c=>c.state===state).map(c=>c.poly.map(V));
    const position=regionLabelPosition(polygons);if(!position)continue;
    const [xx,yy]=position.point,regionName=s.regionLabels?.[n]??n;
    if(position.callout||n==='4'||n==='5'){callouts.push({n,point:position.point});continue;}
-   inner+=`<g data-region-label="${n}" data-clearance="${position.clearance}">${txt(xx,yy+6,regionName,undefined,18,'middle')}</g>`;
+   inner+=`<g data-region-label="${n}" data-flow-region-number="${regionName}" data-clearance="${position.clearance}">${txt(xx,yy+6,regionName,undefined,18,'middle')}</g>`;
   }
   const used=[];
   for(const {n,point:[xx,yy]} of callouts){
@@ -268,10 +268,10 @@ if(s.comparison){
    let lx=downstream?602:Math.max(48,Math.min(530,xx));
    if(!downstream){lx=calloutSlot(lx,used);used.push(lx);}
    const ly=downstream?(n==='5'?110:200):45;
-   inner+=line(lx-(downstream?12:0),ly+(downstream?-6:4),xx,yy,'#263c4d',1.3)+`<circle cx="${xx}" cy="${yy}" r="2.4" fill="#263c4d"/>`+`<g data-region-callout="${n}" data-target-x="${xx}" data-target-y="${yy}">${txt(lx,ly,s.regionLabels?.[n]??n,'#17212b',20,'middle')}</g>`;
+   inner+=line(lx-(downstream?12:0),ly+(downstream?-6:4),xx,yy,'#263c4d',1.3)+`<circle cx="${xx}" cy="${yy}" r="2.4" fill="#263c4d"/>`+`<g data-region-callout="${n}" data-flow-region-number="${s.regionLabels?.[n]??n}" data-target-x="${xx}" data-target-y="${yy}">${txt(lx,ly,s.regionLabels?.[n]??n,'#17212b',20,'middle')}</g>`;
   }
-  const [gx,gy]=V([z.startX+.04*z.H,z.H*.6]);inner+=directedArrow(gx,gy,55,0,'#263c4d');
-  const [bx,by]=V(z.B);if(s.interaction){inner+=incidenceGlyph(s.delta,520,156,62,'#263c4d').replaceAll('α =','φ =');}inner+=`<circle cx="${bx}" cy="${by}" r="3" fill="#000000"/>`;
+  const [gx,gy]=V([z.startX+.04*z.H,(s.mirroredWall?-1:1)*z.H*.6]);inner+=directedArrow(gx,gy,55,0,'#263c4d');
+  const [bx,by]=V(z.B);if(s.interaction&&z.slip){inner+=incidenceGlyph(s.delta,520,156,62,'#263c4d').replaceAll('α =','φ =');}inner+=`<circle cx="${bx}" cy="${by}" r="3" fill="#000000"/>`;
   if(!s.interaction)inner+=txt(616,24,`φ = ${fmt(s.slipAngle,6)}°`,undefined,17,'end');
   inner+=txt(24,273,`B: x = ${fmt(z.B[0],5)}, y = ${fmt(z.B[1],5)} ${s.geometryMode==='Custom geometry'?'m':'(normalized)'}`,undefined,14)+txt(616,273,s.a.kind,undefined,14,'end');
   label='Analytical wave interaction · signed slip angle · equal geometric scale';meta='Dashed: slip line · solid black: shocks · view ends before wall reflections';
