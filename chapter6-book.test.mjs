@@ -6,7 +6,7 @@ import {plotOptions} from './plot-options.js';
 import {opposingShockSlipAngle} from './pressure-turning.js';
 import {fittedShockFanSlipLayer} from './channel-moc-shocks.js';
 import {deg,rad} from './physics.js';
-import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6GeometryExample,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js';
+import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js';
 
 const run=(number,patch={})=>{
  const {lab,inputs}=getChapter6BookExample(`6-${number}`);
@@ -116,11 +116,6 @@ test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
  assert.equal(plotOptions(ramjet)[0].key,'inlet-p-theta');
  near(run(10).result.nonlinear.CL,0,1e-10);
  near(run(10).result.nonlinear.CD,.004,.0002);
- const boom=chapter6BookResult(run(11));
- near(boom.rows.at(-1).value,.14,.001);
- near(boom.rows.at(-2).value,119.94,.3);
- assert.equal(boom.plot.chart.series.length,3);
- assert.ok(chapter6BookResult(run(11,{alpha:3})).notice);
  near(run(12).result.nonlinear.CL,.146,.001);
  const forces=chapter6BookResult(run(13)).rows;
  near(forces[0].value,66.84,.6);
@@ -132,6 +127,21 @@ test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
  near(shape.nonlinear.CL,.48854,.00002);
  near(shape.nonlinear.CD,.134,.00002);
  assert.deepEqual(run(15).result.nonlinear.waves.map(w=>w.kind),['Oblique shock','Expansion fan','Expansion fan','Oblique shock']);
+});
+
+test('Both symmetric diamond examples use the same flow and force outputs',()=>{
+ const first=run(10),second=run(11);
+ const properties=d=>d.rows.map(({label,unit})=>[label,unit]);
+ assert.deepEqual(properties(second),properties(first));
+ assert.deepEqual(chapter6AirfoilFields(second.inputs),chapter6AirfoilFields(first.inputs));
+ assert.equal(chapter6BookResult(second),null);
+ assert.equal(second.inputs.diamondFrontAngle,5);
+ assert.equal(second.inputs.M,2.5);
+ near(second.result.nonlinear.CL,0,1e-10);
+ assert.ok(second.result.nonlinear.CD>first.result.nonlinear.CD);
+ const inclined=run(11,{alpha:3});
+ assert.ok(inclined.result.nonlinear.CL>0);
+ assert.equal(chapter6BookResult(inclined),null);
 });
 
 test('Chapter 6 diagrams omit supplementary annotation boxes and leaders',()=>{
