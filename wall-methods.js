@@ -22,7 +22,7 @@ export function wallMethodDomain(x,reference){
   channelHeight:height,wallSegments:lower,upperWallSegments:upper});
  if(x.wallShape===shockFanMode){
   const config=channel(1,[forReach(x.fanShockAngle??10,1.35)],[forReach(x.fanExpansionAngle??10,1.35)]);
-  return {config,note:'The spatial field uses illustrative walls starting at the same x, a 1 m inlet height and a 1.35 m view. The book’s uniform-stream pressure and slip angle are shown as analytical reference values.'};
+  return {config,note:'Both walls turn at x = 0. The inlet height is 1 m and the spatial field extends to x = 1.35 m.'};
  }
  if(x.wallShape===ramjetMode){
   const {geometry:{end}}=reference;

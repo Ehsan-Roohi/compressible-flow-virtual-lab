@@ -30,7 +30,7 @@ import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261120-wall-methods-slip';
+import {plotOptions} from './plot-options.js?v=20261120-moc-slip-angle';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261120-chapter-eight';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
@@ -40,7 +40,7 @@ import {foundationExampleEntries} from './foundation-exercises.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-shock-fan-contours';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261120-moc-slip-angle';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-shock-fan-contours';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
@@ -103,7 +103,7 @@ function defaults(id,selection={}){
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261120-shock-fan-contours',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261120-moc-slip-angle',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([n,title,,ids])=>{
   const number=n===1?'1–2':n;
@@ -644,7 +644,7 @@ function renderRegionTable(d){
  if(d.result.comparison){$('regionTablePanel').hidden=false;$('regionTableTitle').textContent='Method comparison';$('regionTable').innerHTML=comparisonHTML(d.result,inputs.comparisonStation,fmt);return;}
  const panel=$('regionTablePanel');panel.hidden=!['collision','wall'].includes(d.id)||!d.result.regions;
  if(panel.hidden){$('regionTable').innerHTML='';return;}
- $('regionTableTitle').textContent=d.inspectTrackingEvent?'Selected event region properties':d.result.finalStreamMatch?'Final-stream region properties':d.result.tracking?(d.result.tracking.events.find(e=>e.index===d.result.selectedTrackingEvent)?.bookCase?'Book-example regions':(d.result.status==='partial'?'Last accepted region properties':'Final accepted region properties')):d.result.moc&&!d.result.moc.slip?'Inlet and outlet samples':'Flow properties by region';
+ $('regionTableTitle').textContent=d.inspectTrackingEvent?'Selected event region properties':d.result.finalStreamMatch?'Final-stream region properties':d.result.tracking?(d.result.tracking.events.find(e=>e.index===d.result.selectedTrackingEvent)?.bookCase?'Interaction region properties':(d.result.status==='partial'?'Last accepted region properties':'Final accepted region properties')):d.result.moc&&!d.result.moc.slip?'Inlet and outlet samples':'Flow properties by region';
  const regions=Object.entries((d.inspectTrackingEvent?null:d.result.finalStreamMatch)?.regions??d.result.regions);if(d.id==='collision'&&!d.result.same)regions.sort(([a],[b])=>({1:0,2:1,3:2,5:3,4:4}[a])-({1:0,2:1,3:2,5:3,4:4}[b]));
  const properties=[['Mach number','M','',z=>z.M],['Static pressure','p','kPa',z=>z.p/1000],['Static temperature','T','K',z=>z.T],['Density','ρ','kg/m³',z=>z.rho],['Flow speed','u','m/s',z=>z.u],['Flow angle','θ','°',z=>z.theta*180/Math.PI],['Stagnation pressure','p₀','kPa',z=>z.p0/1000],['Stagnation temperature','T₀','K',z=>z.T0]];
  if(d.result.interaction||d.result.tracking)properties.push(['Entropy rise from inlet','Δs','J/(kg·K)',z=>-(d.result.R??d.inputs.R??287)*Math.log(z.p0/d.result.s1.p0)]);

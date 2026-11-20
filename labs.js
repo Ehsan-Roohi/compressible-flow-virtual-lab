@@ -1,5 +1,5 @@
 import {solveSingleWall} from './single-wall-interaction.js';
-import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-wall-methods';
+import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {foundationExerciseNotice,foundationExerciseRows} from './foundation-exercises.js';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261118-restore-sample';
@@ -20,8 +20,9 @@ import {solveChannelComparison,comparisonPlots,comparisonExportRows} from './cha
 import {channelSolverName,solveShockExpansionChannel} from './channel-solver.js?v=20261117-example-numbers';
 import {solveWaveTracker,trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
 import {defaultTrackingEvent,selectTrackingEvent,trackingSummaryRows} from './wave-tracker-tables.js?v=20261115-visible-regions';
-import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20261120-single-wall';
+import {solveRegularChannel,regularChannelPlots} from './regular-channel.js?v=20261120-moc-slip-angle';
 import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261120-wall-methods';
+import {fittedShockFanSlipLayer} from './channel-moc-shocks.js?v=20261120-moc-slip-angle';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261120-single-wall';
 import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-wedge-drag';
@@ -37,7 +38,7 @@ import {coneLimits} from './cone-limits.js?v=20261109-wedge-cone';
 const input=(key,label,value,min,max,step=1,unit='')=>({key,label,value,min,max,step,unit});
 const g=input('gamma','Specific heat ratio',1.4,1.1,1.67,.01,'γ');
 const M=(key='M1',value=2)=>input(key,'Inlet Mach number',value,.1,8,.01,'M');
-const cornerView={key:'cornerView',label:'Drawing style',value:'Analytical contours',options:['Analytical contours','Textbook schematic']};
+const cornerView={key:'cornerView',label:'Drawing style',value:'Analytical contours',options:['Analytical contours','Textbook schematic'],optionLabels:{'Textbook schematic':'Schematic'}};
 const T=input('T1','Inlet temperature',300,100,1500,1,'K');
 const P=input('p1','Inlet pressure',101,1,1000,1,'kPa');
 const row=(label,value,unit='')=>({label,value,unit});
@@ -478,7 +479,17 @@ export function calculate(id,x){
   notice=[result.reason,domainNote].filter(Boolean).join(' ')||null;
   if(reference){
    result.wallReference=reference.result;
-   if(reference.result.shockFan||reference.result.ramjet||reference.result.simpleCorner)
+   if(reference.result.shockFan){
+    const moc=result.comparison?.moc??result;
+    const estimate=fittedShockFanSlipLayer(moc,p.rad(x.fanExpansionAngle??10),result.comparison?.end);
+    result.slipLayer=estimate;
+    rows.push(row('MOC · Equivalent slip-line angle φ',estimate?p.deg(estimate.angle):null,'°'));
+    if(estimate){
+     rows.push(row('MOC · Measurement station x',estimate.x,'m'));
+     notice+=' The MOC angle is measured from the horizontal at the entropy layer’s midpoint.';
+    }else notice+=' The MOC angle requires a completed shock–fan crossing and a resolved entropy layer.';
+    rows.push(...reference.rows.map(r=>({...r,label:'Shock–Expansion · '+r.label})));
+   }else if(reference.result.ramjet||reference.result.simpleCorner)
     rows.push(...reference.rows.filter(r=>!r.panel).map(r=>({...r,label:'Analytical reference · '+r.label})));
   }
   if(result.tracking)selectTrackingEvent(result,defaultTrackingEvent(result));

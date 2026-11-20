@@ -10,7 +10,7 @@ import {ductLongitudinalPlots} from './duct-contours.js?v=20261112-duct-contours
 import {bodyPlots} from './wedge-cone.js?v=20261114-region-markers';
 import {comparisonPlots} from './channel-comparison.js?v=20261120-wall-methods';
 import {trackingPlots} from './wave-tracker.js?v=20261109-wedge-cone';
-import {regularChannelPlots} from './regular-channel.js?v=20261120-single-wall';
+import {regularChannelPlots} from './regular-channel.js?v=20261120-moc-slip-angle';
 import {mocProfilePlots} from './channel-moc.js?v=20261120-wall-methods';
 import {channelPlots} from './wave-channel.js?v=20261109-wedge-cone';
 import {wallPlots} from './wave-wall.js?v=20261109-wedge-cone';
@@ -192,7 +192,8 @@ export function plotOptions(d,time=.001){if(d.result.multiRamp)return basePlotOp
   const source={...d,result:d.result.wallReference};
   const turning=source.result.ramjet?ramjetPlots(source.result)[0]:pressureTurningPlot(source);
   const plots=basePlotOptions(d,time);
-  if(turning)plots.push(annotateTurningRegions(source,{...turning,label:'Pressure–deflection · analytical reference'}));
+  if(turning)plots.push(annotateTurningRegions(source,{...turning,label:source.result.shockFan?
+   'Pressure–deflection · Shock–Expansion':'Pressure–deflection · analytical reference'}));
   return plots;
  }
  if(d.id==='collision'||d.result.shockFan||d.result.tracking){let source=d;if(d.result.finalStreamMatch)source={...d,result:d.result.finalStreamMatch};else if(d.result.tracking){const result={...d.result};selectTrackingEvent(result,defaultTrackingEvent(result));source={...d,result};}const turning=pressureTurningPlot(source);return turning?[annotateTurningRegions(source,turning)]:[];}const plots=basePlotOptions(d,time),turning=pressureTurningPlot(d);const expansion=d.id==='expansion'||d.result.simpleCorner&&d.result.cornerKind==='expansion';

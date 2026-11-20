@@ -273,6 +273,31 @@ function solveSuccessiveRamps(input,base,N){
    massResidual:massResidual(rows.at(-1)),maxMassResidual,maxJumpResidual,events:[{type:'Wave interaction',x,y}]}};
 }
 
+export function fittedShockFanSlipLayer(r,fanTurn,maxX=Infinity){
+ const trace=r?.moc?.traces?.[0];
+ if(trace?.side!==1)return null;
+ const section=r.moc.rows.findLast(row=>row.x<=maxX+1e-9&&row.shock?.id===trace.id);
+ if(!section)return null;
+ const shock=trace.points.findLast(point=>point.x<=section.x+1e-9);
+ if(!shock||!(fanTurn>0)||Math.abs(shock.before.theta-fanTurn)>fanTurn*.002)return null;
+
+ // With constant stagnation temperature, entropy varies linearly with ln(p0).
+ // The midpoint of the two post-shock plateaux follows a streamline through
+ // the shear layer generated as the shock turns through the expansion fan.
+ const inlet=Math.log(trace.points[0].after.p0),downstream=Math.log(shock.after.p0);
+ if(Math.abs(inlet-downstream)<1e-7)return null;
+ const k=(inlet+downstream)/2,{lo,hi,z}=section.parts[0];
+ let sample=null;
+ for(let i=1;i<z.length;i++){
+  const a=z[i-1],b=z[i];
+  if((a.k<k)===(b.k<k))continue;
+  if(sample)return null;
+  const t=(k-a.k)/(b.k-a.k);
+  sample={x:section.x,y:lo+(hi-lo)*(i-1+t)/(z.length-1),angle:a.theta+t*(b.theta-a.theta)};
+ }
+ return sample;
+}
+
 export function sampleFittedPatches(r,x,y){
  const {rows}=r.moc;
  if(x<0||x>rows.at(-1).x)return null;

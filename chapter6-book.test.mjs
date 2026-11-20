@@ -4,6 +4,8 @@ import {calculate,defaults,inputDefinitions} from './labs.js';
 import {sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 import {opposingShockSlipAngle} from './pressure-turning.js';
+import {fittedShockFanSlipLayer} from './channel-moc-shocks.js';
+import {deg,rad} from './physics.js';
 import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6GeometryExample,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js';
 
 const run=(number,patch={})=>{
@@ -45,7 +47,17 @@ test('The consecutive-ramp and shock–fan examples resolve their characteristic
  assert.ok(Math.abs(shock.at(-1).beta-shock[0].beta)>.05);
  assert.ok(fan.result.moc.maxMassResidual<.01);
  assert.ok(plotOptions(fan).some(p=>p.key==='pressure-turning'&&p.chart.series.length===4));
- assert.ok(fan.rows.some(r=>r.label==='Analytical reference · Common pressure p₄ = p₅'));
+ assert.ok(fan.rows.some(r=>r.label==='Shock–Expansion · Common pressure p₄ = p₅'));
+ const measured=fan.rows.find(r=>r.label==='MOC · Equivalent slip-line angle φ');
+ near(measured.value,20.027,.002);
+ near(fan.result.slipLayer.x,1.35,1e-8);
+ assert.equal(measured.value,deg(fan.result.slipLayer.angle));
+ assert.equal(fittedShockFanSlipLayer(fan.result,rad(10),.7),null);
+ assert.doesNotMatch(fan.notice,/book|textbook/i);
+ assert.ok(plotOptions(fan).some(p=>p.label==='Pressure–deflection · Shock–Expansion'));
+ const comparison=run(7,{channelSolver:'Compare both',mocResolution:61}).result;
+ assert.ok(comparison.slipLayer?.x<=comparison.comparison.end);
+ near(deg(comparison.slipLayer.angle),20.027,.002);
 });
 
 test('All listed textbook examples load a physical scene in the appropriate lab',()=>{
