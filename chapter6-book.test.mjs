@@ -79,13 +79,13 @@ test('Book figures show numerical shock and fan annotations for the solved waves
   const d=run(i+1),{svg}=sceneSVG(d.scene,d.inputs);
   assert.match(svg,/data-chapter6-wave-labels/);
   assert.equal([...svg.matchAll(/data-wave-readout="S\d+"/g)].length,count,`Example ${i+1}`);
-  assert.equal([...svg.matchAll(/β = [\d.]+° · θ = [\d.]+° · M = [\d.]+ → [\d.]+/g)].length,count);
+  assert.equal([...svg.matchAll(/β = [\d.]+° · θ = [\d.]+°<\/text><text\b[^>]*>M = [\d.]+ → [\d.]+/g)].length,count);
  }
  const ramp=run(2),corner=sceneSVG(ramp.scene,ramp.inputs).svg;
- assert.match(corner,/β = 37\.76° · θ = 20° · M = 3 → 1\.9941/);
+ assert.match(corner,/β = 37\.76° · θ = 20°<\/text><text\b[^>]*>M = 3 → 1\.9941/);
  assert.doesNotMatch(sceneSVG(ramp.scene,{...ramp.inputs,bookExample:''}).svg,/data-chapter6-wave-labels/);
  const fan=run(6);
- assert.match(sceneSVG(fan.scene,fan.inputs).svg,/θ = 20° · M = 2 → 2\.8306/);
+ assert.match(sceneSVG(fan.scene,fan.inputs).svg,/θ = 20°<\/text><text\b[^>]*>M = 2 → 2\.8306/);
  assert.doesNotMatch(sceneSVG(fan.scene,fan.inputs).svg,/β =/);
  const inlet=run(9),schlieren=sceneSVG(inlet.scene,inlet.inputs,0,'schlieren').svg;
  assert.match(schlieren,/data-schlieren-outline="true"/);

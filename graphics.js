@@ -1,4 +1,4 @@
-import {addChapter6WaveLabels,showChapter6WaveLabels} from './chapter6-wave-labels.js';
+import {addChapter6WaveLabels,showChapter6WaveLabels} from './chapter6-wave-labels.js?v=20261120-wave-readouts';
 import {schlierenOutline} from './schlieren.js?v=20261118-schlieren-outline';
 import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261118-fan-dots';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
