@@ -66,7 +66,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
     const edge=trailing?.waves.includes(w)?'trailing edge':w.origin.x<1e-9?'leading edge':`panel #${w.id.slice(1)}`;
     const verticalLimit=Math.sin(angle)>0?46:234;
     const length=Math.min(155,(flowRight-origin[0])/Math.cos(angle),(origin[1]-verticalLimit)/Math.sin(angle));
-    const point=length>40?ray(origin,angle,length*.5):null;
+    const point=length>40?ray(origin,angle,length*.5):origin;
     bookWaves.push({...w,label:`${w.side} ${edge}`,point});
    }else if(pos[0]<flowRight-12)shockLabels.push(`<g data-shock-angle="${w.id}">${txt(pos[0]-sign*offset*Math.sin(angle),Math.max(68,Math.min(218,pos[1]-sign*offset*Math.cos(angle))),`${label} = ${fmt(w.beta*180/Math.PI,4)}°`,'#17212b',13,'middle')}</g>`);
   }else{

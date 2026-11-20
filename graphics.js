@@ -1,4 +1,4 @@
-import {addChapter6WaveLabels,showChapter6WaveLabels} from './chapter6-wave-labels.js?v=20261120-wave-readouts';
+import {addChapter6WaveLabels,showChapter6WaveLabels} from './chapter6-wave-labels.js?v=20261120-chapter6-inline';
 import {schlierenOutline} from './schlieren.js?v=20261118-schlieren-outline';
 import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261118-fan-dots';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
@@ -16,7 +16,7 @@ import {coneAnnotations} from './cone-annotations.js?v=20261119-cone-clean-diagr
 import {wedgeDrawing} from './wedge-graphics.js?v=20261114-region-markers';
 import {trackingDrawing,trackingCoordinates} from './wave-tracker-graphics.js?v=20261120-chapter6-waves';
 import {wallDrawing} from './wave-wall-graphics.js?v=20261118-wave-density';
-import {airfoilDrawing} from './airfoil-graphics.js?v=20261120-chapter6-waves';
+import {airfoilDrawing} from './airfoil-graphics.js?v=20261120-chapter6-inline';
 import {coneGeometry} from './cone-probe.js?v=20261110-cone-conditions';
 import {diagramFontFamily,diagramFontStyle} from './diagram-font.js?v=20261109-wedge-cone';
 import {cornerDrawing,cornerPalette,cornerContourColor} from './corner-graphics.js?v=20261120-chapter6-waves';
@@ -334,7 +334,7 @@ export function sceneSVG(scene,inputs,time=.001,quantity='pressure'){
   view.field={...view.field,options:[...new Set([...view.field.options,'schlieren'])]};
   if(schlieren)view=schlierenOutline(view)??view;
  }
- const svg=showChapter6WaveLabels(inputs)?addChapter6WaveLabels(view.svg,view.bookWaves):view.svg;
+ const svg=showChapter6WaveLabels(inputs)&&(!schlieren||view.bookWaves?.length)?addChapter6WaveLabels(view.svg,view.bookWaves,scene,inputs):view.svg;
  return {...view,svg:uniformDiagramText(svg)};
 }
 export function chartSVG(...args){const view=renderChartSVG(...args);return {...view,svg:uniformDiagramText(view.svg)};}
