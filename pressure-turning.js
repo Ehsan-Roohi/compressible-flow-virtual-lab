@@ -27,7 +27,7 @@ export function opposingShockSlipAngle(r){return slipLineAngle(opposingShockRegi
 // Every curve has one upstream reference. Shock curves are polar loci, not
 // resolved profiles inside a discontinuity. Cross-section samples stay separate.
 export function pressureTurningPlot(d){
- const {result:r,inputs:x,id}=d,g=d.gas?.gamma??x.gamma??1.4,series=[];let reference=1,interactionMarkers,note='Shock curves are pressure–deflection loci from their own upstream state; expansion curves are simple-wave paths. Pressure is normalized by the common inlet pressure.';
+ const {result:r,inputs:x,id}=d,g=d.gas?.gamma??x.gamma??1.4,series=[];let reference=1,interactionMarkers,xReference,note='Shock curves are pressure–deflection loci from their own upstream state; expansion curves are simple-wave paths. Pressure is normalized by the common inlet pressure.';
  if(r.ramjet||r.wallReflection)return null; // Existing dedicated p–theta diagrams.
  const addWave=(w,name)=>{
   const a=w.before,b=w.after;if(!a||!b||![a.theta,b.theta,a.p,b.p].every(Number.isFinite))return;
@@ -47,8 +47,8 @@ export function pressureTurningPlot(d){
  if(r.singleWallInteraction){
   reference=r.s1.p;
   for(const w of r.waves)addWave(w,w.title);
-  interactionMarkers=Object.entries(r.regions).map(([name,z])=>({name,x:deg(z.theta),y:z.p/reference,
-   ...(name==='4'&&Number.isFinite(r.slipAngle)?{detail:`φ = ${Number(r.slipAngle.toFixed(2))}°`}:{})}));
+  interactionMarkers=Object.entries(r.regions).map(([name,z])=>({name,x:deg(z.theta),y:z.p/reference}));
+  if(Number.isFinite(r.slipAngle))xReference={x:r.slipAngle,y:r.regions[4].p/reference};
   note='The incident and outgoing wave paths use the actual one-sided states. Matched states share pressure and flow direction.';
  }else if(opposing){
   reference=opposing[0].p;
@@ -57,8 +57,8 @@ export function pressureTurningPlot(d){
    addWave({kind:'Oblique shock',before:opposing[i],after:opposing[j]},`${names[i]} → ${names[j]}`);
   }
   const phi=slipLineAngle(opposing);
-  interactionMarkers=opposing.map((z,i)=>({name:names[i],x:deg(z.theta),y:z.p/reference,
-   ...(i===3&&phi!==null?{detail:`φ = ${Number(phi.toFixed(2))}°`}:{})}));
+  interactionMarkers=opposing.map((z,i)=>({name:names[i],x:deg(z.theta),y:z.p/reference}));
+  if(phi!==null)xReference={x:phi,y:opposing[3].p/reference};
   note='The four shock polars describe the first regular interaction. The incident shocks start at region 1. Regions 4 and 4′ share pressure and flow direction at the slip line.';
  }else if(r.bodyLab){
   reference=1;const w=r.wedge,free={M:w.M,p:1,theta:w.alpha};
@@ -93,5 +93,5 @@ export function pressureTurningPlot(d){
  }
  const valid=series.filter(s=>s.points.length>1&&s.points.every(p=>p.every(Number.isFinite)));
  if(!valid.length)return null;
- return {key:'pressure-turning',label:'Pressure–deflection diagram',note,chart:{title:'Pressure–deflection diagram',xlabel:'Flow direction θ (°)',ylabel:interactionMarkers?'p/p₁':'p/pref',...(interactionMarkers?{interactionPolar:true,markers:interactionMarkers}:{}),zeroBaseline:false,scatter:valid.every(s=>s.scatter===true),series:valid}};
+ return {key:'pressure-turning',label:'Pressure–deflection diagram',note,chart:{title:'Pressure–deflection diagram',xlabel:'Flow direction θ (°)',ylabel:interactionMarkers?'p/p₁':'p/pref',...(interactionMarkers?{interactionPolar:true,markers:interactionMarkers}:{}),...(xReference?{xReference}:{}),zeroBaseline:false,scatter:valid.every(s=>s.scatter===true),series:valid}};
 }

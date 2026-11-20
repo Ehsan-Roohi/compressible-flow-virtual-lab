@@ -41,7 +41,15 @@ test('Example 4 pressure–deflection diagram connects all four shocks in every 
   assert.deepEqual(polar.chart.markers.map(m=>m.name),['1','2','3','4′ / 4']);
   near(opposingShockSlipAngle(d.result),9.54488816868);
   const svg=chartSVG(polar.chart).svg;
-  assert.match(svg,/4′ \/ 4 · φ = 9\.54°/);
+  assert.match(svg,/data-slip-angle-axis="true"[\s\S]*?φ = 9\.54°/);
   assert.doesNotMatch(svg,/NaN|undefined|Infinity/);
  }
+});
+
+
+test('Example 5 projects the slip-line angle onto the pressure–deflection x axis',()=>{
+ const c=chart(run('wall',{...chapter6Example(5),boundaryMode:'Single wall'}));
+ near(c.xReference.x,20.1426632123);
+ const {svg}=chartSVG(c);
+ assert.match(svg,/data-slip-angle-axis="true"[\s\S]*?φ = 20\.14°/);
 });
