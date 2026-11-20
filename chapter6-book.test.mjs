@@ -96,3 +96,12 @@ test('Chapter 6 solved interaction regions use the same numbers in each figure a
   assert.match(sceneSVG(d.scene,d.inputs).svg,/data-airfoil-region="1"/);
  }
 });
+
+test('Compression ramps show both region numbers directly on the flow',()=>{
+ for(const example of [1,2,3])for(const cornerView of ['Analytical contours','Textbook schematic']){
+  const d=run(example,{cornerView});
+  const {svg}=sceneSVG(d.scene,d.inputs);
+  assert.deepEqual([...svg.matchAll(/data-flow-region-number="([12])"/g)].map(m=>m[1]),['1','2']);
+  assert.doesNotMatch(svg,/<circle/);
+ }
+});

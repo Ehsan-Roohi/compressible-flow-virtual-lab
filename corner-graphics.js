@@ -1,3 +1,4 @@
+import {regionNumber} from './region-labels.js?v=20261120-region-numbers';
 import {linspace,prandtlMeyer,deg} from './physics.js';
 export const cornerPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 export function cornerContourColor(t){const v=Math.max(0,Math.min(1,t))*(cornerPalette.length-1),i=Math.min(cornerPalette.length-2,Math.floor(v)),f=v-i;const a=cornerPalette[i].match(/[a-f0-9]{2}/gi).map(v=>parseInt(v,16)),b=cornerPalette[i+1].match(/[a-f0-9]{2}/gi).map(v=>parseInt(v,16));return '#'+a.map((v,k)=>Math.round(v+(b[k]-v)*f).toString(16).padStart(2,'0')).join('');}
@@ -10,7 +11,9 @@ export function cornerDrawing(s,inputs,{txt,line,poly,shade,fmt}){
  const end=a=>{const dx=Math.cos(a),dy=-Math.sin(a),times=[];if(dx>1e-12)times.push((right-x)/dx);if(dy< -1e-12)times.push((52-y)/dy);if(dy>1e-12)times.push((292-y)/dy);const t=Math.min(...times.filter(t=>t>=0));return [x+t*dx,y+t*dy];};
  const densityCells=[];
  const paint=(points,value)=>{if(inputs._cornerQuantity==='density')densityCells.push({points,rho:value,mask:domain});return poly(points,shade(value));};
- const region=(cx,cy,n)=>!shock?txt(cx,cy+5,n,colored?'#ffffff':'#17212b',17,'middle'):`<circle cx="${cx}" cy="${cy}" r="11" fill="${colored?'#ffffff':'#f8fbf6'}" stroke="#263c4d" stroke-width="1.1"/>`+txt(cx,cy+5,n,'#17212b',15,'middle');
+ const region=(cx,cy,n)=>shock
+  ?regionNumber([cx,cy],n,colored?shade(n==='1'?inputs._cornerUp:inputs._cornerDown):'#f8fbf6')
+  :txt(cx,cy+5,n,colored?'#ffffff':'#17212b',17,'middle');
  const annotation=colored?'#ffffff':'#263c4d';
  const arc=(a,b,r,label)=>{if(Math.abs(b-a)<1e-7)return '';const points=linspace(a,b,28).map(t=>[x+r*Math.cos(t),y-r*Math.sin(t)]),mid=(a+b)/2;return `<polyline points="${points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${annotation}" stroke-width="1"/>`+txt(x+(r+10)*Math.cos(mid),y-(r+10)*Math.sin(mid)+4,label,annotation,14,'middle');};
  let inner=`<defs><clipPath id="cornerGas"><polygon points="${domain.map(p=>p.join(',')).join(' ')}"/></clipPath></defs>`;
