@@ -1,11 +1,11 @@
 import {finiteTubeMode,finiteTubeFrame,closedPistonMode,sinusoidalExperiment} from './finite-tube.js?v=20261118-restore-sample';
 import {valveExperiment} from './valve-closure.js';
-import {multiRampMode,multiRampPreset,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261118-wave-density';
+import {multiRampMode,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261118-wave-density';
 import {probeAirfoilField} from './airfoil-field.js?v=20261117-multi-inlet';
-import {shockFanMode,shockFanPreset} from './shock-fan-example.js?v=20261118-wave-density';
+import {shockFanMode} from './shock-fan-example.js?v=20261118-wave-density';
 import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
-import {ramjetMode,ramjetPreset,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
+import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
 import {fannoExamples} from './fanno-examples.js?v=20261120-fanno-plot-menu';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js';
@@ -23,7 +23,7 @@ import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
-import {chapter6Example} from './regular-channel.js?v=20261109-wedge-cone';
+import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
@@ -86,6 +86,12 @@ function rayleighModeDefaults(base,selection){
 }
 function defaults(id,selection={}){
  const inputs=experimentDefaults(id);
+ if(id==='wall')return {...inputs,...chapter6WallDefaults(selection)};
+ if(id==='airfoil'){
+  const geometry={...inputs,airfoilShape:selection.airfoilShape??inputs.airfoilShape,bookAirfoilChord:1,bookFlightHeight:150};
+  if(selection.bookExample==='9-7'&&selection.airfoilShape===chapter9Triangle.airfoilShape)return {...geometry,...chapter9Triangle};
+  return {...geometry,...chapter6ResetExample(id,selection)?.inputs};
+ }
  if(id==='rayleigh')return rayleighModeDefaults(inputs,selection);
  if(id==='fanno')return fannoModeDefaults(inputs,selection);
  if(id==='nozzle')return {...inputs,...nozzleBookInputs};
@@ -93,7 +99,7 @@ function defaults(id,selection={}){
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001}:inputs;
 }
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
-let pendingWaveShape=null,pendingBookCase=null,pendingCustomChannel=false,pendingLegacyCorner=null;
+let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
 const worker=new Worker(new URL('./worker.js?v=20261119-chapter-exercises',import.meta.url),{type:'module'});
 function renderNav(){
@@ -104,12 +110,80 @@ function renderNav(){
  }).join('');
 }
 function canonicalExample(value){return String(value??'').replace(/[–−]/g,'-');}
-function openLab(){stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;const [section,query]=location.hash.slice(1).split('?',2);let next=section||'rayleigh';if(['oblique','expansion'].includes(next)){pendingLegacyCorner=next;pendingWaveShape=next==='oblique'?'Compression ramp':'Expansion corner';location.hash='wall';return;}if(next==='balances'){location.hash='foundations';return;}if(next==='linear'){location.hash='airfoil';return;}if(!labs[next]){location.hash='rayleigh';return;}id=next;document.body.dataset.lab=id;setChapterLayout(id);current=null;stopAnimation();inputs=defaults(id);try{let saved=JSON.parse(localStorage.getItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':'')));if(saved&&typeof saved==='object'){for(let k in inputs)if(k in saved)inputs[k]=saved[k];if(id==='wall'&&saved.customInteraction===multiRampMode&&saved.inletSolutionVersion!==2){inputs.inletTerminal='Wall reflections';inputs.inletSolutionVersion=2;}if(id==='wall'&&saved.theta===undefined&&saved.wallSegments?.length)inputs.theta=Math.abs(saved.wallSegments[0].angle);if(id==='airfoil'&&!saved.geometryInput){const old=airfoilGeometry({...inputs,geometryInput:inputs.airfoilShape==='Custom panels'?'Coordinates':'Dimensions'});inputs.upperSegments=surfaceSegments(old.upper,inputs.airfoilShape==='Custom panels');inputs.lowerSegments=surfaceSegments(old.lower,inputs.airfoilShape==='Custom panels');inputs.geometryInput='Angles & lengths';}if(['oblique','expansion'].includes(id)&&saved.cornerColorVersion!==1)inputs.cornerView='Analytical contours';}}catch{}inputs.fluid=gasInfo(inputs).name;if(pendingWaveShape){if(id==='wall'){if(pendingWaveShape===ramjetMode)inputs={...inputs,...ramjetPreset};inputs.wallShape=pendingWaveShape;if(pendingWaveShape!=='Custom wall'&&pendingWaveShape!==ramjetMode&&pendingWaveShape!==shockFanMode){inputs.boundaryMode='Single wall';inputs.theta=Math.abs(wallPresets[pendingWaveShape][0].angle);}if(pendingWaveShape===shockFanMode)inputs={...inputs,...shockFanPreset};if(pendingWaveShape!==ramjetMode&&pendingWaveShape!==shockFanMode)inputs.wallSegments=wallPresets[pendingWaveShape].map(p=>({...p,angle:p.angle*(inputs.wallSide==='Gas below wall'?-1:1)}));}if(id==='collision'){inputs.interactionType=pendingWaveShape;inputs.geometryMode='Custom geometry';}pendingWaveShape=null;}if(pendingBookCase){inputs={...inputs,...chapter6Example(pendingBookCase)};pendingBookCase=null;}if(pendingLegacyCorner&&id==='wall'){let legacy=defaults(pendingLegacyCorner);try{legacy={...legacy,...JSON.parse(localStorage.getItem('gdvl-inputs-'+pendingLegacyCorner)||'{}')};}catch{}for(const key of ['M1','T1','p1','gamma','R','fluid','branch','cornerView','theta'])if(legacy[key]!==undefined)inputs[key]=legacy[key];inputs.wallSide='Gas above wall';pendingLegacyCorner=null;}if(pendingMultiInlet&&id==='wall'){Object.assign(inputs,multiRampPreset);pendingMultiInlet=false;}if(pendingCustomChannel&&id==='wall'){inputs.wallShape='Custom wall';inputs.boundaryMode='Channel';inputs.channelSolver='Shock–Expansion';pendingCustomChannel=false;}if(id==='collision')inputs.geometryMode='Custom geometry';if(id==='wall')inputs.channelSolver=channelSolverName(inputs.channelSolver);let l=labs[id];$('labTitle').textContent=l.chapter===6?'Supersonic Wave Lab':l.title;$('description').textContent=l.description;$('model').textContent=l.model;$('limitations').textContent=l.limitations;let chapter=chapters.find(x=>x[0]===l.chapter);$('labTabs').hidden=l.chapter===6||chapter[3].length<2;$('labTabs').innerHTML=l.chapter===6||chapter[3].length<2?'':chapter[3].map(k=>`<button type="button" data-lab="${k}" class="${id===k?'active':''}">${labs[k].title}</button>`).join('');if(id==='foundations'){
+const expansionChannelPreset={wallShape:'Custom wall',boundaryMode:'Channel',channelSolver:'Method of characteristics',M1:3,channelHeight:1,wallSegments:[{angle:-8,length:6}],upperWallSegments:[{angle:8,length:6}],mocResolution:81,mocStation:1,mocLines:'Shown',bookExample:'expansion'};
+const chapter9TriangleGeometry={airfoilShape:'Asymmetric double wedge',thickness:.1,peak:.5,camber:.05};
+const chapter9TriangleSegments=presetSegments(chapter9TriangleGeometry);
+const chapter9Triangle={...chapter9TriangleGeometry,geometryInput:'Angles & lengths',upperSegments:chapter9TriangleSegments.upper,
+ lowerSegments:chapter9TriangleSegments.lower,airfoilMethod:'Linearized theory',M:2,alpha:0,bookExample:'9-7'};
+function chapter6WallDefaults(selection){
+ if(selection.customInteraction===multiRampMode)return {...multiRampProblemPreset,bookExample:'6–P1b'};
+ if(selection.wallShape==='Custom wall'){
+  if(selection.boundaryMode==='Single wall')return {wallShape:'Custom wall',wallSegments:wallPresets['Custom wall']};
+  if(selection.channelSolver&&channelSolverName(selection.channelSolver)!=='Shock–Expansion')
+   return {...expansionChannelPreset,channelSolver:channelSolverName(selection.channelSolver)};
+  if(['reflection','shock-fan','fans'].includes(selection.bookExample))return {...trackingPreset(selection.bookExample),bookExample:selection.bookExample};
+ }
+ return chapter6ResetExample('wall',selection)?.inputs;
+}
+function chapter6ExampleHash(value){return '#'+(getChapter6BookExample(value)?.lab??'wall')+'?example='+canonicalExample(value);}
+function openChapter6Example(value){
+ const hash=chapter6ExampleHash(value);
+ if(location.hash===hash)openLab();else location.hash=hash;
+}
+function openLab(){
+ stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;
+ const [section,query]=location.hash.slice(1).split('?',2);
+ const next=section||'rayleigh';
+ const example=canonicalExample(new URLSearchParams(query).get('example'));
+ const chapter6Target=getChapter6BookExample(example)?.lab;
+ if(['wall','airfoil','collision'].includes(next)&&chapter6Target&&chapter6Target!==next){location.hash=chapter6ExampleHash(example);return;}
+ if(['oblique','expansion'].includes(next)){pendingLegacyCorner=next;location.hash='wall';return;}
+ if(next==='balances'){location.hash='foundations';return;}
+ if(next==='linear'){location.hash='airfoil';return;}
+ if(!labs[next]){location.hash='rayleigh';return;}
+ id=next;document.body.dataset.lab=id;setChapterLayout(id);current=null;stopAnimation();inputs=defaults(id);
+ try{
+  const saved=JSON.parse(localStorage.getItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':'')));
+  if(saved&&typeof saved==='object'){
+   for(const key in inputs)if(key in saved)inputs[key]=saved[key];
+   if(id==='wall'&&saved.customInteraction===multiRampMode&&saved.inletSolutionVersion!==2){inputs.inletTerminal='Wall reflections';inputs.inletSolutionVersion=2;}
+   if(id==='wall'&&saved.theta===undefined&&saved.wallSegments?.length)inputs.theta=Math.abs(saved.wallSegments[0].angle);
+   if(id==='airfoil'&&!saved.geometryInput){
+    const old=airfoilGeometry({...inputs,geometryInput:inputs.airfoilShape==='Custom panels'?'Coordinates':'Dimensions'});
+    inputs.upperSegments=surfaceSegments(old.upper,inputs.airfoilShape==='Custom panels');
+    inputs.lowerSegments=surfaceSegments(old.lower,inputs.airfoilShape==='Custom panels');
+    inputs.geometryInput='Angles & lengths';
+   }
+  }
+ }catch{}
+ if(pendingLegacyCorner&&id==='wall'){
+  const type=pendingLegacyCorner;
+  const shape=type==='oblique'?'Compression ramp':'Expansion corner';
+  inputs=defaults('wall',{wallShape:shape});
+  let saved;
+  try{saved=JSON.parse(localStorage.getItem('gdvl-inputs-'+type));}catch{}
+  if(saved&&typeof saved==='object'){
+   for(const key of ['M1','T1','p1','gamma','R','fluid','branch','cornerView','theta'])if(saved[key]!==undefined)inputs[key]=saved[key];
+   if(saved.cornerColorVersion!==1)inputs.cornerView='Analytical contours';
+   inputs.bookExample='';
+  }
+  pendingLegacyCorner=null;
+ }
+ if(pendingCustomChannel&&id==='wall'){inputs=defaults('wall',{wallShape:'Custom wall'});pendingCustomChannel=false;}
+ inputs.fluid=gasInfo(inputs).name;
+ if(id==='collision')inputs.geometryMode='Custom geometry';
+ if(id==='wall')inputs.channelSolver=channelSolverName(inputs.channelSolver);
+ const l=labs[id],chapter=chapters.find(x=>x[0]===l.chapter);
+ $('labTitle').textContent=l.chapter===6?'Supersonic Wave Lab':l.title;
+ $('description').textContent=l.description;$('model').textContent=l.model;$('limitations').textContent=l.limitations;
+ const hideTabs=l.chapter===6||chapter[3].length<2;
+ $('labTabs').hidden=hideTabs;
+ $('labTabs').innerHTML=hideTabs?'':chapter[3].map(k=>`<button type="button" data-lab="${k}" class="${id===k?'active':''}">${labs[k].title}</button>`).join('');
+ if(id==='foundations'){
   const tabs=$('labTabs');tabs.hidden=false;
   tabs.innerHTML='<button type="button" data-lab="foundations?example=1-1">Ch. 1 · Wing pressure</button><button type="button" data-lab="foundations?example=2-1">Ch. 2 · Euler state and flux</button>';
  }
  $('labTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(location.hash==='#'+b.dataset.lab)openLab();else location.hash=b.dataset.lab;});renderNav();
- const example=canonicalExample(new URLSearchParams(query).get('example'));
  if(id==='nozzle'&&example==='8-4'){loadNozzleBookExample();return;}
  renderInputs();
  const select=$('exampleSelect');
@@ -117,18 +191,23 @@ function openLab(){stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFi
  if(match){select.value=match.value;select.onchange({target:select});return;}
  solve();
 }
-let pendingMultiInlet=false;
-const waveShapes=['Compression ramp','Expansion corner','Custom wall',ramjetMode];
+const waveShapes=['Compression ramp','Expansion corner','Custom wall',shockFanMode,ramjetMode];
 function waveGeometrySelector(){
  if(labs[id].chapter!==6)return '';
- const value=id==='wall'?inputs.wallShape:'',interaction=id==='collision'?inputs.interactionType:inputs.customInteraction===multiRampMode?multiRampMode:'';
+ const value=id==='wall'?inputs.wallShape:'';
+ const interaction=id==='collision'?inputs.interactionType:inputs.customInteraction===multiRampMode?multiRampMode:
+  ({'6–4':'Opposing shocks','6–5':'Same-direction shocks'}[inputs.bookExample]??'');
  const interactionControl=id==='collision'||value==='Custom wall'?`<div class="input-group"><div class="input-top"><label for="waveInteractionSelect">Wave Interaction</label></div><select id="waveInteractionSelect"><option value="" disabled ${!interaction?'selected':''}>Select interaction…</option>${['Opposing shocks','Same-direction shocks',multiRampMode].map(v=>`<option ${v===interaction?'selected':''}>${v}</option>`).join('')}</select></div>`:'';
  return `<div class="input-group"><div class="input-top"><label for="waveGeometrySelect">Geometry</label></div><select id="waveGeometrySelect"><option value="" disabled ${!value?'selected':''}>Select geometry…</option>${waveShapes.map(v=>`<option ${v===value?'selected':''}>${v}</option>`).join('')}</select></div>`+interactionControl;
 }
 function bindWaveGeometrySelector(){
  const select=$('waveGeometrySelect');if(!select)return;
- select.onchange=()=>{inputs.customInteraction='';try{localStorage.setItem('gdvl-inputs-wall',JSON.stringify(inputs));}catch{}pendingWaveShape=select.value;if(id==='wall')openLab();else location.hash='wall';};
- if($('waveInteractionSelect'))$('waveInteractionSelect').onchange=()=>{if($('waveInteractionSelect').value===multiRampMode){if(id==='wall'){Object.assign(inputs,multiRampPreset);renderInputs();request++;schedule();}else{pendingWaveShape='Custom wall';pendingMultiInlet=true;location.hash='wall';}return;}inputs.customInteraction='';pendingWaveShape=$('waveInteractionSelect').value;if(id==='collision')openLab();else location.hash='collision';};
+ select.onchange=()=>{const example=chapter6GeometryExample(select.value);if(example)openChapter6Example(example.value);};
+ const interaction=$('waveInteractionSelect');
+ if(interaction)interaction.onchange=()=>{
+  const example=interaction.value===multiRampMode?'6–P1b':interaction.value==='Same-direction shocks'?'6–5':'6–4';
+  openChapter6Example(example);
+ };
 }
 function wallSegmentEditor(f){
  const key=f.key,segments=inputs[key],relative=key.startsWith('inlet'),side=key==='inletUpperSegments'?'Upper inlet wall':key==='inletBottomSegments'?'Lower wedge':key==='inletLowerSegments'?'Upper wedge':key==='upperWallSegments'?'Upper wall':inputs.boundaryMode==='Channel'&&inputs.wallShape==='Custom wall'?'Lower wall':'Wall';
@@ -175,6 +254,14 @@ function bindSegmentEditor(f){
 
 }
 function changeAirfoilGeometry(key,value){
+ if(key==='airfoilShape'){
+  const example=chapter6ResetExample('airfoil',{airfoilShape:value});
+  if(example){
+   inputs={...inputs,...example.inputs};
+   renderInputs();$('value-airfoilShape')?.focus({preventScroll:true});request++;schedule();return;
+  }
+  inputs.bookExample='';
+ }
  let previous;try{previous=airfoilGeometry(inputs);}catch{}
  inputs[key]=value;
  if(key==='plateLengthMode'&&previous)inputs.upperSegments=surfaceSegments(previous.upper,true);
@@ -355,7 +442,7 @@ function changeFannoMode(key,value,fieldKey){
 }
 function renderInputs(){restoreChapterControls();const samplingOpen=$('samplingSettings')?.open??false;if(id==='wall'&&inputs.customInteraction===multiRampMode&&inputs.inletTerminal==='None')inputs.inletTerminal='Compression only';if(id==='tube'){inputs.tubeDomain=finiteTubeMode;inputs.pistonDomain=closedPistonMode;
  if(inputs.bookExample==='closed-piston-demo')inputs.bookExample='';
- const sinusoidal=inputs.unsteadyExperiment===sinusoidalExperiment;const piston=inputs.unsteadyExperiment==='Two-stage piston'||sinusoidal;const valve=inputs.unsteadyExperiment===valveExperiment;const finite=!piston&&!valve&&inputs.tubeDomain===finiteTubeMode,closed=piston&&inputs.pistonDomain===closedPistonMode;$('labTitle').textContent=sinusoidal?'Sinusoidal piston':closed?'Two-stage piston · closed tube':finite?'Finite shock tube':valve?valveExperiment:piston?'Two-stage piston':'Shock tube';$('description').textContent=sinusoidal?'Drive a finite tube with a sinusoidal piston and compare small-amplitude waves with Example 10.':closed?'Follow waves reflected by the fixed end and the advancing piston.':finite?'Follow shocks, expansion waves and contact surfaces through repeated reflections at both closed ends.':valve?'Close the valve and follow the resulting shock and reflections between the valve and upstream piston.':piston?'Generate two moving shocks by increasing the piston speed twice; find where and when the second shock catches the first.':labs.tube.description;$('model').textContent=closed?'One-dimensional Euler equations · moving gas boundary and fixed end wall':finite?'One-dimensional Euler equations · uniform initial chamber velocities · reflecting walls':valve?'One-dimensional Euler equations · moving piston and closed valve':piston?'Initially stationary gas · two sudden piston speed increases · constant heat capacities':labs.tube.model;$('limitations').textContent=closed?'Initially stationary ideal gas. The numerical solve stops at a gas gap of 10% of the initial tube length, or at the selected end time, whichever comes first.':finite?'Inviscid constant-area tube with constant heat capacities. Numerical fronts spread across several cells.':valve?'The upstream piston continues at the gas inlet speed. The solve stops at the selected end time or when 10% of the initial gas gap remains.':piston?'Requires 0 < first speed < second speed and a positive delay. Ends at shock catch-up; post-interaction waves and end-wall reflections are not solved.':labs.tube.limitations;}if(id==='airfoil')inputs=migrateAirfoilGeometry(inputs);if(id==='airfoil'&&inputs.airfoilShape==='Diamond'&&!diamondModes.includes(inputs.geometryInput)){try{Object.assign(inputs,diamondInputValues(airfoilGeometry(inputs)));inputs.geometryInput='Angle & length ratio';}catch{}}arrangePropertyPanels();const geometryOpen=$('fannoGeometrySettings')?.open??false;if(id==='fanno')inputs=migrateFannoInputs(inputs);if(id==='rayleigh'&&inputs.rayleighInput==='Inlet Mach + outlet stagnation temperature'){const cp=inputs.gamma*inputs.R/(inputs.gamma-1),T0=inputs.temperatureInput==='Stagnation temperature'?inputs.inletT0:inputs.T1*(1+(inputs.gamma-1)*inputs.M1*inputs.M1/2);inputs.q=cp*(inputs.outletT0-T0)/1000;inputs.rayleighInput='Heat transfer + Inlet Mach';}if(id==='rayleigh'&&inputs.ductProblem==='Reservoir-fed duct'&&!['Sonic outlet','Specified back pressure','Heat + outlet Mach','Outlet Mach + outlet pressure','Upstream reference + sonic outlet'].includes(inputs.ductSolve))inputs.ductSolve='Sonic outlet';if(id==='rayleigh'&&inputs.ductProblem==='Upstream adjustment to sonic outlet'){inputs.ductProblem='Reservoir-fed duct';inputs.ductSolve='Upstream reference + sonic outlet';}if(id==='rayleigh'&&inputs.ductProblem==='Two-stage heating to sonic outlet'){Object.assign(inputs,{ductProblem:'Single duct',rayleighInput:'Heat transfer + Inlet Mach',velocityInput:'Flow speed',temperatureInput:'Static temperature'});}if(id==='rayleigh'&&inputs.rayleighInput==='Heat transfer')inputs.rayleighInput='Heat transfer + Inlet Mach';if(id==='rayleigh'&&(inputs.ductProblem??'Single duct')==='Single duct'&&inputs.rayleighInput==='Sonic outlet'){inputs.rayleighInput='Outlet Mach';inputs.targetMach=1;}if(id==='rayleigh'&&inputs.rayleighInput==='Outlet Mach + stagnation temperatures'){inputs.q=inputs.gamma*inputs.R/(inputs.gamma-1)*(inputs.outletT0-inputs.inletT0)/1000;inputs.rayleighInput='Heat transfer + Outlet Mach';}if(id==='collision')inputs.geometryMode='Custom geometry';if(id==='wall'){inputs.channelSolver=channelSolverName(inputs.channelSolver);if(inputs.wallShape!=='Custom wall')inputs.boundaryMode='Single wall';}$('cvPresets').hidden=true;$('balancePanel').hidden=id!=='balances';$('isentropicPanel').hidden=true;if(id==='nozzle'){const info=nozzleInfo(inputs);$('description').textContent=info.description;$('model').textContent=info.model;$('limitations').textContent=info.limitations;}if(id==='cone')$('limitations').textContent=inputs.bodyGeometry==='Wedge'&&inputs.nearbyWall&&inputs.nearbyWall!=='None'?'Two attached wedge shocks and one regular wall reflection. The view ends before a further shock/body encounter. Trailing-edge waves, Mach reflection and expansion-side configurations are excluded.':inputs.bodyGeometry==='Cone'?labs.cone.limitations:'Weak attached shocks and centred expansions on the two wedge faces. Detached fields are omitted. The cone, when selected for comparison, remains at zero incidence.';if(id==='wall'&&inputs.customInteraction===multiRampMode){$('description').textContent='Select flow above, below, or on both sides of a segmented wedge, with mirrored or independent reflecting walls. Choose wall reflections, compression only, or an optional terminal normal shock.';}else if(id==='wall'&&inputs.wallShape!==ramjetMode&&inputs.wallShape!==shockFanMode&&inputs.wallShape!=='Custom wall'){$('description').textContent=labs[inputs.wallShape==='Compression ramp'?'oblique':'expansion'].description;}else if(id==='wall')$('description').textContent=inputs.wallShape===shockFanMode?'Match the final streams after an incident shock and an expansion fan; inspect the slip angle measured from the horizontal.':inputs.wallShape===ramjetMode?ramjetDescription:labs.wall.description;if(id==='wall')$('limitations').textContent=inputs.wallShape===ramjetMode?ramjetLimit:inputs.channelSolver==='Method of characteristics'&&inputs.boundaryMode==='Channel'?'Numerical characteristics; regular fitted shocks and smooth shock–fan interactions are supported. Shock/shock/contact topology, Mach reflection and subsonic continuation stop the field. Refine resolution to assess sensitivity.':labs.wall.limitations;const definedFields=inputDefinitions(id,inputs);const fields=(id==='rayleigh'?rayleighFormFields(definedFields,inputs):id==='fanno'?fannoFormFields(definedFields,inputs):definedFields).filter(field=>id!=='tube'||!['tubeDomain','pistonDomain'].includes(field.key)).filter(f=>f.key!=='plotProperty'&&!(id==='fanno'&&f.key==='fannoUnknown'&&inputs.fannoCondition===fannoConditions[0])&&!(id==='collision'&&f.key==='interactionType')&&(!['gamma','R'].includes(f.key)||!f.readOnly)).sort((a,b)=>id==='collision'?Number(b.key==='interactionType')-Number(a.key==='interactionType'):0);$('inputs').innerHTML=waveGeometrySelector()+fields.map(x=>`${x.section?`<h3 class="input-section">${x.section}</h3>`:''}<div class="input-group"${x.stationInput?' data-station-input':''}><div class="input-top"><label for="value-${x.key}">${x.label}</label><span class="unit">${backPressureHTML(x.unit??'')}</span></div>${id==='rayleigh'&&x.modeField?rayleighModeSelect(x):x.type==='wall-segments'?wallSegmentEditor(x):x.type==='segments'?segmentEditor(x):x.type==='textarea'?`<textarea id="value-${x.key}" name="${x.key}" rows="4" spellcheck="false">${String(inputs[x.key]??'').replaceAll('&','&amp;').replaceAll('<','&lt;')}</textarea>`:x.options?`<select id="value-${x.key}" name="${x.key}">${x.options.map(v=>`<option value="${v}" ${(x.selection??inputs[x.key])===v?'selected':''}>${x.optionLabels?.[v]??v}</option>`).join('')}</select>`:`<div class="number-wrap"><input id="value-${x.key}" name="${x.key}" type="number" value="${(x.displayScale??1)*inputs[x.key]+(x.displayOffset??0)}" min="${x.min}" max="${x.max}" step="any" inputmode="decimal" ${x.readOnly?'readonly':''} aria-label="${x.label} ${x.unit}" required></div><input id="range-${x.key}" type="range" ${x.readOnly?'disabled':''} min="${x.sliderMin??x.min}" max="${x.sliderMax??x.max}" step="${x.step}" value="${(x.displayScale??1)*inputs[x.key]+(x.displayOffset??0)}" aria-label="${x.label} slider"><div class="range-labels"><span>${x.sliderMin??x.min}</span><span>${x.sliderMax??x.max}</span></div>`}</div>`).join('');compactTypedInputs(fields);
+ const sinusoidal=inputs.unsteadyExperiment===sinusoidalExperiment;const piston=inputs.unsteadyExperiment==='Two-stage piston'||sinusoidal;const valve=inputs.unsteadyExperiment===valveExperiment;const finite=!piston&&!valve&&inputs.tubeDomain===finiteTubeMode,closed=piston&&inputs.pistonDomain===closedPistonMode;$('labTitle').textContent=sinusoidal?'Sinusoidal piston':closed?'Two-stage piston · closed tube':finite?'Finite shock tube':valve?valveExperiment:piston?'Two-stage piston':'Shock tube';$('description').textContent=sinusoidal?'Drive a finite tube with a sinusoidal piston and compare small-amplitude waves with Example 10.':closed?'Follow waves reflected by the fixed end and the advancing piston.':finite?'Follow shocks, expansion waves and contact surfaces through repeated reflections at both closed ends.':valve?'Close the valve and follow the resulting shock and reflections between the valve and upstream piston.':piston?'Generate two moving shocks by increasing the piston speed twice; find where and when the second shock catches the first.':labs.tube.description;$('model').textContent=closed?'One-dimensional Euler equations · moving gas boundary and fixed end wall':finite?'One-dimensional Euler equations · uniform initial chamber velocities · reflecting walls':valve?'One-dimensional Euler equations · moving piston and closed valve':piston?'Initially stationary gas · two sudden piston speed increases · constant heat capacities':labs.tube.model;$('limitations').textContent=closed?'Initially stationary ideal gas. The numerical solve stops at a gas gap of 10% of the initial tube length, or at the selected end time, whichever comes first.':finite?'Inviscid constant-area tube with constant heat capacities. Numerical fronts spread across several cells.':valve?'The upstream piston continues at the gas inlet speed. The solve stops at the selected end time or when 10% of the initial gas gap remains.':piston?'Requires 0 < first speed < second speed and a positive delay. Ends at shock catch-up; post-interaction waves and end-wall reflections are not solved.':labs.tube.limitations;}if(id==='airfoil')inputs=migrateAirfoilGeometry(inputs);if(id==='airfoil'&&inputs.airfoilShape==='Diamond'&&!diamondModes.includes(inputs.geometryInput)){try{Object.assign(inputs,diamondInputValues(airfoilGeometry(inputs)));inputs.geometryInput='Angle & length ratio';}catch{}}arrangePropertyPanels();const geometryOpen=$('fannoGeometrySettings')?.open??false;if(id==='fanno')inputs=migrateFannoInputs(inputs);if(id==='rayleigh'&&inputs.rayleighInput==='Inlet Mach + outlet stagnation temperature'){const cp=inputs.gamma*inputs.R/(inputs.gamma-1),T0=inputs.temperatureInput==='Stagnation temperature'?inputs.inletT0:inputs.T1*(1+(inputs.gamma-1)*inputs.M1*inputs.M1/2);inputs.q=cp*(inputs.outletT0-T0)/1000;inputs.rayleighInput='Heat transfer + Inlet Mach';}if(id==='rayleigh'&&inputs.ductProblem==='Reservoir-fed duct'&&!['Sonic outlet','Specified back pressure','Heat + outlet Mach','Outlet Mach + outlet pressure','Upstream reference + sonic outlet'].includes(inputs.ductSolve))inputs.ductSolve='Sonic outlet';if(id==='rayleigh'&&inputs.ductProblem==='Upstream adjustment to sonic outlet'){inputs.ductProblem='Reservoir-fed duct';inputs.ductSolve='Upstream reference + sonic outlet';}if(id==='rayleigh'&&inputs.ductProblem==='Two-stage heating to sonic outlet'){Object.assign(inputs,{ductProblem:'Single duct',rayleighInput:'Heat transfer + Inlet Mach',velocityInput:'Flow speed',temperatureInput:'Static temperature'});}if(id==='rayleigh'&&inputs.rayleighInput==='Heat transfer')inputs.rayleighInput='Heat transfer + Inlet Mach';if(id==='rayleigh'&&(inputs.ductProblem??'Single duct')==='Single duct'&&inputs.rayleighInput==='Sonic outlet'){inputs.rayleighInput='Outlet Mach';inputs.targetMach=1;}if(id==='rayleigh'&&inputs.rayleighInput==='Outlet Mach + stagnation temperatures'){inputs.q=inputs.gamma*inputs.R/(inputs.gamma-1)*(inputs.outletT0-inputs.inletT0)/1000;inputs.rayleighInput='Heat transfer + Outlet Mach';}if(id==='collision')inputs.geometryMode='Custom geometry';if(id==='wall'){inputs.channelSolver=channelSolverName(inputs.channelSolver);if(inputs.wallShape!=='Custom wall')inputs.boundaryMode='Single wall';}$('cvPresets').hidden=true;$('balancePanel').hidden=id!=='balances';$('isentropicPanel').hidden=true;if(id==='nozzle'){const info=nozzleInfo(inputs);$('description').textContent=info.description;$('model').textContent=info.model;$('limitations').textContent=info.limitations;}if(id==='cone')$('limitations').textContent=inputs.bodyGeometry==='Wedge'&&inputs.nearbyWall&&inputs.nearbyWall!=='None'?'Two attached wedge shocks and one regular wall reflection. The view ends before a further shock/body encounter. Trailing-edge waves, Mach reflection and expansion-side configurations are excluded.':inputs.bodyGeometry==='Cone'?labs.cone.limitations:'Weak attached shocks and centred expansions on the two wedge faces. Detached fields are omitted. The cone, when selected for comparison, remains at zero incidence.';if(id==='wall'&&inputs.customInteraction===multiRampMode){$('description').textContent='Select flow above, below, or on both sides of a segmented wedge, with mirrored or independent reflecting walls. Choose wall reflections, compression only, or an optional terminal normal shock.';}else if(id==='wall'&&inputs.wallShape!==ramjetMode&&inputs.wallShape!==shockFanMode&&inputs.wallShape!=='Custom wall'){$('description').textContent=labs[inputs.wallShape==='Compression ramp'?'oblique':'expansion'].description;}else if(id==='wall')$('description').textContent=inputs.wallShape===shockFanMode?'Match the final streams after an incident shock and an expansion fan; inspect the slip angle measured from the horizontal.':inputs.wallShape===ramjetMode?ramjetDescription:labs.wall.description;if(id==='wall')$('limitations').textContent=inputs.wallShape===ramjetMode?ramjetLimit:inputs.channelSolver==='Method of characteristics'&&inputs.boundaryMode==='Channel'?'Numerical characteristics; regular fitted shocks and smooth shock–fan interactions are supported. Shock/shock/contact topology, Mach reflection and subsonic continuation stop the field. Refine resolution to assess sensitivity.':labs.wall.limitations;const definedFields=inputDefinitions(id,inputs);if(id==='airfoil')definedFields.push(...chapter6AirfoilFields(inputs));const fields=(id==='rayleigh'?rayleighFormFields(definedFields,inputs):id==='fanno'?fannoFormFields(definedFields,inputs):definedFields).filter(field=>id!=='tube'||!['tubeDomain','pistonDomain'].includes(field.key)).filter(f=>f.key!=='plotProperty'&&!(id==='fanno'&&f.key==='fannoUnknown'&&inputs.fannoCondition===fannoConditions[0])&&!(id==='collision'&&f.key==='interactionType')&&(!['gamma','R'].includes(f.key)||!f.readOnly)).sort((a,b)=>id==='collision'?Number(b.key==='interactionType')-Number(a.key==='interactionType'):0);$('inputs').innerHTML=waveGeometrySelector()+fields.map(x=>`${x.section?`<h3 class="input-section">${x.section}</h3>`:''}<div class="input-group"${x.stationInput?' data-station-input':''}><div class="input-top"><label for="value-${x.key}">${x.label}</label><span class="unit">${backPressureHTML(x.unit??'')}</span></div>${id==='rayleigh'&&x.modeField?rayleighModeSelect(x):x.type==='wall-segments'?wallSegmentEditor(x):x.type==='segments'?segmentEditor(x):x.type==='textarea'?`<textarea id="value-${x.key}" name="${x.key}" rows="4" spellcheck="false">${String(inputs[x.key]??'').replaceAll('&','&amp;').replaceAll('<','&lt;')}</textarea>`:x.options?`<select id="value-${x.key}" name="${x.key}">${x.options.map(v=>`<option value="${v}" ${(x.selection??inputs[x.key])===v?'selected':''}>${x.optionLabels?.[v]??v}</option>`).join('')}</select>`:`<div class="number-wrap"><input id="value-${x.key}" name="${x.key}" type="number" value="${(x.displayScale??1)*inputs[x.key]+(x.displayOffset??0)}" min="${x.min}" max="${x.max}" step="any" inputmode="decimal" ${x.readOnly?'readonly':''} aria-label="${x.label} ${x.unit}" required></div><input id="range-${x.key}" type="range" ${x.readOnly?'disabled':''} min="${x.sliderMin??x.min}" max="${x.sliderMax??x.max}" step="${x.step}" value="${(x.displayScale??1)*inputs[x.key]+(x.displayOffset??0)}" aria-label="${x.label} slider"><div class="range-labels"><span>${x.sliderMin??x.min}</span><span>${x.sliderMax??x.max}</span></div>`}</div>`).join('');compactTypedInputs(fields);
 const gridField=fields.find(field=>field.key==='finiteCells');
 if(gridField){
  const control=$('value-finiteCells'),hint=document.createElement('p');
@@ -436,7 +523,7 @@ function solve({stream=false}={}){
  stopAnimation();worker.postMessage({request,id,inputs});
 }
 
-worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('scene').classList.remove('finite-tube-scene');stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}renderResult();syncSweep();continueSweep();};
+worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('scene').classList.remove('finite-tube-scene');stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}renderResult();syncSweep();continueSweep();};
 worker.onerror=()=>{solvePending=false;stopSweep();syncSweep();$('status').textContent='Worker error';$('notice').hidden=false;$('notice').textContent='The calculation worker could not start. Serve this folder over HTTP(S) with module support.';};
 function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.length){box.hidden=true;box.innerHTML='';return;}const compact=id==='collision';box.hidden=false;box.innerHTML=`<h3>${compact?'WAVE ANGLES & ENTROPY':'SHOCK STATES · ONE-SIDED VALUES'}</h3>${groups.map(g=>`<section class="shock-state"><h4>${g.title}</h4>${compact?'':`<p>${g.location}</p><div class="shock-table-wrap"><table><thead><tr><th>Parameter</th><th>Before</th><th>After</th><th>After / before</th></tr></thead><tbody>${g.rows.map(r=>`<tr><th>${r.label}</th><td>${fmt(r.before)} ${r.unit}</td><td>${fmt(r.after)} ${r.unit}</td><td>${fmt(r.ratio)}</td></tr>`).join('')}</tbody></table></div>`}<dl>${g.extra.map(e=>`<div><dt>${e.label}</dt><dd>${fmt(e.value)} ${e.unit}</dd></div>`).join('')}</dl></section>`).join('')}`;}
 
@@ -540,6 +627,12 @@ function renderAirfoilPanel(d){
  if(sameCase)for(const detail of box.querySelectorAll('details[open]'))openKeys.add(detail.dataset.airfoilDetail);
  box.dataset.caseKey=caseKey;
  box.innerHTML=airfoilTables(d.result,fmt);
+ const book=d.chapter6Book;
+ if(book){
+  const section=box.querySelector('.card');
+  if(book.notice)section.insertAdjacentHTML('beforeend',`<p class="control-hint">${book.notice}</p>`);
+  else section.insertAdjacentHTML('beforeend',`<dl class="isentropic-grid">${book.rows.map(r=>`<div><dt>${r.label}</dt><dd>${fmt(r.value,6)} <small>${r.unit}</small></dd></div>`).join('')}</dl>`);
+ }
  for(const detail of box.querySelectorAll('[data-airfoil-detail]')){
   detail.open=openKeys.has(detail.dataset.airfoilDetail);
   if(detail.dataset.airfoilDetail===focusedKey)detail.querySelector('summary')?.focus({preventScroll:true});
@@ -587,7 +680,7 @@ function currentPlotTime(){
  return fraction*(r.end??r.catchTime??1);
 }
 function updatePlotChoices(){
- chartChoices=plotOptions(current,currentPlotTime());$('chartPlay').hidden=!current.result.finiteTube;$('unsteadyProfileTimeLabel').hidden=true;$('chart').closest('.chart-card').hidden=!chartChoices.length||current.id==='airfoil'||!!(current.result.finalStreamMatch&&current.inspectTrackingEvent);if(!chartChoices.length){$('extraPlotPicker')?.setAttribute('hidden','');$('plotQuantity').innerHTML='';$('plotQuantity').hidden=true;$('plotQuantity').previousElementSibling.hidden=true;$('chart').innerHTML='';$('legend').innerHTML='';$('plotNote').textContent='';displayedChart=null;return;}const select=$('plotQuantity');select.innerHTML=chartChoices.map(o=>`<option value="${o.key}">${o.label}</option>`).join('');if(!chartChoices.some(o=>o.key===plotSelection[id]))plotSelection[id]=chartChoices[0].key;select.value=plotSelection[id];const single=chartChoices.length===1;select.hidden=single;select.previousElementSibling.hidden=single;renderSelectedPlot();renderPlotPicker();
+ chartChoices=current.chapter6Book?.plot?[current.chapter6Book.plot]:plotOptions(current,currentPlotTime());$('chartPlay').hidden=!current.result.finiteTube;$('unsteadyProfileTimeLabel').hidden=true;$('chart').closest('.chart-card').hidden=!chartChoices.length||!!(current.result.finalStreamMatch&&current.inspectTrackingEvent);if(!chartChoices.length){$('extraPlotPicker')?.setAttribute('hidden','');$('plotQuantity').innerHTML='';$('plotQuantity').hidden=true;$('plotQuantity').previousElementSibling.hidden=true;$('chart').innerHTML='';$('legend').innerHTML='';$('plotNote').textContent='';displayedChart=null;return;}const select=$('plotQuantity');select.innerHTML=chartChoices.map(o=>`<option value="${o.key}">${o.label}</option>`).join('');if(!chartChoices.some(o=>o.key===plotSelection[id]))plotSelection[id]=chartChoices[0].key;select.value=plotSelection[id];const single=chartChoices.length===1;select.hidden=single;select.previousElementSibling.hidden=single;renderSelectedPlot();renderPlotPicker();
 }
 function renderSelectedPlot(){
  $('chartProbe').hidden=true;
@@ -827,20 +920,23 @@ function renderExamples(){
   };
   entries=cases.map(([name,preset],i)=>({value:name,label:`Example ${i+1}`,note:notes[name],apply:()=>{load(preset,name);if(name==='4–1')plotSelection.rayleigh=rayleighBookPlotKey;}}));
  }
+ if(id==='wall'||id==='collision'||id==='airfoil'){
+  const cases=chapter6BookExamples.filter(e=>e.lab===(id==='airfoil'?'airfoil':'wall'));
+  entries=cases.map(e=>({...e,apply:()=>{
+   if(id!==e.lab){openChapter6Example(e.value);return false;}
+   load(e.inputs,e.value);
+   if(e.number===8)plotSelection.wall='pressure-turning';
+   if(e.number===9)plotSelection.wall='inlet-p-theta';
+  }}));
+ }
  if(id==='wall'){
-  entries=[4,5].map(n=>({value:'6–'+n,label:'Example '+n,apply:()=>{inputs={...inputs,...chapter6Example(n),bookExample:'6–'+n};}}));
-  entries.push({value:'6–7',label:'Example 7 · Shock–expansion interaction',note:'M₁ = 1.95, p₀₁ = 482.65 kPa, both walls at +10° to horizontal. Final uniform-stream reference; inlet temperature sets dimensional density and speed.',apply:()=>{inputs={...inputs,...shockFanPreset};}});
   for(const [code,label,segments] of [['6–P1a','Problem 6–1(a) · Single 15° ramp',[{angle:15,length:1}]],['6–P1b','Problem 6–1(b) · 7° + 8° turns',[{angle:7,length:.5},{angle:15,length:.5}]]])entries.push({value:code,label,note:'M₁ = 2.5, p₁ = 11.6 kPa, T₁ = 216.65 K. Lengths and cowl clearance are illustrative; angles are absolute to horizontal. Sequential oblique shocks followed by a normal shock.',apply:()=>{inputs={...inputs,...multiRampProblemPreset,inletLowerSegments:segments,bookExample:code};}});
-  entries.push({value:'6–9',label:'Example 9 · Ramjet inlet',note:'Custom wall inlet: Lref = 0.1 m, M₁ = 2, 8° wedge and a regular reflection from the horizontal upper wall. No terminal normal shock. The same inlet controls also load Problem 6–1.',apply:()=>{inputs={...inputs,...multiRampPreset,inletReference:0.1};}});
-  entries.push({value:'expansion',label:'Expansion example',apply:()=>{inputs={...inputs,wallShape:'Custom wall',boundaryMode:'Channel',channelSolver:'Method of characteristics',M1:3,channelHeight:1,wallSegments:[{angle:-8,length:6}],upperWallSegments:[{angle:8,length:6}],mocResolution:81,mocStation:1,mocLines:'Shown',bookExample:'expansion'};}});
+  entries.push({value:'expansion',label:'Expansion example',apply:()=>load(expansionChannelPreset,'expansion')});
   for(const [value,label] of [['reflection','Shock reflections'],['shock-fan','Shock + expansion'],['fans','Two expansion fans']])entries.push({value,label,apply:()=>{inputs={...inputs,...trackingPreset(value),channelSolver:inputs.channelSolver,bookExample:value};}});
  }
- if(id==='airfoil'){const angle=Math.atan(.24)*180/Math.PI,length=Math.hypot(.5,.12);entries=[{value:'6–15',label:'Example 15 · Connected flat plates',note:'M∞ = 2.5, α = 4.2°, h/c = 0.12. Two zero-thickness panels with a mid-chord bend. Reference horizontal extent c = 1 m; dimensions can be scaled. Pressure and temperature are reference values.',apply:()=>load({airfoilShape:'Connected flat plates',airfoilMethod:'Shock–Expansion',M:2.5,alpha:4.2,upperSegments:[{angle,length},{angle:-angle,length}]},'6–15')}];}
 
  if(id==='airfoil')entries.push({value:'9-7',label:'Example 7 · Triangular airfoil',note:'Chapter 9, Fig. 9–22. At Mach 2, the upper surface peaks at x/c = 0.5 and y/c = 0.1 above a flat lower surface. Start at zero incidence and vary α from −10° to +10° to compare lift and wave drag with the small-disturbance solution.',apply:()=>{
-  const geometry={airfoilShape:'Asymmetric double wedge',thickness:.1,peak:.5,camber:.05};
-  const segments=presetSegments(geometry);
-  load({...geometry,geometryInput:'Angles & lengths',upperSegments:segments.upper,lowerSegments:segments.lower,airfoilMethod:'Linearized theory',M:2,alpha:0},'9-7');
+  load(chapter9Triangle,'9-7');
  }});
  if(id==='cone')entries=[{
   value:'10-1',label:'Example 1 · Conical shock',
@@ -853,14 +949,15 @@ function renderExamples(){
   const ref=/^(\d+)[–-](P?\d+[a-z]?)$/.exec(entry.value);
   if(!ref)continue;
   entry.reference=ref[1]+'–'+ref[2];
-  entry.href='#'+id+'?example='+ref[1]+'-'+ref[2];
+  const destination=entry.lab??id;
+  entry.href='#'+destination+'?example='+ref[1]+'-'+ref[2];
  }
  box.hidden=!entries.length;box.onclick=null;box.innerHTML='';if(!entries.length)return;
  const selected=entries.find(e=>e.value===inputs.bookExample);
  box.innerHTML=`<div class="input-group"><div class="input-top"><label for="exampleSelect">Examples</label></div><select id="exampleSelect"><option value="" disabled ${selected?'':'selected'}>Select example…</option>${entries.map(e=>`<option value="${e.value}" ${selected===e?'selected':''}>${e.label}</option>`).join('')}</select>${selected?.note?`<p class="control-hint">${selected.note}</p>`:''}${selected?.href?`<a class="text-btn book-reference-link" href="${selected.href}">Book ${selected.reference}</a>`:''}</div>`;
  const bookLink=box.querySelector?.('.book-reference-link');
  if(bookLink)bookLink.onclick=e=>{if(!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&!e.altKey&&location.hash===bookLink.hash){e.preventDefault();openLab();}};
- $('exampleSelect').onchange=e=>{const entry=entries.find(x=>x.value===e.target.value);if(!entry)return;stopSweep();sweepFinished=false;sweepPositioned=false;request++;clearTimeout(timer);entry.apply();renderInputs();solve();};
+ $('exampleSelect').onchange=e=>{const entry=entries.find(x=>x.value===e.target.value);if(!entry)return;stopSweep();sweepFinished=false;sweepPositioned=false;request++;clearTimeout(timer);if(entry.apply()===false)return;renderInputs();solve();};
 }
 
 function knownRayleighData(mode,group){

@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';import vm from 'node:vm';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {calculate,defaults,inputDefinitions} from './labs.js';import {airfoilGeometry,constrainedSurface,automaticSurface,segmentSurface,surfaceSegments,presetSegments} from './airfoil.js';import {airfoilFieldSampler} from './airfoil-field.js';import {sceneSVG} from './graphics.js';import {plotOptions} from './plot-options.js';
+import {chapter6BookExamples} from './chapter6-book.js';
 const preset={...defaults('airfoil'),airfoilShape:'Bent flat plate',M:2.5,alpha:4.2,bendHeight:.12,bendPosition:.5,airfoilMethod:'Shock–Expansion'};
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9*Math.max(1,Math.abs(b)));
 test('Example 6–15 is a zero-thickness cambered two-panel plate closed at the trailing edge',()=>{
@@ -23,13 +24,15 @@ test('Bent geometry allows an off-center bend and rejects invalid height or posi
 test('Example dropdown loads the connected plate and Chapter 9 triangular airfoil from the book',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),start=source.indexOf('function renderExamples(){'),end=source.indexOf('\nfunction knownRayleighData',start),elements=new Map();
  const $=id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);};let solves=0;
- const context=vm.createContext({$,id:'airfoil',inputs:defaults('airfoil'),defaults,presetSegments,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0,timer:undefined,clearTimeout(){}});
+ const context=vm.createContext({$,id:'airfoil',inputs:defaults('airfoil'),defaults,presetSegments,chapter6BookExamples,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0,timer:undefined,clearTimeout(){}});
+ vm.runInContext(source.slice(source.indexOf('const chapter9TriangleGeometry='),source.indexOf('\nfunction chapter6WallDefaults')),context);
  vm.runInContext(source.slice(start,end),context);context.renderExamples();assert.match($('examplesPanel').innerHTML,/<option value="6–15"[^>]*>Example (?:6–)?15/);
  $('exampleSelect').onchange({target:{value:'6–15'}});assert.equal(solves,1);
  for(const [k,v]of Object.entries({airfoilShape:'Connected flat plates',M:2.5,alpha:4.2,bookExample:'6–15'}))assert.equal(context.inputs[k],v);
  context.renderExamples();assert.match($('examplesPanel').innerHTML,/zero[- ]thickness/i);
  $('exampleSelect').onchange({target:{value:'9-7'}});
  const airfoil=context.inputs;
+ assert.deepEqual(Array.from($('examplesPanel').innerHTML.matchAll(/value="6–(\d+)"/g),m=>Number(m[1])),[10,11,12,13,14,15]);
  for(const alpha of [-5,0,5]){
   const {geometry,linear}=calculate('airfoil',{...airfoil,alpha}).result;
   near(geometry.upper[1].x,.5);near(geometry.upper[1].y,.1);

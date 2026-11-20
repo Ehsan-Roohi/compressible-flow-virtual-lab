@@ -1,0 +1,122 @@
+import {deg,rad} from './physics.js';
+import {chapter6Example} from './regular-channel.js?v=20261109-wedge-cone';
+import {ramjetMode,ramjetPreset} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
+import {shockFanMode,shockFanPreset} from './shock-fan-example.js?v=20261118-wave-density';
+
+const air={fluid:'Air',gamma:1.4,R:287,p1:101.325,T1:300,inletPressureType:'Static pressure',temperatureInput:'Static temperature'};
+const compression={wallShape:'Compression ramp',boundaryMode:'Single wall',wallSide:'Gas above wall',branch:'weak'};
+const airfoil={airfoilMethod:'Shock–Expansion',airfoilFieldMode:'Before first wave interaction'};
+const diamond=angle=>({airfoilShape:'Diamond',geometryInput:'Angles',diamondFrontAngle:angle,diamondRearAngle:angle});
+const bentPlateAngle=deg(Math.atan(.24)),bentPlateLength=Math.hypot(.5,.12);
+
+function entry(number,title,note,preset,lab='wall'){
+ const value=`6–${number}`;
+ return {number,value,lab,label:`Example ${number} · ${title}`,note,inputs:{...air,...preset,bookExample:value}};
+}
+
+export const chapter6BookExamples=[
+ entry(1,'Weak oblique shock','Compare the wave angle from the calculator and the closed-form θ–β–M relation. Pressure and temperature are reference values.',{...compression,M1:2.5,theta:25}),
+ entry(2,'Oblique-shock states','Find the shock angle and downstream static and stagnation properties for a 20° ramp.',{...compression,M1:3,theta:20,p1:101,T1:288}),
+ entry(3,'Stronger ramp compression','Repeat Example 2 with a 30° ramp and inspect downstream pressure and Mach number.',{...compression,M1:3,theta:30,p1:101,T1:288}),
+ entry(4,'Opposing shock interaction','Inspect regions 2, 3, 4, and 4′ and the slip-line angle. Temperature and channel dimensions are reference values.',chapter6Example(4)),
+ entry(5,'Successive compression corners','Two 10° turns give wall inclinations of 10° and 20°. Inspect regions 2–5 and the common downstream flow direction.',chapter6Example(5)),
+ entry(6,'Prandtl–Meyer expansion','The inlet is at 1.8 kPa and 250 °C. Read the two fan-ray inclinations relative to the inlet direction.',{wallShape:'Expansion corner',boundaryMode:'Single wall',wallSide:'Gas above wall',M1:2,p1:1.8,T1:523.15,theta:20}),
+ entry(7,'Shock–expansion interaction','Read the matched pressure, Mach numbers, and slip-line angle for the incident shock and expansion. Inlet temperature is a reference value.',shockFanPreset),
+ entry(8,'Shock–expansion pressure–deflection diagram','Plot the paths through the four waves in Example 7 and locate their pressure–direction match.',shockFanPreset),
+ entry(9,'Ramjet inlet regular reflection','An 8° ramp at Mach 2 produces an incident shock and one regular reflection. Read both shock angles and pressure ratios.',ramjetPreset),
+ entry(10,'Symmetric diamond airfoil','The 3° half-angle diamond at zero incidence has zero lift and finite wave drag. Inlet temperature is a reference value.',{...airfoil,...diamond(3),M:3,alpha:0,p1:6.895},'airfoil'),
+ entry(11,'Sonic-boom interval','Extend the nose and tail shocks as straight rays to ground level to estimate the time between arrivals.',{...airfoil,...diamond(5),M:2.5,alpha:0,p1:100,T1:293,bookAirfoilChord:4,bookFlightHeight:150},'airfoil'),
+ entry(12,'Inclined flat plate','Find lift and wave drag at Mach 2.6 and 5° incidence. Pressure and temperature are reference values.',{...airfoil,airfoilShape:'Flat plate',M:2.6,alpha:5},'airfoil'),
+ entry(13,'Diamond-airfoil forces','Find the four panel pressure coefficients and the lift and drag per unit span for the 1 m chord. Inlet temperature is a reference value.',{...airfoil,...diamond(8),M:3,alpha:4,p1:101,bookAirfoilChord:1},'airfoil'),
+ entry(14,'Triangular airfoil','Two 5° upper panels meet above a flat lower surface. Find lift and drag at Mach 2.4 and 15° incidence.',{...airfoil,airfoilShape:'Asymmetric double wedge',geometryInput:'Angles & lengths',upperSegments:[{angle:5,length:.5/Math.cos(rad(5))}],lowerSegments:[],M:2.4,alpha:15},'airfoil'),
+ entry(15,'Connected flat plates','Two zero-thickness panels with a mid-chord bend of h/c = 0.12. Inspect the waves at all three stations and the wave-drag coefficient.',{...airfoil,airfoilShape:'Connected flat plates',geometryInput:'Angles & lengths',M:2.5,alpha:4.2,upperSegments:[{angle:bentPlateAngle,length:bentPlateLength},{angle:-bentPlateAngle,length:bentPlateLength}]},'airfoil')
+];
+
+export function getChapter6BookExample(value){
+ const bookNumber=/^6[-–](\d+)$/.exec(value??'');
+ return bookNumber?chapter6BookExamples[Number(bookNumber[1])-1]:undefined;
+}
+
+export function chapter6GeometryExample(shape){
+ const cases={'Compression ramp':'6–2','Custom wall':'6–4','Expansion corner':'6–6',
+  [shockFanMode]:'6–7',[ramjetMode]:'6–9'};
+ return getChapter6BookExample(cases[shape]);
+}
+
+export function chapter6ResetExample(lab,inputs){
+ const selected=getChapter6BookExample(inputs.bookExample);
+ if(lab==='airfoil'){
+  if(selected?.lab==='airfoil'&&selected.inputs.airfoilShape===inputs.airfoilShape)return selected;
+  return chapter6BookExamples.find(e=>e.lab==='airfoil'&&e.inputs.airfoilShape===(inputs.airfoilShape??'Diamond'));
+ }
+ if(selected?.lab==='wall'&&selected.inputs.wallShape===inputs.wallShape)return selected;
+ return chapter6GeometryExample(inputs.wallShape??'Compression ramp');
+}
+
+const row=(label,value,unit)=>({label,value,unit});
+// Closed-form root of the θ–β–M relation, Eq. (6-22).
+function analyticalShockAngle(M,theta,gamma,branch){
+ if(theta===0)return branch==='strong'?90:deg(Math.asin(1/M));
+ const m=M*M,A=1+(gamma-1)*m/2,B=1+(gamma+1)*m/2,t=Math.tan(theta);
+ const lambda=Math.sqrt(Math.max(0,(m-1)**2-3*A*B*t*t));
+ const chi=Math.max(-1,Math.min(1,((m-1)**3-9*A*(A+(gamma+1)*m*m/4)*t*t)/lambda**3));
+ const delta=branch==='strong'?0:1;
+ return deg(Math.atan2(m-1+2*lambda*Math.cos((4*Math.PI*delta+Math.acos(chi))/3),3*A*t));
+}
+
+export function chapter6AirfoilFields(inputs){
+ const n=getChapter6BookExample(inputs.bookExample)?.number;
+ const dimension=(key,label,max)=>({key,label,min:.01,max,step:.01,unit:'m'});
+ if(n===11)return [dimension('bookAirfoilChord','Chord length',20),dimension('bookFlightHeight','Flight altitude',5000)];
+ return n===13?[dimension('bookAirfoilChord','Chord length',20)]:[];
+}
+
+function sonicBoom(inputs,result){
+ const {bookAirfoilChord:chord,bookFlightHeight:altitude}=inputs;
+ const nose=result.nonlinear.waves.find(w=>w.side==='Lower'&&w.origin.x===0);
+ const tail=result.trailingEdge.waves?.find(w=>w.side==='Lower');
+ if(inputs.airfoilShape!=='Diamond'||Math.abs(result.alpha)>1e-9||
+    nose?.kind!=='Oblique shock'||tail?.kind!=='Oblique shock'||
+    ![chord,altitude].every(x=>Number.isFinite(x)&&x>0))
+  return {notice:'The book estimate needs a symmetric diamond at zero incidence, two attached lower shocks, and a positive chord and altitude.'};
+ const noseAngle=nose.beta,tailAngle=tail.beta-tail.before.theta;
+ const noseGround=altitude/Math.tan(noseAngle),tailGround=chord+altitude/Math.tan(tailAngle);
+ const separation=tailGround-noseGround;
+ if(!(noseAngle>0&&tailAngle>0&&Number.isFinite(separation)&&separation>0))
+  return {notice:'The straight lower shock rays must meet the ground in nose-to-tail order.'};
+ const rows=[row('Nose shock inclination',deg(noseAngle),'°'),row('Tail shock inclination',deg(tailAngle),'°'),
+  row('Ground spacing',separation,'m'),row('Sonic-boom interval',separation/result.freestream.u,'s')];
+ const label='Sonic-boom estimate · shock rays to ground';
+ const plot={key:'chapter6-sonic-boom',label,note:'Straight-ray projection in the aircraft frame. Ground spacing divided by flight speed gives the arrival interval.',
+  chart:{title:label,xlabel:'Downstream distance x (m)',ylabel:'Height above ground (m)',series:[
+   {name:'Nose shock',points:[[0,altitude],[noseGround,0]]},
+   {name:'Tail shock',points:[[chord,altitude],[tailGround,0]]},
+   {name:'Ground spacing',points:[[noseGround,0],[tailGround,0]],width:4}
+  ]}};
+ return {rows,plot};
+}
+
+export function chapter6BookResult(d){
+ const {inputs:x,result:r}=d;
+ const n=getChapter6BookExample(x.bookExample)?.number;
+ if(n===1&&r.cornerKind==='oblique'){
+  const angle=analyticalShockAngle(r.s1.M,rad(x.theta),r.gamma,x.branch);
+  const rows=[row('Analytical shock angle · Eq. (6-22)',angle,'°'),
+   row('Numerical − analytical angle',deg(r.beta)-angle,'°')];
+  if(r.s1.M===2.5&&x.theta===25&&r.gamma===1.4&&x.branch==='weak')rows.push(row('Online calculator value in book',50.247,'°'));
+  return {rows};
+ }
+ if(n===6&&r.cornerKind==='expansion'){
+  const side=x.wallSide==='Gas below wall'?-1:1;
+  return {rows:[row('Leading ray · to inlet direction',side*r.mu1,'°'),
+   row('Trailing ray · to inlet direction',deg(r.regions[2].theta)+side*r.mu2,'°')]};
+ }
+ if(d.id==='airfoil'&&(n===11||n===13)){
+  if(!r.models.includes('nonlinear')||r.nonlinear.status!=='ok')return {notice:'Select a valid Shock–Expansion solution for the textbook result.'};
+  if(n===11)return sonicBoom(x,r);
+  if(!(Number.isFinite(x.bookAirfoilChord)&&x.bookAirfoilChord>0))return {notice:'Enter a positive chord length for the forces per unit span.'};
+  const scale=r.q*x.bookAirfoilChord/1000;
+  return {rows:[row('Lift per unit span',r.nonlinear.CL*scale,'kN/m'),row('Wave drag per unit span',r.nonlinear.CD*scale,'kN/m')]};
+ }
+ return null;
+}
