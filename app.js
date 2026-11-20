@@ -23,13 +23,13 @@ import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
-import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js';
+import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-result-cleanup';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261119-chapter-exercises';
+import {plotOptions} from './plot-options.js?v=20261120-result-cleanup';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261120-chapter-eight';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261119-compact-layout';
@@ -327,9 +327,11 @@ function arrangeFannoGeometry(fields,open){
  $('inputs').append(details);
 }
 function arrangeCollisionOutput(){
- const notice=$('notice'),actions=$('exportJson').closest('.result-actions'),results=$('results').closest('.results');
- if(id==='collision'||inputs.wallShape===shockFanMode||id==='wall'&&inputs.wallShape==='Custom wall'&&inputs.boundaryMode==='Channel'&&channelSolverName(inputs.channelSolver)==='Shock–Expansion'){$('scene').after(notice);if(id==='wall'){$('regionTablePanel').append(actions);actions.classList.remove('card');actions.classList.add('collision-file-actions');}else{$('shockResults').parentElement.append(actions);actions.classList.add('card','collision-file-actions');}}
- else{results.querySelector('.card-head').after(notice);$('pin').before(actions);actions.classList.remove('card','collision-file-actions');}
+ const notice=$('notice'),results=$('results').closest('.results');
+ const showWithFigure=id==='collision'||inputs.wallShape===shockFanMode||
+  id==='wall'&&inputs.wallShape==='Custom wall'&&inputs.boundaryMode==='Channel'&&channelSolverName(inputs.channelSolver)==='Shock–Expansion';
+ if(showWithFigure)$('scene').after(notice);
+ else results.querySelector('.card-head').after(notice);
 }
 function arrangePropertyPanels(){
  arrangeCollisionOutput();
@@ -537,7 +539,12 @@ function solve({stream=false}={}){
 
 worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('scene').classList.remove('finite-tube-scene');stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}renderResult();syncSweep();continueSweep();};
 worker.onerror=()=>{solvePending=false;stopSweep();syncSweep();$('status').textContent='Worker error';$('notice').hidden=false;$('notice').textContent='The calculation worker could not start. Serve this folder over HTTP(S) with module support.';};
-function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.length){box.hidden=true;box.innerHTML='';return;}const compact=id==='collision';box.hidden=false;box.innerHTML=`<h3>${compact?'WAVE ANGLES & ENTROPY':'SHOCK STATES · ONE-SIDED VALUES'}</h3>${groups.map(g=>`<section class="shock-state"><h4>${g.title}</h4>${compact?'':`<p>${g.location}</p><div class="shock-table-wrap"><table><thead><tr><th>Parameter</th><th>Before</th><th>After</th><th>After / before</th></tr></thead><tbody>${g.rows.map(r=>`<tr><th>${r.label}</th><td>${fmt(r.before)} ${r.unit}</td><td>${fmt(r.after)} ${r.unit}</td><td>${fmt(r.ratio)}</td></tr>`).join('')}</tbody></table></div>`}<dl>${g.extra.map(e=>`<div><dt>${e.label}</dt><dd>${fmt(e.value)} ${e.unit}</dd></div>`).join('')}</dl></section>`).join('')}`;}
+function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.length){box.hidden=true;box.innerHTML='';return;}const compact=id==='collision';box.hidden=false;box.innerHTML=`<h3>${compact?'WAVE ANGLES & ENTROPY':'SHOCK STATES · ONE-SIDED VALUES'}</h3>${groups.map(g=>`<section class="shock-state"><h4>${g.title}</h4>${compact?'':`<p>${g.location}</p><div class="shock-table-wrap"><table><thead><tr><th>Parameter</th><th>Before</th><th>After</th><th>After / before</th></tr></thead><tbody>${g.rows.map(r=>`<tr><th>${r.label}</th><td>${fmt(r.before)} ${r.unit}</td><td>${fmt(r.after)} ${r.unit}</td><td>${fmt(r.ratio)}</td></tr>`).join('')}</tbody></table></div>`}<dl>${g.extra.map(e=>`<div><dt>${e.label}</dt><dd>${fmt(e.value)} ${e.unit}</dd></div>`).join('')}</dl></section>`).join('')}`;addDataExport(box,'shocks',()=>({
+  shocks:groups.flatMap(g=>[
+   ...(compact?[]:g.rows.map(r=>({shock:g.title,property:r.label,before:r.before,after:r.after,ratio:r.ratio,unit:r.unit}))),
+   ...g.extra.map(r=>({shock:g.title,property:r.label,value:r.value,unit:r.unit}))
+  ])
+ }));}
 
 function renderIsentropicRelations(d){
  const panel=$('isentropicPanel');panel.hidden=d.id!=='foundations';if(panel.hidden)return;
@@ -554,11 +561,18 @@ function renderIsentropicRelations(d){
  ];
  const [angles,...ratios]=groups.map(([title,items])=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${items.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??fmt(r.value,8)}${r.unit?` <small>${r.unit}</small>`:''}</dd></div>`).join('')}</dl></section>`);
  panel.innerHTML=`<div class="card-head"><h2>Isentropic Flow Calculator</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${exerciseResults}${angles}<div class="isentropic-ratio-columns">${ratios.join('')}</div><p class="isentropic-note">Subscript 0: stagnation state. Asterisk *: sonic reference at the same stagnation state; A* is the corresponding critical area for the same mass flow. Angles are in degrees.</p>`;
+ addDataExport(panel,'isentropic',()=>({rows:[...rows,{...soundSpeed,value:d.result.a},...exercise]}));
 }
 function renderBalanceDetails(){
  const panel=$('balancePanel');panel.hidden=current.id!=='balances';if(panel.hidden)return;
  const r=current.result;$('status').textContent=r.entropyViolation?'Entropy decreases':r.balanced?'Balances satisfied':'Not balanced';$('status').className='status'+(r.balanced&&!r.entropyViolation?'':' error');
  panel.innerHTML=`<div class="cv-summary"><strong>${r.entropyViolation?'Balances may close, but entropy decreases':r.balanced?'All integral balances close':'Proposed steady states do not balance'}</strong><p>Signed terms below sum to the residual. A positive residual means net excess input under the displayed convention. Closure tolerance: relative residual &lt; 10⁻⁷. The interior is schematic.</p></div><div class="cv-equations">${Object.entries(r.terms).map(([k,t])=>{const scale=k==='energy'?1000:1,unit=k==='energy'?'kW':t.unit;return `<article class="cv-equation ${t.passed?'closed':'open'}"><h3>${k==='mass'?'Mass':k==='momentum'?'Axial momentum':'Energy'} <span>${t.passed?'Balanced':'Mismatch'}</span></h3><table><thead><tr><th>Signed contribution</th><th>${unit}</th></tr></thead><tbody>${t.terms.map(([name,value])=>`<tr><td>${name}</td><td>${value>0?'+':''}${fmt(value/scale,6)}</td></tr>`).join('')}<tr class="cv-residual"><th>Σ terms · residual</th><td>${t.residual>0?'+':''}${fmt(t.residual/scale,6)}</td></tr></tbody></table></article>`;}).join('')}</div><p class="cv-note">${inputs.balanceMode==='Solve outlet speed'?'Outlet speed is calculated from mass conservation; pressure, temperature, heat, work and axial force must still satisfy momentum and energy.':'Both endpoint states are prescribed; the program checks the balances without altering the outlet.'} ${r.entropyChecked?`Adiabatic entropy check: Δs = ${fmt(r.ds,6)} J/(kg·K). ${r.entropyViolation?'Entropy decrease is inadmissible.':'No entropy decrease detected.'}`:Math.abs(r.Q)<1e-10?'Entropy comparison is withheld until mass conservation closes.':'Heat-transfer entropy balance requires the heat-transfer boundary temperature and is not assessed here.'}</p>`;
+ addDataExport(panel,'balances',()=>({
+  balances:Object.entries(r.terms).flatMap(([balance,t])=>{
+   const scale=balance==='energy'?1000:1,unit=balance==='energy'?'kW':t.unit;
+   return [...t.terms,['Residual',t.residual]].map(([term,value])=>({balance,term,value:value/scale,unit}));
+  })
+ }));
 }
 function loadCVPreset(kind){if(id!=='balances')return;clearTimeout(timer);inputs={...defaults('balances'),...controlVolumePreset(kind,{gamma:inputs.gamma,R:inputs.R}),fluid:inputs.fluid};renderInputs();solve();}
 $('cvNozzle').onclick=()=>loadCVPreset('nozzle');$('cvShock').onclick=()=>loadCVPreset('shock');$('cvPerturb').onclick=()=>{if(id!=='balances')return;inputs.p2*=1.1;renderInputs();solve();};
@@ -627,6 +641,9 @@ function renderFlowRelations(d){
   content=detail.lastElementChild;
  }
  content.innerHTML=`${d.id==='fanno'?'':`<h3>${t.title}</h3>`}<div class="flow-relations-scroll"><table><thead><tr><th scope="col">Parameter</th>${t.columns.map(c=>`<th scope="col">${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th scope="row">${r.label}</th>${r.values.map(v=>`<td>${fmt(v,8)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p>${t.note}</p>`;
+ addDataExport(content,'relations',()=>({
+  relations:t.rows.map(r=>Object.fromEntries([['property',r.label],...t.columns.map((c,i)=>[c,r.values[i]])]))
+ }));
 }
 function renderAirfoilPanel(d){
  const box=$('airfoilPanel');
@@ -738,8 +755,24 @@ function bindProbe(a,root=$('chart'),data=displayedChart){
  hit.onpointermove=inspect;hit.onpointerdown=inspect;hit.onpointerleave=hide;
 }
 function download(name,text,type){let blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function addDataExport(box,section,getData){
+ const disclosure=document.createElement('details');
+ disclosure.className='result-actions export-disclosure';
+ disclosure.innerHTML='<summary>Export data</summary><div><button type="button" data-format="json">JSON ↓</button><button type="button" data-format="csv">CSV ↓</button></div>';
+ disclosure.onclick=e=>{
+  const format=e.target.dataset.format;
+  if(!format)return;
+  const data=getData(),name=`compressible-flow-${id}-${section}.${format}`;
+  if(format==='json'){download(name,JSON.stringify(data,null,2),'application/json');return;}
+  const rows=Object.entries(data).flatMap(([group,items])=>Array.isArray(items)?items.map(item=>({group,...item})):[{group,...items}]);
+  const columns=[...new Set(rows.flatMap(Object.keys))];
+  download(name,[columns,...rows.map(row=>columns.map(key=>row[key]))].map(row=>row.map(csvCell).join(',')).join('\n'),'text/csv');
+ };
+ box.append(disclosure);
+}
+const csvCell=value=>'"'+String(value==null?'':typeof value==='object'?JSON.stringify(value):value).replaceAll('"','""')+'"';
 $('exportJson').onclick=()=>{if(current)download(`compressible-flow-${id}.json`,JSON.stringify({...current,exportedAt:new Date().toISOString()},null,2),'application/json');};
-$('exportCsv').onclick=()=>{if(!current)return;let q=s=>'"'+String(s).replaceAll('"','""')+'"';download(`compressible-flow-${id}.csv`,'property,value,unit\n'+csvDataRows(current).map(r=>[r.label,r.value??'',r.unit].map(q).join(',')).join('\n'),'text/csv');};
+$('exportCsv').onclick=()=>{if(!current)return;download(`compressible-flow-${id}.csv`,'property,value,unit\n'+csvDataRows(current).map(r=>[r.label,r.value??'',r.unit].map(csvCell).join(',')).join('\n'),'text/csv');};
 $('exportSvg').onclick=()=>{if(current)download(`compressible-flow-${id}.svg`,$('scene').innerHTML,'image/svg+xml');};
 function selectNozzleExamplePlot(){
  plotSelection.nozzle=inputs.bookExample==='8-4'?nozzleBookPlotKey:'nozzle-p';
@@ -877,11 +910,16 @@ function renderPlotPicker(){
   box.innerHTML='<summary>Select curves on this chart</summary><div></div>';$('chart').before(box);
  }
  const first=chartChoices.find(o=>o.key===plotSelection[id])??chartChoices[0];
- box.hidden=chartChoices.length<2||!first||isBookOverlay(first.key)||!!first.chart.heatmap;
+ const available=first?chartChoices.filter(o=>o!==first&&canOverlayPlot(first,o)):[];
+ box.hidden=!available.length;
  if(box.hidden)return;
  const selected=extraPlotSelections[id]??[];
- box.querySelector('div').innerHTML=chartChoices.filter(o=>!isBookOverlay(o.key)).map(o=>`<label><input type="checkbox" value="${o.key}" ${selected.includes(o.key)?'checked':''} ${canOverlayPlot(first,o)?'':'disabled'}> ${o.label}</label>`).join('');
- box.onchange=()=>{extraPlotSelections[id]=[...box.querySelectorAll('input:checked')].map(e=>e.value);renderSelectedPlot();};
+ box.querySelector('div').innerHTML=available.map(o=>`<label><input type="checkbox" value="${o.key}" ${selected.includes(o.key)?'checked':''}> ${o.label}</label>`).join('');
+ box.onchange=()=>{
+  const visible=new Set(available.map(o=>o.key));
+  extraPlotSelections[id]=[...selected.filter(key=>!visible.has(key)),...Array.from(box.querySelectorAll('input:checked'),e=>e.value)];
+  renderSelectedPlot();
+ };
 }
 function selectedCharts(){
  const first=chartChoices.find(o=>o.key===plotSelection[id])??chartChoices[0];
@@ -967,18 +1005,14 @@ function renderExamples(){
  }];
  if(id==='balances')entries=[['nozzle','Balanced nozzle'],['shock','Normal shock']].map(([value,label])=>({value,label,apply:()=>{inputs={...defaults(id),...controlVolumePreset(value,{gamma:inputs.gamma,R:inputs.R}),fluid:inputs.fluid,bookExample:value};}}));
  if(id==='balances')entries.push({value:'perturb',label:'Increase outlet pressure 10%',apply:()=>{inputs.p2*=1.1;inputs.bookExample='perturb';}});
- for(const entry of entries){
-  const ref=/^(\d+)[–-](P?\d+[a-z]?)$/.exec(entry.value);
-  if(!ref)continue;
-  entry.reference=ref[1]+'–'+ref[2];
-  const destination=entry.lab??id;
-  entry.href='#'+destination+'?example='+ref[1]+'-'+ref[2];
- }
  box.hidden=!entries.length;box.onclick=null;box.innerHTML='';if(!entries.length)return;
  const selected=entries.find(e=>e.value===inputs.bookExample);
- box.innerHTML=`<div class="input-group"><div class="input-top"><label for="exampleSelect">Examples</label></div><select id="exampleSelect"><option value="" disabled ${selected?'':'selected'}>Select example…</option>${entries.map(e=>`<option value="${e.value}" ${selected===e?'selected':''}>${e.label}</option>`).join('')}</select>${selected?.note?`<p class="control-hint">${selected.note}</p>`:''}${selected?.href?`<a class="text-btn book-reference-link" href="${selected.href}">Book ${selected.reference}</a>`:''}</div>`;
- const bookLink=box.querySelector?.('.book-reference-link');
- if(bookLink)bookLink.onclick=e=>{if(!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&!e.altKey&&location.hash===bookLink.hash){e.preventDefault();openLab();}};
+ box.innerHTML=`<div class="input-group"><div class="input-top"><label for="exampleSelect">Examples</label></div><select id="exampleSelect"><option value="" disabled ${selected?'':'selected'}>Select example…</option>${entries.map(e=>`<option value="${e.value}" ${selected===e?'selected':''}>${e.label}</option>`).join('')}</select>${selected?.note?`<p class="control-hint">${selected.note}</p>`:''}</div>`;
+ addDataExport(box,'examples',()=>{
+  const examples=entries.map(({value,label,note})=>({value,label,note}));
+  const active=examples.find(e=>e.value===inputs.bookExample);
+  return active?{example:active,inputs:Object.entries(inputs).map(([parameter,value])=>({parameter,value}))}:{examples};
+ });
  $('exampleSelect').onchange=e=>{const entry=entries.find(x=>x.value===e.target.value);if(!entry)return;stopSweep();sweepFinished=false;sweepPositioned=false;request++;clearTimeout(timer);if(entry.apply()===false)return;renderInputs();solve();};
 }
 

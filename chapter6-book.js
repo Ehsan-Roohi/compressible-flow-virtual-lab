@@ -15,7 +15,7 @@ function entry(number,title,note,preset,lab='wall'){
 }
 
 export const chapter6BookExamples=[
- entry(1,'Weak oblique shock','Compare the wave angle from the calculator and the closed-form θ–β–M relation. Pressure and temperature are reference values.',{...compression,M1:2.5,theta:25}),
+ entry(1,'Weak oblique shock','Find the weak shock angle for a 25° flow turn. Pressure and temperature are reference values.',{...compression,M1:2.5,theta:25}),
  entry(2,'Oblique-shock states','Find the shock angle and downstream static and stagnation properties for a 20° ramp.',{...compression,M1:3,theta:20,p1:101,T1:288}),
  entry(3,'Stronger ramp compression','Repeat Example 2 with a 30° ramp and inspect downstream pressure and Mach number.',{...compression,M1:3,theta:30,p1:101,T1:288}),
  entry(4,'Opposing shock interaction','Inspect regions 2, 3, 4, and 4′ and the slip-line angle. Temperature and channel dimensions are reference values.',chapter6Example(4)),
@@ -54,16 +54,6 @@ export function chapter6ResetExample(lab,inputs){
 }
 
 const row=(label,value,unit)=>({label,value,unit});
-// Closed-form root of the θ–β–M relation, Eq. (6-22).
-function analyticalShockAngle(M,theta,gamma,branch){
- if(theta===0)return branch==='strong'?90:deg(Math.asin(1/M));
- const m=M*M,A=1+(gamma-1)*m/2,B=1+(gamma+1)*m/2,t=Math.tan(theta);
- const lambda=Math.sqrt(Math.max(0,(m-1)**2-3*A*B*t*t));
- const chi=Math.max(-1,Math.min(1,((m-1)**3-9*A*(A+(gamma+1)*m*m/4)*t*t)/lambda**3));
- const delta=branch==='strong'?0:1;
- return deg(Math.atan2(m-1+2*lambda*Math.cos((4*Math.PI*delta+Math.acos(chi))/3),3*A*t));
-}
-
 export function chapter6AirfoilFields(inputs){
  const n=getChapter6BookExample(inputs.bookExample)?.number;
  const dimension=(key,label,max)=>({key,label,min:.01,max,step:.01,unit:'m'});
@@ -99,13 +89,6 @@ function sonicBoom(inputs,result){
 export function chapter6BookResult(d){
  const {inputs:x,result:r}=d;
  const n=getChapter6BookExample(x.bookExample)?.number;
- if(n===1&&r.cornerKind==='oblique'){
-  const angle=analyticalShockAngle(r.s1.M,rad(x.theta),r.gamma,x.branch);
-  const rows=[row('Analytical shock angle · Eq. (6-22)',angle,'°'),
-   row('Numerical − analytical angle',deg(r.beta)-angle,'°')];
-  if(r.s1.M===2.5&&x.theta===25&&r.gamma===1.4&&x.branch==='weak')rows.push(row('Online calculator value in book',50.247,'°'));
-  return {rows};
- }
  if(n===6&&r.cornerKind==='expansion'){
   const side=x.wallSide==='Gas below wall'?-1:1;
   return {rows:[row('Leading ray · to inlet direction',side*r.mu1,'°'),

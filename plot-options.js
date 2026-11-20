@@ -32,6 +32,16 @@ function finiteMapOptions(r){
  return options;
 }
 // Each selectable property has its own units and axis. Unavailable states are omitted.
+// Coincident comparison curves use one line while retaining the book comparison.
+function comparisonPlot(option){
+ const [current,reference]=option.chart.series;
+ if(!reference||current.points.length!==reference.points.length||
+  !current.points.every(([x,y],i)=>Math.abs(x-reference.points[i][0])<1e-10&&
+   Math.abs(y-reference.points[i][1])<1e-9*Math.max(1,Math.abs(y))))return option;
+ return {...option,note:'The current profile and the textbook reference coincide.',
+  chart:{...option.chart,series:[{...current,name:'Current and textbook reference'}]}};
+}
+
 function basePlotOptions(d,time=.001){
  if(d.result.multiRamp)return [{key:'multi-inlet-p-theta',label:'Pressure–deflection diagram',chart:multiRampPlot(d.result),note:'θ is absolute to horizontal. A normal shock increases pressure without changing flow direction.'}];
  if(d.result.ramjet)return ramjetPlots(d.result).filter(p=>p.key==='inlet-p-theta');
@@ -42,9 +52,9 @@ function basePlotOptions(d,time=.001){
  if(id==='wall'&&r.simpleCorner)return basePlotOptions({...d,id:r.cornerKind},time);
  if(id==='wall')return r.comparison?comparisonPlots(r,x.comparisonStation):r.tracking?trackingPlots(r,x.trackingStation):r.interaction?regularChannelPlots(r):r.moc?mocProfilePlots(r,x.mocStation):r.channel?channelPlots(r):wallPlots(r);
  if(id==='airfoil')return airfoilPlots(r);
- if(id==='rayleigh')options.push(rayleighBookPressurePlot(r,g));
+ if(id==='rayleigh')options.push(comparisonPlot(rayleighBookPressurePlot(r,g)));
  if(['rayleigh','fanno'].includes(id))options.push(...ductLongitudinalPlots(id,r));
- const original={key:'overview',label:d.chart.title,chart:d.chart};if(id!=='foundations'&&id!=='rayleigh')options.push(original);
+ const original={key:'overview',label:d.chart.title,chart:d.chart};if(!['foundations','rayleigh','fanno','balances','oblique'].includes(id))options.push(original);
  if(id==='foundations'){
   const samples=[...new Set([...linspace(.02,Math.max(5,x.M*1.15),201),x.M])].sort((a,b)=>a-b).map(m=>[m,{...state(m,x.T1,x.p1*1000,g,R),...isentropicRelations(m,g)}]);
   family('iso-','Mach number M',samples,[['pP0','Pressure ratio p/p₀','p/p₀',s=>s.pP0],['rhoRho0','Density ratio ρ/ρ₀','ρ/ρ₀',s=>s.rhoRho0],['TT0','Temperature ratio T/T₀','T/T₀',s=>s.TT0],['pPstar','Pressure ratio p/p*','p/p*',s=>s.pPstar],['rhoRhostar','Density ratio ρ/ρ*','ρ/ρ*',s=>s.rhoRhostar],['TTstar','Temperature ratio T/T*','T/T*',s=>s.TTstar],['areaRatio','Critical area ratio A/A*','A/A*',s=>s.areaRatio],['machAngle','Mach angle μ','μ (°)',s=>s.machAngle??NaN],['pmAngle','Prandtl–Meyer angle ν','ν (°)',s=>s.pmAngle??NaN]]);
@@ -67,10 +77,10 @@ function basePlotOptions(d,time=.001){
   let samples,xlabel;
   if(id==='oblique'){xlabel='Flow turn θ (°)';samples=linspace(0,deg(r.thetaMax)*(1-1e-8),121).map(t=>[t,obliqueShock(x.M1,rad(t),g,x.branch)]);}
   else{xlabel='Flow turn θ (°)';samples=linspace(0,Math.max(r.effectiveTurn??x.theta,.001),121).map(t=>[t,expansion(x.M1,rad(t),g)]);}
+  if(id==='oblique')add('beta','Shock angle',xlabel,'β (°)',samples.map(([t,s])=>[t,deg(s.beta)]));
   family('wave-',xlabel,samples,[['M','Downstream Mach','M₂',s=>s.M2],['p','Pressure ratio','p₂/p₁',s=>s.p],['T','Temperature ratio','T₂/T₁',s=>s.T],['rho','Density ratio','ρ₂/ρ₁',s=>s.rho],['p0','Stagnation-pressure recovery','p₀₂/p₀₁',s=>s.p0]]);
   add('wave-speed','Speed ratio',xlabel,'u₂/u₁',samples.map(([t,z])=>[t,z.M2/x.M1*Math.sqrt(z.T)]));
   if(r.simpleCorner)family('wave-dimensional-',xlabel,samples.map(([angle,w])=>[angle,state(w.M2,x.T1*w.T,x.p1*1000*w.p,g,R)]),[['p','Downstream pressure','p (kPa)',z=>z.p/1000],['T','Downstream temperature','T (K)',z=>z.T],['rho','Downstream density','ρ (kg/m³)',z=>z.rho],['u','Downstream speed','u (m/s)',z=>z.u],['p0','Downstream stagnation pressure','p₀ (kPa)',z=>z.p0/1000],['T0','Downstream stagnation temperature','T₀ (K)',z=>z.T0]]);
-  if(id==='oblique')add('beta','Shock angle',xlabel,'β (°)',samples.map(([t,s])=>[t,deg(s.beta)]));
  }else if(id==='cone'){
   if(r.bodyLab)return bodyPlots(r);
   if(!r.history)return [];
@@ -85,11 +95,11 @@ function basePlotOptions(d,time=.001){
    options.at(-1).note='Cone surface → downstream side of shock · reference state 2: immediately behind shock';
   }
  }else if(id==='nozzle'){
-  if(r.nozzleType==='cd' && x.nozzleView!=='External waves') options.unshift(nozzleBookPressurePlot(r));
+  if(r.nozzleType==='cd' && x.nozzleView!=='External waves') options.unshift(comparisonPlot(nozzleBookPressurePlot(r)));
   if(r.external){const j=r.external,exp=j.status==='expansion',samples=exp?j.samples.map(z=>[deg(z.theta),z]):j.outlet?[[0,j.inlet],[.5,j.inlet],[.5,j.outlet],[1,j.outlet]]:[[0,j.inlet],[1,j.inlet]];
    family('external-',exp?'Flow turn θ (°)':'Across local wave · schematic coordinate',samples,[['M','External Mach','M',s=>s.M],['p','External pressure','p (kPa)',s=>s.p/1000],['T','External temperature','T (K)',s=>s.T],['rho','External density','ρ (kg/m³)',s=>s.rho],['u','External speed','u (m/s)',s=>s.u],['p0','External stagnation pressure','p₀ (kPa)',s=>s.p0/1000],['T0','External stagnation temperature','T₀ (K)',s=>s.T0]]);
   }else{
-   family('nozzle-','Axial position x/L',r.points.map(s=>[s.x,s]),[['M','Mach number','M',s=>s.M],['p','Static pressure','p (kPa)',s=>s.P/1000],['pratio','Static pressure ratio','p/p₀, inlet',s=>s.p],['T','Static temperature','T (K)',s=>s.T],['rho','Density','ρ (kg/m³)',s=>s.rho],['u','Flow speed','u (m/s)',s=>s.u],['a','Speed of sound','a (m/s)',s=>Math.sqrt(g*R*s.T)],['p0','Stagnation pressure','p₀ (kPa)',s=>s.P*isentropic(s.M,g).p0p/1000],['T0','Stagnation temperature','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['area','Cross-sectional area','A (cm²)',s=>s.area*1e4],['mass','Mass flow rate','ṁ (kg/s)',s=>s.massFlow]]);
+   family('nozzle-','Axial position x/L',r.points.map(s=>[s.x,s]),[['M','Mach number','M',s=>s.M],['p','Static pressure','p (kPa)',s=>s.P/1000],['T','Static temperature','T (K)',s=>s.T],['rho','Density','ρ (kg/m³)',s=>s.rho],['u','Flow speed','u (m/s)',s=>s.u],['a','Speed of sound','a (m/s)',s=>Math.sqrt(g*R*s.T)],['p0','Stagnation pressure','p₀ (kPa)',s=>s.P*isentropic(s.M,g).p0p/1000],['T0','Stagnation temperature','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['area','Cross-sectional area','A (cm²)',s=>s.area*1e4],['mass','Mass flow rate','ṁ (kg/s)',s=>s.massFlow]]);
   }
  }else if(id==='balances'){
   const samples=[[1,r.a],[2,r.b]];
@@ -173,8 +183,6 @@ function basePlotOptions(d,time=.001){
   family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = |u|/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000],['h0','Stagnation-enthalpy profile','h₀ (kJ/kg)',s=>(g*R*s.T/(g-1)+s.u*s.u/2)/1000]]);
   options.filter(o=>o.key.startsWith('tube-profile-')).forEach(o=>o.note=profileNote);
  }
- // Existing multi-series charts can also be inspected one curve at a time.
- if(!['foundations','normal','rayleigh','fanno','tube'].includes(id)&&d.chart.series.length>1)for(const [i,s] of d.chart.series.entries())options.push({key:'curve-'+i,label:s.name,chart:{...d.chart,title:s.name,series:[s]}});
  if(['rayleigh','fanno'].includes(id))for(const o of options){if(o.key.includes('-axial-'))continue;if(o.label.includes('ratio')){o.label+=` (${o.chart.ylabel})`;o.chart.title=o.label;o.chart.series.forEach(s=>s.name=o.label);}o.chart.markers=[['Inlet',r.s1],['Outlet',r.s2]].filter(([,s])=>s).flatMap(([name,s])=>{const point=o.chart.series[0]?.points.find(p=>Math.abs(p[0]-s.M)<1e-10);return point?[{name,x:point[0],y:point[1],anchor:name==='Outlet'?'end':'start'}]:[]});}
  return options.filter(o=>id!=='normal'||['normal-M','normal-p','normal-rho','normal-T','normal-p0','normal-dsR'].includes(o.key)).filter(o=>o.chart.series.some(s=>s.points.length));
 }

@@ -194,6 +194,7 @@ test('every browser example opens the closed model and the separate demo is gone
   valveExperiment:'Sudden valve closure',request:0,sweepFinished:false,sweepPositioned:false,timer:undefined,clearTimeout(){},
   $:key=>{if(!elements.has(key))elements.set(key,{});return elements.get(key);},
   stopAnimation(){},stopSweep(){},renderInputs(){},solve(){}});
+ context.addDataExport=()=>{};
  vm.runInContext(source.slice(source.indexOf('function defaults(id,'),source.indexOf('const $=')),context);
  vm.runInContext(source.slice(source.indexOf('function renderExamples(){'),source.indexOf('function knownRayleighData')),context);
  context.renderExamples();

@@ -38,9 +38,8 @@ test('Geometry defaults select the corresponding textbook example and Reset keep
 });
 
 test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
- const angle=chapter6BookResult(run(1)).rows;
- near(angle[0].value,50.247,0.002);
- near(angle[1].value,0,1e-8);
+ near(run(1).result.beta*180/Math.PI,50.247,0.002);
+ assert.equal(chapter6BookResult(run(1)),null);
  near(run(2).result.regions[2].M,1.994,.003);
  near(run(3).result.regions[2].M,1.41,.006);
  assert.equal(run(4).result.bookCase,'6–4');

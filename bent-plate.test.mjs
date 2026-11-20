@@ -25,6 +25,7 @@ test('Example dropdown loads the connected plate and Chapter 9 triangular airfoi
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),start=source.indexOf('function renderExamples(){'),end=source.indexOf('\nfunction knownRayleighData',start),elements=new Map();
  const $=id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);};let solves=0;
  const context=vm.createContext({$,id:'airfoil',inputs:defaults('airfoil'),defaults,presetSegments,chapter6BookExamples,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0,timer:undefined,clearTimeout(){}});
+ context.addDataExport=()=>{};
  vm.runInContext(source.slice(source.indexOf('const chapter9TriangleGeometry='),source.indexOf('\nfunction chapter6WallDefaults')),context);
  vm.runInContext(source.slice(start,end),context);context.renderExamples();assert.match($('examplesPanel').innerHTML,/<option value="6–15"[^>]*>Example (?:6–)?15/);
  $('exampleSelect').onchange({target:{value:'6–15'}});assert.equal(solves,1);

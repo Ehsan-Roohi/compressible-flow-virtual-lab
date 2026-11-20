@@ -17,23 +17,21 @@ function shockPosition(points) {
   return points[index][0];
 }
 
-test('example 8–4 matches its fixed pressure profile and shows both styles when the curves coincide', () => {
+test('example 8–4 matches its fixed pressure profile and draws coincident curves once', () => {
   const [comparison] = plots();
   assert.equal(comparison.key, nozzleBookPlotKey);
-  const [live, book] = comparison.chart.series;
-  assert.deepEqual(live.points, book.points);
+  assert.equal(comparison.chart.series.length, 1);
+  const [book] = comparison.chart.series;
   assert.ok(Math.abs(book.points.at(-1)[1] - 0.5) < 1e-9);
   assert.ok(shockPosition(book.points) < 1);
   const view = chartSVG(comparison.chart);
   assert.equal(view.axis.ymin, 0);
   assert.equal(view.axis.ymax, 1);
-  assert.ok(!live.dash && book.dash);
-  assert.ok(view.svg.includes(`stroke-dasharray="${book.dash}"`));
-  assert.ok(view.legend.includes(`stroke-dasharray="${book.dash}"`));
+  assert.match(comparison.note, /coincide/);
 });
 
 test('raising back pressure moves the current shock upstream while the example stays fixed', () => {
-  const reference = plots()[0].chart.series[1].points;
+  const reference = plots()[0].chart.series[0].points;
   const [live, book] = plots({backRatio: 0.6})[0].chart.series;
   assert.deepEqual(book.points, reference);
   assert.ok(shockPosition(live.points) < shockPosition(book.points));

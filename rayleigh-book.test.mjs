@@ -1,5 +1,4 @@
 import {plotOptions} from './plot-options.js';
-import {chartSVG} from './graphics.js';
 import {rayleighBookInputs, rayleighBookPlotKey} from './rayleigh-book.js';
 import test from 'node:test';import assert from 'node:assert/strict';import {defaults,calculate} from './labs.js';
 const close=(a,b,t)=>assert.ok(Math.abs(a-b)<t,`${a} vs ${b}`),run=x=>calculate('rayleigh',{...defaults('rayleigh'),...x});
@@ -17,14 +16,13 @@ const pressureComparison = (overrides = {}) => {
 
 test('example 4–1 pressure curves coincide and reproduce the printed outlet within table rounding', () => {
  const {chart} = pressureComparison();
- const [current, book] = chart.series;
- assert.deepEqual(current.points, book.points);
+ assert.equal(chart.series.length, 1);
+ const [book] = chart.series;
  assert.equal(book.points[0][1], 101);
  close(book.points.at(-1)[1], 302.54, 0.2);
  assert.equal(book.points.at(-1)[0], 1);
  assert.match(chart.ylabel, /kPa/);
- assert.ok(!current.dash && book.dash);
- assert.match(chartSVG(chart).legend, /stroke-dasharray/);
+ assert.match(book.name, /Current and textbook/);
 });
 
 test('signed heat updates only the live duct pressure and keeps the book axes stable', () => {
@@ -32,11 +30,11 @@ test('signed heat updates only the live duct pressure and keeps the book axes st
  for (const [q, expected] of [[200, 222.14316], [0, 101], [-40, 80.33791]]) {
   const {chart} = pressureComparison({q});
   assert.deepEqual(chart.yRange, base.yRange);
-  assert.deepEqual(chart.series[1].points, base.series[1].points);
+  assert.deepEqual(chart.series[1].points, base.series[0].points);
   close(chart.series[0].points.at(-1)[1], expected, 1e-4);
  }
  const changed = pressureComparison({fluid: 'Custom gas', gamma: 1.3, R: 300, p1: 115, q: 55});
- assert.deepEqual(changed.chart.series[1].points, base.series[1].points);
+ assert.deepEqual(changed.chart.series[1].points, base.series[0].points);
  assert.equal(changed.chart.series[0].points[0][1], 115);
 });
 
