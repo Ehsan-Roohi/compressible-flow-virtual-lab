@@ -8,7 +8,7 @@ import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.j
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
 import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot,inletFlowSides,inletLowerDefinitions} from './multi-ramp-inlet.js?v=20261117-inlet-contour-fit2';
 import {airfoilRegionLabel} from './airfoil-region-labels.js';
-import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261117-example-numbers';
+import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261120-shock-fan-contours';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
 import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261117-sinusoidal-piston';

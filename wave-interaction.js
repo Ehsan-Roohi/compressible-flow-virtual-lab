@@ -2,15 +2,19 @@ import {obliqueShock,expansion,shockLimit,prandtlMeyer,state,rad,deg,linspace} f
 import {requireValue,finite,bisect} from './numerics.js';
 const identity=M=>({M2:M,p:1,T:1,rho:1,p0:1,beta:0});
 const apply=(s,w,theta)=>({...state(w.M2,s.T*w.T,s.p*w.p,s.gamma,s.R),theta,gamma:s.gamma,R:s.R});
+export function centeredFanRays(s,turn,side){
+ return linspace(0,turn,33).map(t=>{
+  const z=t===0?identity(s.M):expansion(s.M,t,s.gamma),theta=s.theta-side*t;
+  return {angle:theta+side*Math.asin(1/z.M2),state:apply(s,z,theta)};
+ });
+}
 function outgoing(s,phi,side){
  const turn=side*(phi-s.theta),angle=Math.abs(phi-s.theta);
  const w=angle<1e-12?identity(s.M):turn>0?obliqueShock(s.M,angle,s.gamma):expansion(s.M,angle,s.gamma);
  const kind=angle<1e-12?'No wave':turn>0?'Oblique shock':'Expansion fan';
- const after=apply(s,w,phi),rays=[];
- if(kind==='Expansion fan')for(const t of linspace(0,angle,33)){
-  const z=t===0?identity(s.M):expansion(s.M,t,s.gamma),theta=s.theta-side*t;
-  rays.push({angle:theta+side*Math.asin(1/z.M2),state:apply(s,z,theta)});
- }else rays.push({angle:s.theta+side*(kind==='No wave'?Math.asin(1/s.M):w.beta),state:after});
+ const after=apply(s,w,phi);
+ const rays=kind==='Expansion fan'?centeredFanRays(s,angle,side):
+  [{angle:s.theta+side*(kind==='No wave'?Math.asin(1/s.M):w.beta),state:after}];
  return {...w,kind,before:s,after,side,rays};
 }
 export function interactionPair(r,phi){return {a:outgoing(r.lower,phi,-1),b:outgoing(r.upper,phi,1)};}
