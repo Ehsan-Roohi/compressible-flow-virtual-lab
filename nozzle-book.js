@@ -23,19 +23,19 @@ const pressureRatio = (M,gamma=1.4) => 1/isentropic(M,gamma).p0p;
 const subsonicRatio = (areaRatio,gamma=1.4) => pressureRatio(machFromArea(areaRatio,'subsonic',gamma),gamma);
 
 export const nozzleExamples = [
-  {value:'8-1a', label:'Example 1(a) · Converging, unchoked', inputs:{...converging,backRatio:350/500},
+  {value:'8-1a', label:'Converging, unchoked', inputs:{...converging,backRatio:350/500},
     note:'Reservoir pressure 500 kPa, temperature 400 K and exit area 6 cm². Find the exit Mach and pressure at 350 kPa back pressure. The book does not specify the inlet area.'},
-  {value:'8-1b', label:'Example 1(b) · Converging, choked', inputs:{...converging,backRatio:200/500},
+  {value:'8-1b', label:'Converging, choked', inputs:{...converging,backRatio:200/500},
     note:'Reduce the back pressure to 200 kPa and compare it with the computed sonic exit pressure.'},
-  {value:'8-2a', label:'Example 2(a) · Perfectly expanded', inputs:{...cd,backRatio:pressureRatio(machFromArea(3))},
+  {value:'8-2a', label:'Perfectly expanded', inputs:{...cd,backRatio:pressureRatio(machFromArea(3))},
     note:'Find the throat and exit states for a perfectly expanded C–D nozzle. The throat area is a reference value because only the area ratio is specified.'},
-  {value:'8-2b', label:'Example 2(b) · Sonic throat, subsonic exit', inputs:{...cd,backRatio:subsonicRatio(3)},
+  {value:'8-2b', label:'Sonic throat, subsonic exit', inputs:{...cd,backRatio:subsonicRatio(3)},
     note:'Find the throat and subsonic exit states at the onset of choking.'},
-  {value:'8-2c', label:'Example 2(c) · Required reservoir pressure', inputs:{...cd,nozzleSolve:nozzleSolveModes[1],nozzleExitPressure:47.42},
+  {value:'8-2c', label:'Required reservoir pressure', inputs:{...cd,nozzleSolve:nozzleSolveModes[1],nozzleExitPressure:47.42},
     note:'Find the reservoir pressure for a sonic throat and a 47.42 kPa subsonic exit.'},
-  {value:'8-3', label:'Example 3 · Design for Mach 3.5', inputs:{nozzleSolve:nozzleSolveModes[2],nozzleDesignMach:3.5,p0:1000,T0:333.15,minAreaCm2:500},
+  {value:'8-3', label:'Design for Mach 3.5', inputs:{nozzleSolve:nozzleSolveModes[2],nozzleDesignMach:3.5,p0:1000,T0:333.15,minAreaCm2:500},
     note:'Find exit area, design mass flow and the back-pressure ranges for internal shock, overexpanded flow and underexpanded flow.'},
-  {value:'8-4', label:'Example 4 · Internal normal shock', inputs:{},
+  {value:'8-4', label:'Internal normal shock', inputs:{},
     note:'Locate the shock for an exit-to-throat area ratio of 3 and back pressure of 50.66 kPa. The book gives no reservoir temperature, absolute throat area or axial contour. Dimensional values use the lab’s reference inputs and the axial position uses its schematic contour.'},
 ];
 
@@ -77,7 +77,7 @@ export function nozzleBookPressurePlot(current) {
     const reference = nozzle({...nozzleBookInputs, p0: nozzleBookInputs.p0 * 1000});
     bookProfile = pressurePoints(reference);
   }
-  const title = 'Nozzle pressure · example 8–4 and current case';
+  const title = 'Nozzle pressure · internal shock comparison';
   const ratio = Number(current.backRatio.toPrecision(6));
   return {
     key: nozzleBookPlotKey,
@@ -89,9 +89,9 @@ export function nozzleBookPressurePlot(current) {
       yRange: [0, 1],
       series: [
         {name: `Current · pᵦ/p₀₁ = ${ratio}`, color: '#075c67', width: 3, points: pressurePoints(current)},
-        {name: 'Book example 8–4 · pᵦ/p₀₁ = 0.5', color: '#99451c', width: 2.3, dash: '8 5', points: bookProfile}
+        {name: 'Internal normal-shock example · pᵦ/p₀₁ = 0.5', color: '#99451c', width: 2.3, dash: '8 5', points: bookProfile}
       ]
     },
-    note: 'The dashed curve uses example 8–4 (air, Aₑ/Aₜ = 3). Both profiles use the lab’s schematic nozzle contour and each case’s inlet stagnation pressure. A vertical jump marks a normal shock.'
+    note: 'The dashed curve uses the internal normal-shock example (air, Aₑ/Aₜ = 3). Both profiles use the lab’s schematic nozzle contour and each case’s inlet stagnation pressure. A vertical jump marks a normal shock.'
   };
 }

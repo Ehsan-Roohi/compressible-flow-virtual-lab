@@ -39,19 +39,19 @@ export function rayleighBookPressurePlot(current, gamma) {
     series.push({name: `Current · q = ${heat > 0 ? '+' : ''}${heat} kJ/kg`,
       color: '#075c67', width: 3, points: live});
   }
-  series.push({name: 'Book example 4–1 · q = +300 kJ/kg', color: '#99451c',
+  series.push({name: 'Supersonic heating example · q = +300 kJ/kg', color: '#99451c',
     width: 2.3, dash: '8 5', points: bookPoints});
 
   const bookCeiling = branchPressureCeiling(book.M1, book.p1, book.gamma);
   const liveCeiling = branchPressureCeiling(current.s1.M, current.s1.p / 1000, gamma);
   const peak = Math.max(bookCeiling, liveCeiling);
   const tick = 10 ** Math.floor(Math.log10(peak));
-  const title = 'Duct pressure · example 4–1 and current case';
-  const note = 'The dashed curve is calculated from example 4–1. Both profiles assume uniform heat transfer per unit length along the duct.';
+  const title = 'Duct pressure · supersonic heating comparison';
+  const note = 'The dashed curve uses the supersonic heating example. Both profiles assume uniform heat transfer per unit length along the duct.';
   return {
     key: rayleighBookPlotKey, label: title,
     chart: {title, xlabel: 'Relative position x/L', ylabel: 'Static pressure p (kPa)',
       yRange: [0, Math.ceil(peak / tick) * tick], series},
-    note: live.length ? note : `${note} Only the book curve is shown. ${current.message}`
+    note: live.length ? note : `${note} Only the example curve is available. ${current.message}`
   };
 }

@@ -56,7 +56,7 @@ function between(poly,origin,lo,hi){
  return clipPolygon(clipPolygon(poly,offset(origin,lo)),p=>-upper(p));
 }
 
-export function shockFanDrawing(s,quantity='pressure',bookExample='6–7'){
+export function shockFanDrawing(s,quantity='pressure'){
  const r=s.regions,options=['pressure','mach','temperature','density','speed'];
  const key=options.includes(quantity)?quantity:'pressure';
  const properties={pressure:['Static pressure','kPa',z=>z.p/1000],mach:['Mach number','M',z=>z.M],
@@ -109,8 +109,7 @@ export function shockFanDrawing(s,quantity='pressure',bookExample='6–7'){
   return `<g data-shock-fan-wave="${pair}" data-wave-kind="${w.kind}"><title>${w.title}</title>${lines}</g>`;
  }
  const crossShock=m=>at(upperCorner,m,(1+lowerCorner[0]*shockSlope)/(shockSlope-m));
- const book=bookExample.endsWith('8')?8:7;
- let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" role="img" aria-label="Shock and expansion interaction, Example ${book}"><title>Example ${book} · shock–expansion matching</title>`;
+ let svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" role="img" aria-label="Shock and expansion interaction"><title>Shock–expansion matching</title>';
  const wallTop=[[start,1],upperCorner,[end,top(end)]],wallBottom=[[start,0],lowerCorner,[end,bottom(end)]];
  const wall=(points,edge)=>`<polygon points="35,${edge} ${points.map(point).join(' ')} 605,${edge}" fill="#b1b7bc"/>`;
  svg+=wall(wallTop,12)+wall(wallBottom,276);
@@ -132,6 +131,6 @@ export function shockFanDrawing(s,quantity='pressure',bookExample='6–7'){
   text(X(0)+12,Y(1)-10,`θᵤ = ${deg(r[3].theta).toFixed(1)}°`)+
   text(X(lowerCorner[0])+12,Y(0)+16,`θₗ = ${deg(r[2].theta).toFixed(1)}°`);
  svg+=text(35,294,`φ = ${s.slipAngle.toFixed(4)}° to horizontal · schematic`)+'</svg>';
- return {svg,densityCells,label:`Example ${book} · shock–expansion matching`,meta:'Solid: shock · fine rays: expansion fan · dashed: slip line',
+ return {svg,densityCells,label:'Shock–expansion matching',meta:'Solid: shock · fine rays: expansion fan · dashed: slip line',
   field:{quantity:key,options,label,min,max,units,palette:cornerPalette,note:'Uniform regions and isentropic fan states · schematic'}};
 }

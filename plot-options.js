@@ -1,5 +1,5 @@
-import {nozzleBookPressurePlot} from './nozzle-book.js';
-import {rayleighBookPressurePlot} from './rayleigh-book.js';
+import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
+import {rayleighBookPressurePlot} from './rayleigh-book.js?v=20261120-example-sequence';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261117-sinusoidal-piston';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
@@ -135,11 +135,11 @@ function basePlotOptions(d,time=.001){
      ['u','Velocity','u (m/s)',i=>f.velocity[i],s=>s.u],
      ['p','Pressure','p (kPa)',i=>f.pressure[i]/1000,s=>s.p/1000]
     ]){
-     const title=`${label} · Example 10 comparison`;
+     const title=`${label} · Small-amplitude comparison`;
      if(usable.length)options.push({key:`tube-profile-sine-${key}`,label:title,chart:{title,xlabel:'Position x (m)',ylabel:unit,zeroBaseline:false,series:[
       {name:'Numerical Euler solution',points:usable.map(([x,i])=>[x,read(i)]),color:'#176f9c'},
-      {name:'Example 10 · small-amplitude solution',points:usable.map(([x])=>[x,reference(sinusoidalReference(r,x,f.time))]),color:'#d47822',dash:'5 3'}
-     ]},note:usable.length?`Comparison at ${(f.time*1000).toFixed(2)} ms in cells ahead of the returning reflected wave. The book uses u = εa₁ sin[ω(t − x/a₁)] for 0 < t − x/a₁ < N/f and p − p₁ = ρ₁a₁u.`:'The reflected wave has reached the whole tube. Select an earlier time to compare with the book’s outgoing-wave solution.'});
+      {name:'Small-amplitude solution',points:usable.map(([x])=>[x,reference(sinusoidalReference(r,x,f.time))]),color:'#d47822',dash:'5 3'}
+     ]},note:usable.length?`Comparison at ${(f.time*1000).toFixed(2)} ms in cells ahead of the returning reflected wave. The linear comparison uses u = εa₁ sin[ω(t − x/a₁)] for 0 < t − x/a₁ < N/f and p − p₁ = ρ₁a₁u.`:'The reflected wave has reached the whole tube. Select an earlier time to compare with the book’s outgoing-wave solution.'});
     }
     const title='Prescribed sinusoidal piston motion';
     options.push({key:'sinusoidal-motion',label:title,chart:{title,xlabel:'Time t (ms)',ylabel:'uₚ (m/s)',series:[

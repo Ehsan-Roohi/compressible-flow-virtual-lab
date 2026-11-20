@@ -27,7 +27,10 @@ test('Example dropdown loads the connected plate and Chapter 9 triangular airfoi
  const context=vm.createContext({$,id:'airfoil',inputs:defaults('airfoil'),defaults,presetSegments,chapter6BookExamples,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0,timer:undefined,clearTimeout(){}});
  context.addDataExport=()=>{};
  vm.runInContext(source.slice(source.indexOf('const chapter9TriangleGeometry='),source.indexOf('\nfunction chapter6WallDefaults')),context);
- vm.runInContext(source.slice(start,end),context);context.renderExamples();assert.match($('examplesPanel').innerHTML,/<option value="6–15"[^>]*>Example (?:6–)?15/);
+ vm.runInContext(source.slice(start,end),context);context.renderExamples();
+ const menu=$('examplesPanel').innerHTML;
+ assert.match(menu,/<option value="6–15"[^>]*>Example 6 · Connected flat plates/);
+ assert.deepEqual([...menu.matchAll(/<option[^>]*>Example (\d+) ·/g)].map(m=>Number(m[1])),[1,2,3,4,5,6,7]);
  $('exampleSelect').onchange({target:{value:'6–15'}});assert.equal(solves,1);
  for(const [k,v]of Object.entries({airfoilShape:'Connected flat plates',M:2.5,alpha:4.2,bookExample:'6–15'}))assert.equal(context.inputs[k],v);
  context.renderExamples();assert.match($('examplesPanel').innerHTML,/zero[- ]thickness/i);

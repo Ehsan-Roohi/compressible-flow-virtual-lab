@@ -2,7 +2,7 @@ import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {foundationExerciseNotice,foundationExerciseRows} from './foundation-exercises.js';
-import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261118-restore-sample';
+import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261120-example-sequence';
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-sinusoidal-piston';
 import {tubeFields,tubeModes,solveTube} from './tube-input.js?v=20261117-moving-tube';
@@ -311,7 +311,7 @@ export function calculate(id,x){
  if(finite||closed||closedValve||sinusoidal){
   const solved=sinusoidal?solveSinusoidalPiston(x):closedValve?solveClosedValve(x):closed?solveClosedPiston(x):solveFiniteTube(x),result=solved.result;
   const notice=sinusoidal
-   ?'Example 10 uses a small-amplitude, one-cycle sinusoidal velocity and the fixed-origin linear approximation. The comparison curves apply before reflected waves return. Numerical fields include the moving piston and repeated reflections.'
+   ?'The linear comparison uses a fixed origin and a small-amplitude sinusoidal piston velocity. The comparison curves apply before reflected waves return. Numerical fields include the moving piston and repeated reflections.'
    :result.movingPiston
    ?(closedValve?'The upstream piston continues at the initial gas speed after the valve closes. Initial shock values are analytical; the field includes later reflections.':'Reflections are computed at the fixed wall and the moving piston.')+
     (result.stoppedAtGap?' The solve stops at 10% of the initial gas gap to avoid full closure.':'')+

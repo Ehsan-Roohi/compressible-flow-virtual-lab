@@ -4,7 +4,7 @@ import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from '
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261117-valve-closure';
 import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261120-region-numbers';
-import {shockFanDrawing} from './shock-fan-example.js?v=20261120-shock-fan-contours';
+import {shockFanDrawing} from './shock-fan-example.js?v=20261120-example-sequence';
 import {wedgeWallDrawing} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetInletDrawing} from './ramjet-inlet-graphics.js?v=20261120-region-numbers';
 import {fannoSystemDrawing} from './fanno-system-graphics.js?v=20261119-fanno-station-alignment';
@@ -324,7 +324,7 @@ export function sceneSVG(scene,inputs,time=.001,quantity='pressure'){
  if(scene.kind==='valveClosure')view=valveClosureDrawing();
  else if(scene.kind==='pistonShocks')view=pistonShocksDrawing(scene);
  else if(scene.kind==='multiRampInlet')view=multiRampDrawing(scene,inputs,quantity);
- else if(scene.kind==='shockFanReference')view=shockFanDrawing(scene,quantity,inputs.bookExample);
+ else if(scene.kind==='shockFanReference')view=shockFanDrawing(scene,quantity);
  else if(scene.wallReflection)view=wedgeWallDrawing(scene,inputs,quantity);
  else if(scene.kind==='ramjetInlet')view=ramjetInletDrawing(scene,inputs,quantity);
  else if(scene.kind==='fannoSystem')view=fannoSystemDrawing(scene,inputs,quantity);

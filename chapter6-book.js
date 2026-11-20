@@ -12,7 +12,7 @@ const bentPlateAngle=deg(Math.atan(.24)),bentPlateLength=Math.hypot(.5,.12);
 
 function entry(number,title,note,preset,lab='wall'){
  const value=`6–${number}`;
- return {number,value,lab,label:`Example ${number} · ${title}`,note,inputs:{...air,...preset,bookExample:value}};
+ return {number,value,lab,label:title,note,inputs:{...air,...preset,bookExample:value}};
 }
 
 export const chapter6BookExamples=[

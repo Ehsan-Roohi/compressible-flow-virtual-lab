@@ -11,7 +11,7 @@ const airStateInputs = {
 
 export const foundationExampleEntries = [
   {
-    value: '1-1', label: 'Example 1–1 · Wing pressure',
+    value: '1-1', label: 'Wing pressure',
     note: 'Chapter 1 applies constant-density Bernoulli flow to air accelerating from 44.7 to 67 m/s. Its reference density is 1.225 kg/m³ and upstream static pressure is 101.325 kPa. Use this approximation when both local Mach numbers stay at or below 0.3.',
     inputs: {
       ...airStateInputs, bookExample: '1-1', M: 44.7 / seaLevelSoundSpeed,
@@ -19,7 +19,7 @@ export const foundationExampleEntries = [
     }
   },
   {
-    value: '2-1', label: 'Example 2–1 · Euler state and flux',
+    value: '2-1', label: 'Euler state and flux',
     note: 'Chapter 2 asks for the conserved variables, inviscid fluxes per unit area and three characteristic speeds of a one-dimensional Euler state. The book gives M = 2, p = 100 kPa, ρ = 1 kg/m³ and γ = 1.4.',
     inputs: {...airStateInputs, bookExample: '2-1', M: 2, p1: 100, T1: 100000 / air.R}
   }

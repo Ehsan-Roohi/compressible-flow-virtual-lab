@@ -348,7 +348,7 @@ export function solveSinusoidalPiston(x){
  const rows=[
   ['Peak piston velocity',motion.amplitude,'m/s'],['Period',1000/x.pistonFrequency,'ms'],
   ['Piston stops after',motion.duration*1000,'ms'],['Maximum piston displacement',2*motion.amplitude/omega,'m'],
-  ['Linear wavelength · Example 10',a1/x.pistonFrequency,'m'],['Initial sound speed',a1,'m/s'],
+  ['Linear wavelength',a1/x.pistonFrequency,'m'],['Initial sound speed',a1,'m/s'],
   ['First acoustic arrival at fixed wall',length/a1*1000,'ms'],['Comparison time',frame.time*1000,'ms'],
   ['Velocity RMS error / peak piston velocity',Math.sqrt(velocityError/count)/motion.amplitude],
   ['Pressure RMS error / linear pressure amplitude',Math.sqrt(pressureError/count)/(initialDensity*a1*motion.amplitude)],
