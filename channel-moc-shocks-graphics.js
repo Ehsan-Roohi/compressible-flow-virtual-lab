@@ -44,11 +44,7 @@ export function fittedMocDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach'
   const [a,b]=s.moc.slip.points;
   inner+=`<g data-moc-slip-line="true">${line(X(a.x),Y(a.y),X(b.x),Y(b.y),'#17212b',1.5,'5 3')}</g>`;
  }
- const bookWaves=s.moc.slip?s.moc.traces.map(t=>{
-  const [a,b]=t.points;
-  return {kind:'Oblique shock',label:t.type,before:a.before,after:a.after,beta:a.beta,point:[X((a.x+b.x)/2),Y((a.y+b.y)/2)]};
- }):[];
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(X(wall[i].x),Y(wall[i].y),X(wall[i+1].x),Y(wall[i+1].y),'#000',1.5);
  if(last.x<end-1e-8){inner+=line(X(last.x),43,X(last.x),245,'#8e6d42',1.2,'4 4')+txt(616,270,'Partial field · downstream not solved','#8e6d42',12,'end');}
- return {inner,densityCells,bookWaves,label:'Rotational characteristic field · fitted shocks',meta:'Black: fitted shocks · arrows: flow · refine characteristic resolution',field:{quantity:key,options,label:labels[key],min,max,units:units[key],palette:cornerPalette,note:s.moc.slip?'Characteristic patches · fitted shocks and slip line':'Numerical MOC · separate one-sided shock states'}};
+ return {inner,densityCells,label:'Rotational characteristic field · fitted shocks',meta:'Black: fitted shocks · arrows: flow · refine characteristic resolution',field:{quantity:key,options,label:labels[key],min,max,units:units[key],palette:cornerPalette,note:s.moc.slip?'Characteristic patches · fitted shocks and slip line':'Numerical MOC · separate one-sided shock states'}};
 }

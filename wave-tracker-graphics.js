@@ -11,7 +11,7 @@ export function probeTracking(s,px,py){
  const p=trackingProfile(s,x/s.geometry.end);if(!p||y<p.ys[0]||y>p.ys.at(-1))return null;
  const i=p.ys.findIndex((v,i)=>i>0&&y<=v);return {x,y,...p.states[Math.max(0,i-1)]};
 }
-export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',showBookWaves=false}){
+export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',showOutgoingWaves=false}){
  const {X,Y,end,start,height}=trackingCoordinates(s),g=s.geometry,t=s.tracking,options=['mach','pressure','temperature','density','speed'],key=options.includes(quantity)?quantity:'mach',value=z=>key==='mach'?z.M:key==='temperature'?z.T:key==='density'?z.rho:key==='speed'?z.u:z.p/1000,label={mach:'Mach number',pressure:'Static pressure',temperature:'Static temperature',density:'Density',speed:'Flow speed'}[key],units={mach:'M',pressure:'kPa',temperature:'K',density:'kg/m³',speed:'m/s'}[key];
  let min=Infinity,max=-Infinity;for(const slab of t.slabs)for(const z of slab.states){const v=value(z);min=Math.min(min,v);max=Math.max(max,v);}if(!Number.isFinite(min))min=max=value(s.s1);
  if(range){min=range.min;max=range.max;}
@@ -29,21 +29,17 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',
  }
  for(const [bucket,d]of paths)inner+=`<path d="${d}" fill="${cornerContourColor(bucket/255)}" shape-rendering="crispEdges"/>`;
  const interaction=t.events.find(e=>e.type==='Wave interaction'),lineEnd=interaction?.x??end;
- const bookInteraction=showBookWaves?interaction:null,bookWaves=[];
+ const outgoingInteraction=showOutgoingWaves?interaction:null;
  for(const kind of ['Expansion front','Slip line','Oblique shock']){
   const segments=[];
   for(const f of t.traces){
    if(f.kind!==kind)continue;
-   const outgoing=bookInteraction&&Math.abs(f.origin.x-bookInteraction.x)<1e-9&&Math.abs(f.origin.y-bookInteraction.y)<1e-9;
+   const outgoing=outgoingInteraction&&Math.abs(f.origin.x-outgoingInteraction.x)<1e-9&&Math.abs(f.origin.y-outgoingInteraction.y)<1e-9;
    if(!outgoing&&f.origin.x>=lineEnd-1e-9)continue;
    const stop=Math.min(f.end.x,outgoing?end:lineEnd);
    if(stop<=f.origin.x)continue;
    const fraction=(stop-f.origin.x)/(f.end.x-f.origin.x),y=f.origin.y+fraction*(f.end.y-f.origin.y);
    segments.push(`M${point(f.origin.x,f.origin.y)}L${point(stop,y)}`);
-   if(showBookWaves&&kind==='Oblique shock')bookWaves.push({
-    kind,beta:f.beta,before:f.before,after:f.after,label:outgoing?'Outgoing shock':'Incident shock',
-    point:[X((f.origin.x+stop)/2),Y((f.origin.y+y)/2)]
-   });
   }
   const d=segments.join('');
   if(d)inner+=`<path d="${d}" fill="none" stroke="${kind==='Oblique shock'?'#000000':kind==='Slip line'?'#273746':'#35638d'}" stroke-width="${kind==='Oblique shock'?1.35:kind==='Slip line'?.8:.45}" ${kind==='Slip line'?'stroke-dasharray="4 3"':''} stroke-opacity="${kind==='Expansion front'?.48:1}"/>`;
@@ -57,5 +53,5 @@ export function trackingDrawing(s,{txt,line,poly,fmt,range=null,quantity='mach',
  for(const wall of [lower,upper])for(let i=0;i<wall.length-1;i++)inner+=line(...V(wall[i]),...V(wall[i+1]),'#111',1.6);
  if(s.limitX!==null)inner+=line(X(t.endX),43,X(t.endX),height-54,'#8e6d42',1,'4 4');
  inner+=txt(24,height-31,`Solved distance from inlet: ${fmt(t.endX,5)} m`,'#53616b',12)+txt(616,height-31,`Channel length: ${fmt(end,5)} m`,'#53616b',12,'end')+txt(24,height-8,t.hasFanApproximation?'Direct relations + approximate fan interactions':'Direct shock relations · inspect events below','#53616b',12);
- return {inner,densityCells,bookWaves,label:'Attached shocks, expansion fronts and slip-line interactions',meta:'Computed event-driven field · region properties are listed in the table',field:{quantity:key,options,label,min,max,units,note:t.hasFanApproximation?'Direct relations + finite-fan approximation':'Direct shock–expansion states',palette:cornerPalette}};
+ return {inner,densityCells,label:'Attached shocks, expansion fronts and slip-line interactions',meta:'Computed event-driven field · region properties are listed in the table',field:{quantity:key,options,label,min,max,units,note:t.hasFanApproximation?'Direct relations + finite-fan approximation':'Direct shock–expansion states',palette:cornerPalette}};
 }

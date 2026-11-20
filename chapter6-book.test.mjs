@@ -72,28 +72,12 @@ test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
  assert.deepEqual(run(15).result.nonlinear.waves.map(w=>w.kind),['Oblique shock','Expansion fan','Expansion fan','Oblique shock']);
 });
 
-test('Book figures show numerical shock and fan annotations for the solved waves',()=>{
- const shockCounts=[1,1,1,4,3,0,2,2,2,4,4,2,4,2,3];
- for(const [i,count] of shockCounts.entries()){
-  const d=run(i+1),{svg}=sceneSVG(d.scene,d.inputs);
-  assert.match(svg,/data-chapter6-problem/);
-  assert.match(svg,/data-chapter6-wave-labels/);
-  const plain=sceneSVG(d.scene,{...d.inputs,bookExample:''}).svg;
-  const viewBox=markup=>markup.match(/viewBox="([^"]+)"/)[1];
-  assert.equal(viewBox(svg),viewBox(plain),'book labels must use the original figure area');
-  assert.equal([...svg.matchAll(/data-wave-leader="S\d+"/g)].length,count);
-  assert.equal([...svg.matchAll(/data-wave-readout="S\d+"/g)].length,count,`Example ${i+1}`);
-  assert.equal([...svg.matchAll(/β = [\d.]+° · θ = [\d.]+°<\/text><text\b[^>]*>M = [\d.]+ → [\d.]+/g)].length,count);
+test('Chapter 6 diagrams omit supplementary annotation boxes and leaders',()=>{
+ for(const e of chapter6BookExamples){
+  const d=run(e.number),{svg}=sceneSVG(d.scene,d.inputs);
+  assert.doesNotMatch(svg,/data-chapter6-(?:problem|wave-labels)|data-wave-(?:readout|leader)/,e.value);
  }
- const ramp=run(2),corner=sceneSVG(ramp.scene,ramp.inputs).svg;
- assert.match(corner,/β = 37\.76° · θ = 20°<\/text><text\b[^>]*>M = 3 → 1\.9941/);
- assert.doesNotMatch(sceneSVG(ramp.scene,{...ramp.inputs,bookExample:''}).svg,/data-chapter6-wave-labels/);
- const fan=run(6);
- assert.match(sceneSVG(fan.scene,fan.inputs).svg,/θ = 20°<\/text><text\b[^>]*>M = 2 → 2\.8306/);
- assert.doesNotMatch(sceneSVG(fan.scene,fan.inputs).svg,/β =/);
- const airfoil=run(15);
- assert.match(sceneSVG(airfoil.scene,airfoil.inputs).svg,/data-chapter6-problem=""[\s\S]*?α = 4\.2°/);
  const inlet=run(9),schlieren=sceneSVG(inlet.scene,inlet.inputs,0,'schlieren').svg;
  assert.match(schlieren,/data-schlieren-outline="true"/);
- assert.match(schlieren,/Reflected shock · 2 → 3/);
+ assert.doesNotMatch(schlieren,/data-wave-readout/);
 });

@@ -1,4 +1,4 @@
-import {mocDrawing} from './channel-moc-graphics.js?v=20261120-opposing-moc';
+import {mocDrawing} from './channel-moc-graphics.js?v=20261120-chapter6-clean';
 import {channelOrdinate} from './wave-channel.js';
 import {cornerContourColor,cornerPalette} from './corner-graphics.js?v=20261118-wave-density';
 export function channelDrawing(s,{txt,line,poly,fmt,quantity,range,showCharacteristics}){

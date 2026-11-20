@@ -32,9 +32,5 @@ export function shockFanDrawing(s,quantity='pressure',bookExample='6–7'){
  svg+='<path d="M35 75H210L605 25M35 255H300L605 220M300 255L380 150M380 150L445 95" fill="none" stroke="black" stroke-width="2"/><path d="M380 150L605 68" stroke="black" stroke-dasharray="5 4" fill="none"/>';
  svg+=text(115,160,'1')+text(365,218,'2')+text(335,86,'3')+text(535,175,'4')+text(535,65,'5')+text(55,115,`M₁ = ${r[1].M.toFixed(3)}`)+text(250,55,`θᵤ = ${(deg(r[3].theta)).toFixed(1)}°`)+text(440,235,`θₗ = ${(deg(r[2].theta)).toFixed(1)}°`);
  svg+=`<text x="35" y="292" fill="#17212b" font-size="16">φ = ${s.slipAngle.toFixed(4)}° to horizontal · schematic</text></svg>`;
- const bookWaves=[
-  {...s.waves[0],label:'Incident shock · 1 → 2',point:[340,202.5]},
-  {...s.waves[3],label:'Outgoing shock · 3 → 5',point:[412.5,122.5]}
- ].filter(w=>w.kind==='Oblique shock');
- return {svg,densityCells,bookWaves,label:`Example ${number} · final uniform-stream matching`,meta:'Schematic; internal shock–fan interaction is not spatially resolved',field:{quantity:key,options:['pressure','mach','temperature','density','speed'],label:key,min,max,units:key==='pressure'?'kPa':key==='mach'?'M':key==='temperature'?'K':key==='density'?'kg/m³':'m/s',palette,note:'Uniform final states · schematic reference'}};
+ return {svg,densityCells,label:`Example ${number} · final uniform-stream matching`,meta:'Schematic; internal shock–fan interaction is not spatially resolved',field:{quantity:key,options:['pressure','mach','temperature','density','speed'],label:key,min,max,units:key==='pressure'?'kPa':key==='mach'?'M':key==='temperature'?'K':key==='density'?'kg/m³':'m/s',palette,note:'Uniform final states · schematic reference'}};
 }

@@ -11,7 +11,7 @@ function surfaceColor(t){
 }
 
 // Local analytical shock/expansion states; unresolved wave interactions remain unfilled.
-export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pressure',showBookWaves=false}){
+export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pressure'}){
  const available=s.models.includes('nonlinear')&&s.nonlinear.status==='ok';
  const model=available?'nonlinear':s.models.includes('linear')?'linear':null,z=model?s[model]:null;
  const trailing=available&&s.trailingEdge?.status==='ok'?s.trailingEdge:null;
@@ -22,7 +22,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  const cps=z?.panels.map(p=>p.Cp)??[],min=cps.length?Math.min(...cps):0,max=cps.length?Math.max(...cps):0;
  const color=v=>surfaceColor(max-min<1e-12?.5:(v-min)/(max-min));
  const ray=(origin,angle,r)=>[origin[0]+r*Math.cos(angle),origin[1]-r*Math.sin(angle)];
- const shockLabels=[],bookWaves=[];
+ const shockLabels=[];
  let inner='<rect width="640" height="300" fill="#fcfdfc"/>';
  inner+=`<defs><clipPath id="airfoil-flow-domain"><rect x="20" y="46" width="${Math.max(0,flowRight-20)}" height="188"/></clipPath></defs>`;
  inner+='<defs><clipPath id="airfoil-wave-window"><rect x="20" y="46" width="600" height="188"/></clipPath></defs>';
@@ -62,13 +62,7 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
    const end=ray(origin,w.before.theta+sign*w.beta,contour?900:130);
    inner+=`<g ${contour?'clip-path="url(#airfoil-resolved)"':''} data-wave="shock" data-region="${w.id}">${line(...origin,...end,'#000000',1.35)}</g>`;
    const angle=w.before.theta+sign*w.beta,pos=ray(origin,angle,102),offset=sign>0?28:40,label=airfoilShockLabel(s,w);
-   if(showBookWaves){
-    const edge=trailing?.waves.includes(w)?'trailing edge':w.origin.x<1e-9?'leading edge':`panel #${w.id.slice(1)}`;
-    const verticalLimit=Math.sin(angle)>0?46:234;
-    const length=Math.min(155,(flowRight-origin[0])/Math.cos(angle),(origin[1]-verticalLimit)/Math.sin(angle));
-    const point=length>40?ray(origin,angle,length*.5):origin;
-    bookWaves.push({...w,label:`${w.side} ${edge}`,point});
-   }else if(pos[0]<flowRight-12)shockLabels.push(`<g data-shock-angle="${w.id}">${txt(pos[0]-sign*offset*Math.sin(angle),Math.max(68,Math.min(218,pos[1]-sign*offset*Math.cos(angle))),`${label} = ${fmt(w.beta*180/Math.PI,4)}°`,'#17212b',13,'middle')}</g>`);
+   if(pos[0]<flowRight-12)shockLabels.push(`<g data-shock-angle="${w.id}">${txt(pos[0]-sign*offset*Math.sin(angle),Math.max(68,Math.min(218,pos[1]-sign*offset*Math.cos(angle))),`${label} = ${fmt(w.beta*180/Math.PI,4)}°`,'#17212b',13,'middle')}</g>`);
   }else{
    const a=w.before.theta+sign*Math.asin(1/w.before.M),b=w.after.theta+sign*Math.asin(1/w.after.M);
    const count=Math.max(2,Math.min(9,Math.ceil(Math.abs(b-a)*180/Math.PI/2)+1)),radius=contour?900:119;
@@ -132,5 +126,5 @@ export function airfoilDrawing(s,{txt,line,poly,fmt,incidenceGlyph,quantity='pre
  inner+=line(100,289,122,289,'#000000',1.35)+txt(129,293,'Shock','#53616b',12)+line(217,289,239,289,'#477caa',.95)+txt(246,293,'Expansion fan','#53616b',12);
  if(trailing)inner+=line(415,289,437,289,'#344652',1,'5 4')+txt(444,293,trailing.interfaceKind,'#53616b',12);
  if(contour)inner=inner.replace(/<text\b([^>]*)>/g,(tag,a)=>{const px=Number(a.match(/\bx="([^"]+)"/)?.[1]),py=Number(a.match(/\by="([^"]+)"/)?.[1]);if(px<20||px>620||py<46||py>234)return tag;const z=sampler.sample((px-leadingX)/L,(originY-py+6)/L);if(!z)return tag;const value=contour.property.read(z,s),ink=readableInk(surfaceColor((value-contour.min)/(contour.max-contour.min||1)));return tag.replace(/fill="[^"]*"/,`fill="${ink}"`);});
- return {inner,bookWaves,label:schematic?'Airfoil contours · schematic overlaps':'Analytical airfoil wave field',meta:schematic?'Physical contours in resolved regions; schematic continuation in wave overlaps.':'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:domain?(domain.clipped?`Physical contours stop at x/c = ${fmt(domain.limit,5)}, before the first wave interaction or surface encounter. Grey area: geometry only.`:'Physical contours; no wave interaction in the displayed domain.'):schematic?'Schematic continuation in wave overlaps: waves do not interact; uniform-region colors continue unchanged. All colors use the selected-variable scale; read values with cursor. · β relative to local upstream flow':'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
+ return {inner,label:schematic?'Airfoil contours · schematic overlaps':'Analytical airfoil wave field',meta:schematic?'Physical contours in resolved regions; schematic continuation in wave overlaps.':'Local analytical states; unresolved wave interactions are unfilled',field:contour?{quantity:contour.key,options:Object.keys(airfoilFieldProperties),label:contour.property.label,min:contour.min,max:contour.max,units:contour.property.units,note:domain?(domain.clipped?`Physical contours stop at x/c = ${fmt(domain.limit,5)}, before the first wave interaction or surface encounter. Grey area: geometry only.`:'Physical contours; no wave interaction in the displayed domain.'):schematic?'Schematic continuation in wave overlaps: waves do not interact; uniform-region colors continue unchanged. All colors use the selected-variable scale; read values with cursor. · β relative to local upstream flow':'Analytical local wave states · unfilled areas: unresolved interactions · β relative to local upstream flow',palette:airfoilPalette}:model?{quantity:'cp',options:['cp'],label:'Surface pressure coefficient Cp',min,max,units:'Cp',note:'Linearized surface values only; select Shock–Expansion for dimensional exterior contours',palette:airfoilPalette}:null};
 }
