@@ -11,8 +11,8 @@ const run=(number,patch={})=>{
 };
 const near=(actual,expected,tolerance)=>assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} ≠ ${expected}`);
 
-test('All fifteen textbook examples load a physical scene in the appropriate lab',()=>{
- assert.deepEqual(chapter6BookExamples.map(e=>e.number),Array.from({length:15},(_,i)=>i+1));
+test('All listed textbook examples load a physical scene in the appropriate lab',()=>{
+ assert.deepEqual(chapter6BookExamples.map(e=>e.number),[1,2,3,4,5,6,7,9,10,11,12,13,14,15]);
  for(const e of chapter6BookExamples){
   assert.equal(e.lab,e.number<10?'wall':'airfoil');
   const d=run(e.number);
@@ -48,7 +48,10 @@ test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
  near(expansion[0].value,30,1e-8);
  near(expansion[1].value,.69,.004);
  near(run(7).result.slipAngle,20.004,.03);
- assert.equal(plotOptions(run(8))[0].key,'pressure-turning');
+ const [polar]=plotOptions(run(7));
+ assert.equal(polar.key,'pressure-turning');
+ assert.equal(polar.chart.series.length,4);
+ assert.equal(getChapter6BookExample('6–8'),getChapter6BookExample('6–7'));
  const ramjet=run(9);
  near(ramjet.result.regions[3].M,1.437,.01);
  assert.equal(plotOptions(ramjet)[0].key,'inlet-p-theta');

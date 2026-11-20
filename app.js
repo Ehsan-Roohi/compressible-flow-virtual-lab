@@ -23,7 +23,7 @@ import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
-import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-single-wall';
+import {chapter6BookExamples,getChapter6BookExample,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-merge-examples';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
@@ -110,7 +110,10 @@ function renderNav(){
   return `<a href="#${ids[0]}" class="${active?'active':''}" ${active?'aria-current="page"':''}><span class="chapter-number">${number}</span><span class="nav-title">${title}</span></a>`;
  }).join('');
 }
-function canonicalExample(value){return String(value??'').replace(/[–−]/g,'-');}
+function canonicalExample(value){
+ const code=String(value??'').replace(/[–−]/g,'-');
+ return code==='6-8'?'6-7':code;
+}
 const expansionChannelPreset={wallShape:'Custom wall',boundaryMode:'Channel',channelSolver:'Method of characteristics',M1:3,channelHeight:1,wallSegments:[{angle:-8,length:6}],upperWallSegments:[{angle:8,length:6}],mocResolution:81,mocStation:1,mocLines:'Shown',bookExample:'expansion'};
 const chapter9TriangleGeometry={airfoilShape:'Asymmetric double wedge',thickness:.1,peak:.5,camber:.05};
 const chapter9TriangleSegments=presetSegments(chapter9TriangleGeometry);
@@ -147,6 +150,7 @@ function openLab(){
   const saved=JSON.parse(localStorage.getItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':'')));
   if(saved&&typeof saved==='object'){
    for(const key in inputs)if(key in saved)inputs[key]=saved[key];
+   if(id==='wall'&&canonicalExample(saved.bookExample)==='6-7')inputs.bookExample='6–7';
    if(id==='nozzle'&&!Object.hasOwn(saved,'bookExample'))inputs.bookExample='';
    if(id==='wall'&&saved.customInteraction===multiRampMode&&saved.inletSolutionVersion!==2){inputs.inletTerminal='Wall reflections';inputs.inletSolutionVersion=2;}
    if(id==='wall'&&saved.theta===undefined&&saved.wallSegments?.length)inputs.theta=Math.abs(saved.wallSegments[0].angle);
@@ -1002,7 +1006,7 @@ function renderExamples(){
   entries=cases.map(e=>({...e,apply:()=>{
    if(id!==e.lab){openChapter6Example(e.value);return false;}
    load(e.inputs,e.value);
-   if(e.number===4||e.number===5||e.number===8)plotSelection.wall='pressure-turning';
+   if(e.number===4||e.number===5||e.number===7)plotSelection.wall='pressure-turning';
    if(e.number===9)plotSelection.wall='inlet-p-theta';
   }}));
  }

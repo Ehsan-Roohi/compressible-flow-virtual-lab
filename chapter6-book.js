@@ -21,8 +21,7 @@ export const chapter6BookExamples=[
  entry(4,'Opposing shock interaction','Inspect regions 2, 3, 4, and 4′ and the slip-line angle. Temperature and channel dimensions are reference values.',chapter6Example(4)),
  entry(5,'Successive compression corners','Two successive 10° turns on one wall produce interacting shocks. Inspect regions 2–5 and the slip-line angle.',{...chapter6Example(5),boundaryMode:'Single wall',wallSide:'Gas above wall'}),
  entry(6,'Prandtl–Meyer expansion','The inlet is at 1.8 kPa and 250 °C. Read the two fan-ray inclinations relative to the inlet direction.',{wallShape:'Expansion corner',boundaryMode:'Single wall',wallSide:'Gas above wall',M1:2,p1:1.8,T1:523.15,theta:20}),
- entry(7,'Shock–expansion interaction','Read the matched pressure, Mach numbers, and slip-line angle for the incident shock and expansion. Inlet temperature is a reference value.',shockFanPreset),
- entry(8,'Shock–expansion pressure–deflection diagram','Plot the paths through the four waves in Example 7 and locate their pressure–direction match.',shockFanPreset),
+ entry(7,'Shock–expansion interaction','Read the matched pressure, Mach numbers, and slip-line angle. The pressure–deflection diagram shows all four wave paths and the matched state. Inlet temperature is a reference value.',shockFanPreset),
  entry(9,'Ramjet inlet regular reflection','An 8° ramp at Mach 2 produces an incident shock and one regular reflection. Read both shock angles and pressure ratios.',ramjetPreset),
  entry(10,'Symmetric diamond airfoil','The 3° half-angle diamond at zero incidence has zero lift and finite wave drag. Inlet temperature is a reference value.',{...airfoil,...diamond(3),M:3,alpha:0,p1:6.895},'airfoil'),
  entry(11,'Sonic-boom interval','Extend the nose and tail shocks as straight rays to ground level to estimate the time between arrivals.',{...airfoil,...diamond(5),M:2.5,alpha:0,p1:100,T1:293,bookAirfoilChord:4,bookFlightHeight:150},'airfoil'),
@@ -34,7 +33,9 @@ export const chapter6BookExamples=[
 
 export function getChapter6BookExample(value){
  const bookNumber=/^6[-–](\d+)$/.exec(value??'');
- return bookNumber?chapter6BookExamples[Number(bookNumber[1])-1]:undefined;
+ if(!bookNumber)return undefined;
+ const number=Number(bookNumber[1]);
+ return chapter6BookExamples.find(e=>e.number===(number===8?7:number));
 }
 
 export function chapter6GeometryExample(shape){
