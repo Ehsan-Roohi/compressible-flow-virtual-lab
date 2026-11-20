@@ -3,8 +3,8 @@ import {rayleighBookPressurePlot} from './rayleigh-book.js';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261117-sinusoidal-piston';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
-import {annotateTurningRegions} from './turning-region-markers.js?v=20261115-airfoil-regions';
-import {pressureTurningPlot} from './pressure-turning.js?v=20261115-airfoil-regions';
+import {annotateTurningRegions} from './turning-region-markers.js?v=20261120-four-shock-polar';
+import {pressureTurningPlot} from './pressure-turning.js?v=20261120-four-shock-polar';
 import {ramjetPlots} from './ramjet-inlet.js?v=20261114-region-markers';
 import {ductLongitudinalPlots} from './duct-contours.js?v=20261112-duct-contours';
 import {bodyPlots} from './wedge-cone.js?v=20261114-region-markers';
@@ -189,4 +189,5 @@ function basePlotOptions(d,time=.001){
 
 export function plotOptions(d,time=.001){if(d.result.multiRamp)return basePlotOptions(d,time);if(d.id==='airfoil'||d.id==='cone'&&d.inputs.bodyGeometry==='Wedge')return [];if(d.id==='collision'||d.result.shockFan||d.result.tracking){let source=d;if(d.result.finalStreamMatch)source={...d,result:d.result.finalStreamMatch};else if(d.result.tracking){const result={...d.result};selectTrackingEvent(result,defaultTrackingEvent(result));source={...d,result};}const turning=pressureTurningPlot(source);return turning?[annotateTurningRegions(source,turning)]:[];}const plots=basePlotOptions(d,time),turning=pressureTurningPlot(d);const expansion=d.id==='expansion'||d.result.simpleCorner&&d.result.cornerKind==='expansion';
  const formulas={overview:'ν(M) = √((γ+1)/(γ−1)) atan√((γ−1)(M²−1)/(γ+1)) − atan√(M²−1)\nν(M₂) = ν(M₁) + |θ₂ − θ₁|', 'wave-p':'p₂/p₁ = [(1 + (γ−1)M₁²/2)/(1 + (γ−1)M₂²/2)]^(γ/(γ−1))','wave-T':'T₂/T₁ = (1 + (γ−1)M₁²/2)/(1 + (γ−1)M₂²/2)','wave-rho':'ρ₂/ρ₁ = (T₂/T₁)^(1/(γ−1))','wave-p0':'p₀₂/p₀₁ = 1 (isentropic expansion)','wave-speed':'u₂/u₁ = (M₂/M₁) √(T₂/T₁)','pressure-turning':'p/p₁ = [(1 + (γ−1)M₁²/2)/(1 + (γ−1)M(θ)²/2)]^(γ/(γ−1)); ν(M(θ)) − ν(M₁) = |θ − θ₁|'};
- return (turning?[...plots,turning]:plots).filter(p=>!expansion||p.key!=='wave-M'&&!p.key.startsWith('wave-dimensional-')).map(p=>annotateTurningRegions(d,expansion?{...p,formula:formulas[p.key]}:p));}
+ const choices=turning?(turning.chart.interactionPolar?[turning,...plots]:[...plots,turning]):plots;
+ return choices.filter(p=>!expansion||p.key!=='wave-M'&&!p.key.startsWith('wave-dimensional-')).map(p=>annotateTurningRegions(d,expansion?{...p,formula:formulas[p.key]}:p));}

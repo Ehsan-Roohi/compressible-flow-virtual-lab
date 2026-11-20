@@ -6,7 +6,8 @@ export function annotateTurningRegions(d,plot){
  const add=(name,theta,p)=>{if(Number.isFinite(theta)&&Number.isFinite(p))markers.push({name:String(name),x:deg(theta),y:p});};
  const state=(name,z,reference=1)=>{if(z)add(name,z.theta,z.p/reference);};
  const cone=(c,prefix='')=>{if(!c?.history?.length)return;for(const [name,z]of [['Shock',c.history[0]],['Surface',c.history.at(-1)]])add(prefix+name,z.theta+Math.atan2(z.vt,z.vr),z.p);};
- if(r.ramjet)for(const [n,z]of Object.entries(r.regions))state(n,z,r.s1.p);
+ if(plot.chart.interactionPolar)markers.push(...plot.chart.markers);
+ else if(r.ramjet)for(const [n,z]of Object.entries(r.regions))state(n,z,r.s1.p);
  else if(r.wallReflection)for(const [n,z]of Object.entries(r.wallReflection.regions))state(n,z);
  else if(r.bodyLab){state('1',{theta:r.wedge.alpha,p:1});for(const f of r.wedge.faces)state(f.side==='Upper'?'2':'3',f.surface);cone(r.cone,'Cone · ');}
  else if(d.id==='cone')cone(r);

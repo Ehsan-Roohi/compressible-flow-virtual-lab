@@ -29,7 +29,7 @@ import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261120-opposing-moc';
+import {plotOptions} from './plot-options.js?v=20261120-four-shock-polar';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261120-chapter-eight';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261119-compact-layout';
@@ -994,7 +994,7 @@ function renderExamples(){
   entries=cases.map(e=>({...e,apply:()=>{
    if(id!==e.lab){openChapter6Example(e.value);return false;}
    load(e.inputs,e.value);
-   if(e.number===8)plotSelection.wall='pressure-turning';
+   if(e.number===4||e.number===8)plotSelection.wall='pressure-turning';
    if(e.number===9)plotSelection.wall='inlet-p-theta';
   }}));
  }

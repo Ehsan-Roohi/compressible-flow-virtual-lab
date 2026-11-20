@@ -25,3 +25,20 @@ test('Airfoil labels match panel and trailing-edge identifiers; continuous cone 
  const c=chart(run('airfoil')),all=c.markers.map(m=>m.name).join(' / ');for(const label of ['1','2','3','4','5','6 (upper)','6 (lower)'])assert.ok(all.includes(label));
  assert.deepEqual(chart(run('cone')).markers.map(m=>m.name),['Shock','Surface']);
 });
+
+test('Example 4 pressure–deflection diagram connects all four shocks in every solution mode',()=>{
+ for(const channelSolver of ['Shock–Expansion','Method of characteristics','Compare both']){
+  const d=run('wall',{...chapter6Example(4),channelSolver}),[polar]=plotOptions(d);
+  assert.equal(polar.key,'pressure-turning');assert.equal(polar.chart.ylabel,'p/p₁');
+  const [a,b,c,e]=polar.chart.series;
+  assert.deepEqual([a,b,c,e].map(s=>s.name),['1 → 2','1 → 3','2 → 4′','3 → 4']);
+  assert.deepEqual(a.points[0],[0,1]);assert.deepEqual(b.points[0],[0,1]);
+  assert.deepEqual(a.points.at(-1),c.points[0]);assert.deepEqual(b.points.at(-1),e.points[0]);
+  near(a.points.at(-1)[0],20);near(a.points.at(-1)[1],5.2115725022);
+  near(b.points.at(-1)[0],-10);near(b.points.at(-1)[1],2.5060431210);
+  near(c.points.at(-1)[0],9.54488816868);near(c.points.at(-1)[1],10.10926478965);
+  near(c.points.at(-1)[1],e.points.at(-1)[1]);
+  assert.deepEqual(polar.chart.markers.map(m=>m.name),['1','2','3','4′ / 4']);
+  assert.doesNotMatch(chartSVG(polar.chart).svg,/NaN|undefined|Infinity/);
+ }
+});

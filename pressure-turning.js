@@ -2,10 +2,26 @@ import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {obliqueShock,expansion,deg,rad} from './physics.js';
 import {mocProfilePlots} from './channel-moc.js';
 import {comparisonProfile} from './channel-comparison.js';
+function opposingShockRegions(r){
+ const fitted=r.comparison?.moc??r;
+ if(fitted.moc?.slip){
+  const z=fitted.regions;
+  return [z[1],z[2],z[3],z['4′'],z[4]];
+ }
+ const events=r.tracking?.events;
+ if(!events||events[0]?.side!=='lower'||events[1]?.side!=='upper')return null;
+ const [lower,upper,meet]=events;
+ const oblique=w=>w?.kind==='Oblique shock';
+ if(lower.type!=='Wall corner'||upper.type!=='Wall corner'||meet?.type!=='Wave interaction'||
+  !oblique(lower.waves?.[0])||!oblique(upper.waves?.[0])||
+  meet.lower?.stateId!==lower.after?.stateId||meet.upper?.stateId!==upper.after?.stateId||
+  !oblique(meet.match?.a)||!oblique(meet.match?.b))return null;
+ return [r.s1,meet.lower,meet.upper,meet.match.a.after,meet.match.b.after];
+}
 // Every curve has one upstream reference. Shock curves are polar loci, not
 // resolved profiles inside a discontinuity. Cross-section samples stay separate.
 export function pressureTurningPlot(d){
- const {result:r,inputs:x,id}=d,g=d.gas?.gamma??x.gamma??1.4,series=[];let reference=1,note='Shock curves are pressure–deflection loci from their own upstream state; expansion curves are simple-wave paths. Pressure is normalized by the common inlet pressure.';
+ const {result:r,inputs:x,id}=d,g=d.gas?.gamma??x.gamma??1.4,series=[];let reference=1,interactionMarkers,note='Shock curves are pressure–deflection loci from their own upstream state; expansion curves are simple-wave paths. Pressure is normalized by the common inlet pressure.';
  if(r.ramjet||r.wallReflection)return null; // Existing dedicated p–theta diagrams.
  const addWave=(w,name)=>{
   const a=w.before,b=w.after;if(!a||!b||![a.theta,b.theta,a.p,b.p].every(Number.isFinite))return;
@@ -21,7 +37,16 @@ export function pressureTurningPlot(d){
   series.push({name,points});
  };
  const conePath=(c,name)=>{if(!c?.history?.length)return;series.push({name,points:c.history.map(z=>[deg(z.theta+Math.atan2(z.vt,z.vr)),z.p])});note='Conical-flow curve uses the actual velocity direction θ + atan2(Vθ,Vr), not the polar position angle. Wedge paths use 2D shock/expansion relations; each is normalized by its freestream pressure.';};
- if(r.bodyLab){
+ const opposing=opposingShockRegions(r);
+ if(opposing){
+  reference=opposing[0].p;
+  const names=['1','2','3','4′','4'];
+  for(const [i,j] of [[0,1],[0,2],[1,3],[2,4]]){
+   addWave({kind:'Oblique shock',before:opposing[i],after:opposing[j]},`${names[i]} → ${names[j]}`);
+  }
+  interactionMarkers=opposing.map((z,i)=>({name:names[i],x:deg(z.theta),y:z.p/reference}));
+  note='The four shock polars describe the first regular interaction. The incident shocks start at region 1. Regions 4 and 4′ share pressure and flow direction at the slip line.';
+ }else if(r.bodyLab){
   reference=1;const w=r.wedge,free={M:w.M,p:1,theta:w.alpha};
   for(const f of w.faces)if(f.surface)addWave({before:free,after:f.surface,kind:f.kind},'Wedge '+f.side);
   conePath(r.cone,'Cone · meridian flow');
@@ -54,5 +79,5 @@ export function pressureTurningPlot(d){
  }
  const valid=series.filter(s=>s.points.length>1&&s.points.every(p=>p.every(Number.isFinite)));
  if(!valid.length)return null;
- return {key:'pressure-turning',label:'Pressure–deflection diagram',note,chart:{title:'Pressure–deflection diagram',xlabel:'Flow direction θ (°)',ylabel:'p/pref',zeroBaseline:false,scatter:valid.every(s=>s.scatter===true),series:valid}};
+ return {key:'pressure-turning',label:'Pressure–deflection diagram',note,chart:{title:'Pressure–deflection diagram',xlabel:'Flow direction θ (°)',ylabel:interactionMarkers?'p/p₁':'p/pref',...(interactionMarkers?{interactionPolar:true,markers:interactionMarkers}:{}),zeroBaseline:false,scatter:valid.every(s=>s.scatter===true),series:valid}};
 }
