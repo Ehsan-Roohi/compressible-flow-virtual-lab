@@ -387,6 +387,9 @@ body{font-family:Georgia,"Times New Roman",serif}
 .region-table tbody th span:empty { margin: 0; }
 body:is([data-lab="rayleigh"],[data-lab="fanno"],[data-lab="normal"]) .region-table:has(thead th:nth-child(3):last-child) { min-width: 0; }
 .flow-relations-panel td, .flow-relations-panel th { padding-block: 5px; }
+body[data-lab="nozzle"] #flowRelationsPanel :is(th, td) { padding-inline: 4px; }
+body[data-lab="nozzle"] #flowRelationsPanel tbody th { min-width: 0; }
+body[data-lab="nozzle"] #flowRelationsPanel td { font-size: 12px; }
 .result-row, .result-row:first-child { padding-block: 6px; }
 .region-table-panel .card-head, .chart-card .card-head { padding-block: 7px 4px; }
 @media (min-width: 801px) {
