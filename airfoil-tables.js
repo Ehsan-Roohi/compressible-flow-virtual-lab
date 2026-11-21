@@ -39,8 +39,7 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
       coefficientRow('Lift-to-drag ratio L/D',z=>Math.abs(z.CD)>1e-12?z.CL/z.CD:null)
     ];
     if(r.forces){
-      for(const [label,field] of [['Lift (kN)','lift'],['Wave drag (kN)','waveDrag'],
-        ['Lift per unit span (kN/m)','liftPerSpan'],['Wave drag per unit span (kN/m)','waveDragPerSpan']]){
+      for(const [label,field] of [['Lift (kN)','lift'],['Wave drag (kN)','waveDrag']]){
         rows.push(coefficientRow(label,(_,model)=>r.forces[model][field]/1000));
       }
       const {referenceChord,referenceSpan,referenceArea}=r.forces;
