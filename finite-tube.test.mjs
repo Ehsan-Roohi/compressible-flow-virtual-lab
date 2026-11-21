@@ -197,12 +197,20 @@ test('every browser example opens the closed model and the separate demo is gone
  context.addDataExport=()=>{};
  vm.runInContext(source.slice(source.indexOf('function defaults(id,'),source.indexOf('const $=')),context);
  vm.runInContext(source.slice(source.indexOf('function renderExamples(){'),source.indexOf('function knownRayleighData')),context);
+ const initial=vm.runInContext("defaults('tube')",context);
+ assert.equal(initial.bookExample,'7–1');
+ assert.equal(initial.T1,300);
+ assert.equal(initial.shockRatio,10);
+ const a=calculate('tube',initial).result.incident,b=calculate('tube',{...initial,T1:400}).result.incident;
+ near(b.shockSpeed/a.shockSpeed,Math.sqrt(400/300),1e-9);
  context.renderExamples();
  assert.doesNotMatch(elements.get('examplesPanel').innerHTML,/closed-piston-demo/);
  for(const code of ['7–1','7–2','7–3','7–4','7–7','7–10','7–12','7–13']){
   assert.ok(elements.get('examplesPanel').innerHTML.includes(`value="${code}"`));
   elements.get('exampleSelect').onchange({target:{value:code}});
   assert.equal(context.inputs.tubeDomain,finiteTubeMode);
-  assert.equal(calculate('tube',context.inputs).result.finiteTube,true);
+  const solved=calculate('tube',context.inputs);
+  assert.equal(solved.result.finiteTube,true);
+  if(code==='7–13')assert.equal(solved.inputs.p4,200);
  }
 });
