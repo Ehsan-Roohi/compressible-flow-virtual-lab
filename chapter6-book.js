@@ -15,10 +15,6 @@ function entry(number,title,note,preset,lab='wall'){
  return {number,value,lab,label:title,note,inputs:{...air,...preset,bookExample:value}};
 }
 
-const symmetricDiamondExample=number=>entry(number,'Symmetric diamond airfoil',
- 'The 3° half-angle diamond at Mach 3 and zero incidence has zero lift and finite wave drag. Inlet temperature is a reference value.',
- {...airfoil,...diamond(3),M:3,alpha:0,p1:6.895},'airfoil');
-
 export const chapter6BookExamples=[
  entry(1,'Weak oblique shock','Find the weak shock angle for a 25° flow turn. Pressure and temperature are reference values.',{...compression,M1:2.5,theta:25}),
  entry(2,'Oblique-shock states','Find the shock angle and downstream static and stagnation properties for a 20° ramp.',{...compression,M1:3,theta:20,p1:101,T1:288}),
@@ -28,8 +24,12 @@ export const chapter6BookExamples=[
  entry(6,'Prandtl–Meyer expansion','The inlet is at 1.8 kPa and 250 °C. Read the two fan-ray inclinations relative to the inlet direction.',{wallShape:'Expansion corner',boundaryMode:'Single wall',wallSide:'Gas above wall',M1:2,p1:1.8,T1:523.15,theta:20}),
  entry(7,'Shock–expansion interaction','Read the matched pressure, Mach numbers, and slip-line angle. The pressure–deflection diagram shows all four wave paths and the matched state. Inlet temperature is a reference value.',{...shockFanPreset,trackingStep:2}),
  entry(9,'Ramjet inlet regular reflection','An 8° ramp at Mach 2 produces an incident shock and one regular reflection. Read both shock angles and pressure ratios.',ramjetPreset),
- symmetricDiamondExample(10),
- symmetricDiamondExample(11),
+ entry(10,'Symmetric diamond airfoil',
+  'The 3° half-angle diamond at Mach 3 and zero incidence has zero lift and finite wave drag. Inlet temperature is a reference value.',
+  {...airfoil,...diamond(3),M:3,alpha:0,p1:6.895},'airfoil'),
+ entry(11,'Symmetric diamond airfoil at Mach 2.5',
+  'Steady flow over the 4 m chord diamond at zero incidence. The included angle is 10° (5° per face). The figure uses normalized chord coordinates.',
+  {...airfoil,...diamond(5),M:2.5,alpha:0,p1:100,T1:293,bookAirfoilChord:4},'airfoil'),
  entry(12,'Inclined flat plate','Find lift and wave drag at Mach 2.6 and 5° incidence. Pressure and temperature are reference values.',{...airfoil,airfoilShape:'Flat plate',M:2.6,alpha:5},'airfoil'),
  entry(13,'Diamond-airfoil forces','Find the four panel pressure coefficients and the lift and drag per unit span for the 1 m chord. Inlet temperature is a reference value.',{...airfoil,...diamond(8),M:3,alpha:4,p1:101,bookAirfoilChord:1},'airfoil'),
  entry(14,'Triangular airfoil','Two 5° upper panels meet above a flat lower surface. Find lift and drag at Mach 2.4 and 15° incidence.',{...airfoil,airfoilShape:'Asymmetric double wedge',geometryInput:'Angles & lengths',upperSegments:[{angle:5,length:.5/Math.cos(rad(5))}],lowerSegments:[],M:2.4,alpha:15},'airfoil'),

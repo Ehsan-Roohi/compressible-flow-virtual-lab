@@ -129,15 +129,19 @@ test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
  assert.deepEqual(run(15).result.nonlinear.waves.map(w=>w.kind),['Oblique shock','Expansion fan','Expansion fan','Oblique shock']);
 });
 
-test('Both symmetric diamond examples use the same inputs and steady outputs',()=>{
+test('The second diamond example uses the 6–11 book inputs and steady flow outputs',()=>{
  const first=run(10),second=run(11);
- assert.deepEqual({...second.inputs,bookExample:first.inputs.bookExample},first.inputs);
- assert.deepEqual(second.rows,first.rows);
- assert.deepEqual(chapter6AirfoilFields(second.inputs),chapter6AirfoilFields(first.inputs));
+ assert.equal(first.inputs.M,3);
+ assert.equal(first.inputs.diamondFrontAngle,3);
+ const {M,alpha,p1,T1,diamondFrontAngle,diamondRearAngle,bookAirfoilChord}=second.inputs;
+ assert.deepEqual([M,alpha,p1,T1,diamondFrontAngle,diamondRearAngle,bookAirfoilChord],[2.5,0,100,293,5,5,4]);
+ const {waves}=second.result.nonlinear,lower=waves.filter(w=>w.side==='Lower');
+ near(lower[0].beta*180/Math.PI,27.42,.01);
+ near(lower[0].after.M,2.29,.01);
+ near(lower[1].after.M,2.72,.01);
+ assert.deepEqual(chapter6AirfoilFields(second.inputs),[]);
  assert.equal(chapter6BookResult(second),null);
- const inclined=run(11,{alpha:3});
- assert.ok(inclined.result.nonlinear.CL>0);
- assert.equal(chapter6BookResult(inclined),null);
+ assert.ok(run(11,{alpha:3}).result.nonlinear.CL>0);
 });
 
 test('Chapter 6 diagrams omit supplementary annotation boxes and leaders',()=>{
