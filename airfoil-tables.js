@@ -60,8 +60,13 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
   if(hasLinear){
     const rows=r.linear.potential.map(p=>[airfoilRegionLabel(r,p.id),`${number(p.x0)} – ${number(p.x1)}`,
       `${number(p.derivative)} ξ ${p.intercept<0?'−':'+'} ${number(Math.abs(p.intercept))}`]);
+    const key=`<dl class="airfoil-potential-key">
+      <div><dt>ξ = x/c</dt><dd>Position along the chord. Divide the distance x from the leading edge by the chord length c. The leading edge is at ξ = 0 and the trailing edge is at ξ = 1.</dd></div>
+      <div><dt>ψ = φ/(U<sub>∞</sub> c)</dt><dd>Dimensionless perturbation potential. Divide the velocity potential perturbation φ by the product of freestream speed and chord length.</dd></div>
+      <div><dt>ψ(0) = 0</dt><dd>The leading edge is the zero reference for the potential on both surfaces.</dd></div>
+    </dl>`;
     content.push(detail('potential','Surface potential · linearized',
-      '<p class="airfoil-empty">ξ = x/c · ψ = φ/(U∞c) · ψ(0) = 0 on each side</p>'+table('Linearized surface potential',['Region','ξ interval','ψ(ξ)'],rows)));
+      key+table('Linearized surface potential',['Region','Chord interval, ξ','Potential, ψ(ξ)'],rows)));
   }
   if(hasSE&&r.trailingEdge?.status==='ok'){
     const t=r.trailingEdge;

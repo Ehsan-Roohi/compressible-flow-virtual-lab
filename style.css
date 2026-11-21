@@ -395,6 +395,10 @@ body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px;
 .reference-detail[open] > summary { margin-bottom: 3px; }
 .airfoil-detail { margin-inline: var(--card-inset); border-top: 1px solid var(--line); }
 .airfoil-detail .airfoil-scroll { margin-inline: 0; }
+.airfoil-potential-key { margin: 2px 0 10px; color: var(--text-secondary); font-size: 13px; }
+.airfoil-potential-key > div { display: flex; flex-wrap: wrap; gap: 2px 12px; padding-block: 3px; }
+.airfoil-potential-key dt { flex: 0 0 7.5em; color: var(--ink); font-weight: 600; }
+.airfoil-potential-key dd { flex: 1 1 18em; margin: 0; }
 .region-table-panel { margin-top: 0; }
 .region-table-scroll { padding: 0 var(--card-inset) 8px; }
 .region-table th, .region-table td { padding: 5px 7px; }

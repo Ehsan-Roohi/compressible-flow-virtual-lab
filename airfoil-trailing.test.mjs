@@ -54,6 +54,9 @@ test('Airfoil card keeps applicable details folded and solver limits visible',()
  assert.doesNotMatch(visible(linear),/Surface pressure coefficients|Flow properties by surface region/);
  assert.match(linear,/data-airfoil-detail="surface"><summary>Surface pressure coefficients/);
  assert.match(linear,/data-airfoil-detail="potential"/);
+ assert.match(linear,/<dt>ξ = x\/c<\/dt><dd>Position along the chord/);
+ assert.match(linear,/<dt>ψ = φ\/\(U<sub>∞<\/sub> c\)<\/dt><dd>Dimensionless perturbation potential/);
+ assert.match(linear,/<dt>ψ\(0\) = 0<\/dt><dd>The leading edge is the zero reference for the potential on both surfaces/);
  assert.doesNotMatch(linear,/data-airfoil-detail="trailing"|not resolved|require an accepted/i);
 
  const compare=solve({airfoilMethod:'Compare both',alpha:4});

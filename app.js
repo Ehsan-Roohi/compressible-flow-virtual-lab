@@ -26,7 +26,7 @@ import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selec
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
 import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-airfoil-shared-inputs';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
-import {airfoilTables,diamondRegionStates,diamondRegionDetails} from './airfoil-tables.js?v=20261121-airfoil-coefficients';
+import {airfoilTables,diamondRegionStates,diamondRegionDetails} from './airfoil-tables.js?v=20261121-potential-key';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
