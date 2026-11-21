@@ -225,8 +225,8 @@ test('every browser example opens the closed model and the separate demo is gone
   assert.equal(preset.unsteadyExperiment,type);
  }
  context.renderExamples();
- assert.doesNotMatch(elements.get('examplesPanel').innerHTML,/closed-piston-demo/);
- for(const code of ['7–1','7–2','7–3','7–4','7–7','7–10','7–12','7–13']){
+ assert.doesNotMatch(elements.get('examplesPanel').innerHTML,/closed-piston-demo|7–12/);
+ for(const code of ['7–1','7–2','7–3','7–4','7–7','7–10','7–13']){
   assert.ok(elements.get('examplesPanel').innerHTML.includes(`value="${code}"`));
   elements.get('exampleSelect').onchange({target:{value:code}});
   assert.equal(context.inputs.tubeDomain,finiteTubeMode);
