@@ -1,5 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {calculate,defaults} from './labs.js';import {airfoilDomain} from './airfoil-domain.js';import {airfoilContour,probeAirfoilField} from './airfoil-field.js';import {sceneSVG} from './graphics.js';
+import {getChapter6BookExample} from './chapter6-book.js';
+import {airfoilView} from './airfoil-view.js';
 const a=Math.atan(.24)*180/Math.PI;
 const preset={...defaults('airfoil'),airfoilShape:'Bent flat plate',plateDefinition:'Multiple panels',plateLengthMode:'Keep earlier lengths',M:2.5,alpha:4.2,upperSegments:[{angle:a,length:Math.hypot(.25,.06)},{angle:0,length:.5},{angle:-a,length:.25}]};
 test('Three-panel contour ends before the lower shock enters the earlier expansion fan',()=>{
@@ -18,4 +20,22 @@ test('Display limit mirrors with the plate and does not change physical surface 
  const d=calculate('airfoil',preset),mirror=calculate('airfoil',{...preset,alpha:-4.2,upperSegments:preset.upperSegments.map(p=>({...p,angle:-p.angle}))});
  assert.ok(Math.abs(airfoilDomain(d.result).limit-airfoilDomain(mirror.result).limit)<1e-9);
  const schematic=calculate('airfoil',{...preset,airfoilFieldMode:'Schematic · independent waves'});assert.deepEqual(d.result.nonlinear,schematic.result.nonlinear);assert.ok(airfoilContour(schematic.result).cells.length>airfoilContour(d.result).cells.length);
+});
+
+test('Connected plates retain the separated stream up to the trailing edge',()=>{
+ const example=getChapter6BookExample('6-15'),inputs={...defaults('airfoil'),...example.inputs};
+ for(const sign of [1,-1]){
+  const d=calculate('airfoil',{...inputs,alpha:sign*inputs.alpha,upperSegments:inputs.upperSegments.map(p=>({...p,angle:sign*p.angle}))});
+  const domain=airfoilDomain(d.result),{scale,leadingX,originY}=airfoilView(d.result);
+  assert.equal(domain.hit.side,sign===1?'Lower':'Upper');
+  assert.deepEqual(domain.hit.waves,sign===1?['L1','L2']:['U1','U2']);
+  assert.ok(domain.limit>.8&&domain.limit<domain.hit.x);
+  const probe=(x,y)=>probeAirfoilField(d.result,leadingX+scale*x,originY-scale*y);
+  assert.equal(probe(.9,-sign*.01),null);
+  assert.equal(probe(.9,sign*.05)?.region,sign===1?'U2':'L2');
+  assert.equal(probe(1.05,sign*.05),null);
+  const view=sceneSVG(d.scene,d.inputs);
+  assert.match(view.svg,new RegExp(domain.hit.side+' side stops before wave interaction'));
+  assert.doesNotMatch(view.svg,/data-trailing-interface|Geometry only/);
+ }
 });

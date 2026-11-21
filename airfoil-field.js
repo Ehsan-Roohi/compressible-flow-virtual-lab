@@ -1,5 +1,5 @@
 import {airfoilView} from './airfoil-view.js?v=20261115-connected-plates';
-import {airfoilDomain,limitedAirfoil} from './airfoil-domain.js?v=20261115-connected-plates';
+import {airfoilDomain,limitedAirfoil} from './airfoil-domain.js?v=20261121-airfoil-local-field';
 import {state,prandtlMeyer} from './physics.js';
 import {airfoilRegionLabel,isFlatPlate} from './airfoil-region-labels.js?v=20261115-plate-regions';
 const cache=new WeakMap();
@@ -8,6 +8,7 @@ const ordinate=(points,x)=>{let i=0;while(i<points.length-2&&points[i+1].x<x)i++
 export function airfoilFieldSampler(s){
  if(!s.models.includes('nonlinear')||s.nonlinear.status!=='ok')return null;
  if(cache.has(s))return cache.get(s);
+ const domain=limitedAirfoil(s)?airfoilDomain(s):null;
  const schematic=s.airfoilFieldMode==='Schematic · independent waves';
  const g=s.gamma??1+2*(s.freestream.T0/s.freestream.T-1)/s.freestream.M**2,R=s.R??s.freestream.a**2/(g*s.freestream.T),k=(g-1)/2;
  const prepare=w=>{const sign=w.side==='Upper'?1:-1;let fan=null;if(w.kind==='Expansion fan')fan=Array.from({length:65},(_,i)=>{const M=w.before.M+(w.after.M-w.before.M)*i/64,turn=prandtlMeyer(M,g)-prandtlMeyer(w.before.M,g),theta=w.before.theta-sign*turn;return {M,angle:sign*theta+Math.asin(1/M)};});return {w,sign,fan};};
@@ -17,6 +18,7 @@ export function airfoilFieldSampler(s){
   let side;
   if(x<=1){const up=ordinate(s.geometry.upper,x),lo=ordinate(s.geometry.lower,x);if(y<up-1e-10&&y>lo+1e-10)return null;side=y>=up?'Upper':'Lower';}
   else{if(s.trailingEdge?.status!=='ok')return null;side=y>=s.geometry.upper.at(-1).y+Math.tan(s.trailingEdge.phi)*(x-1)?'Upper':'Lower';}
+  if(domain&&x>(domain.sideLimits?.[side]??domain.limit))return null;
   let z=s.freestream,region=s.geometry.diamond||isFlatPlate(s)?'1':'∞',ready=true,approximate=false,lastUniform=null;
   for(const {w,sign,fan}of sides[side]){
    if(x<w.origin.x-1e-10||w.kind==='No wave')continue;
@@ -43,7 +45,7 @@ export function airfoilContour(s,quantity='pressure'){
  const sampler=airfoilFieldSampler(s);if(!sampler)return null;
  const domain=limitedAirfoil(s)?airfoilDomain(s):null,{scale,leadingX,originY}=airfoilView(s);
  const key=quantity in airfoilFieldProperties?quantity:'pressure',property=airfoilFieldProperties[key],cells=[];let min=Infinity,max=-Infinity;
- for(let py=46;py<234;py+=1)for(let px=20;px<620;px+=1){if(domain&&(px+.5-leadingX)/scale>domain.limit)continue;const z=sampler.sample((px+.5-leadingX)/scale,(originY-py-.5)/scale);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,fan:z.region==='Expansion fan'});}
+ for(let py=46;py<234;py+=1)for(let px=20;px<620;px+=1){const z=sampler.sample((px+.5-leadingX)/scale,(originY-py-.5)/scale);if(!z)continue;const value=property.read(z,s);if(!Number.isFinite(value))continue;min=Math.min(min,value);max=Math.max(max,value);cells.push({px,py,value,fan:z.region==='Expansion fan'});}
  return {key,property,cells,min,max,step:1,domain};
 }
-export function probeAirfoilField(s,px,py){const {scale,leadingX,originY}=airfoilView(s);if(px<20||px>620||py<46||py>234||limitedAirfoil(s)&&(px-leadingX)/scale>airfoilDomain(s).limit)return null;return airfoilFieldSampler(s)?.sample((px-leadingX)/scale,(originY-py)/scale)??null;}
+export function probeAirfoilField(s,px,py){const {scale,leadingX,originY}=airfoilView(s);if(px<20||px>620||py<46||py>234)return null;return airfoilFieldSampler(s)?.sample((px-leadingX)/scale,(originY-py)/scale)??null;}

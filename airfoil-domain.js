@@ -8,12 +8,13 @@ export function airfoilDomain(s){
  const view=airfoilView(s),end=(620-view.leadingX)/view.scale,ordinate=(p,x)=>{let i=0;while(i<p.length-2&&p[i+1].x<x)i++;return p[i].y+(p[i+1].y-p[i].y)*(x-p[i].x)/(p[i+1].x-p[i].x);};
  const waves=[...(s.nonlinear?.status==='ok'?s.nonlinear.waves:[]),...(s.trailingEdge?.status==='ok'?s.trailingEdge.waves:[])].filter(w=>w.kind!=='No wave');
  const groups=waves.map(w=>{const sign=w.side==='Upper'?1:-1,angles=w.kind==='Oblique shock'?[w.before.theta+sign*w.beta]:[w.before.theta+sign*Math.asin(1/w.before.M),w.after.theta+sign*Math.asin(1/w.after.M)];return {...w,rays:angles.filter(a=>Math.cos(a)>1e-9).map(a=>({m:Math.tan(a),c:w.origin.y-Math.tan(a)*w.origin.x}))};});
- let hit=null;
+ const hits={Upper:null,Lower:null};
  const accept=(x,y,a,b,kind)=>{
+  const hit=hits[a.side];
   if(!Number.isFinite(x)||x<=Math.max(a.origin.x,b.origin.x)+1e-7||hit&&x>=hit.x)return;
   if(x<=1){const wall=ordinate(a.side==='Upper'?s.geometry.upper:s.geometry.lower,x);if(a.side==='Upper'?y<wall-1e-9:y>wall+1e-9)return;}
   else if(s.trailingEdge?.status==='ok'){const line=s.geometry.upper.at(-1).y+Math.tan(s.trailingEdge.phi)*(x-1);if(a.side==='Upper'?y<line-1e-9:y>line+1e-9)return;}
-  hit={x,y,waves:[a.id,b.id],kind,start:Math.max(a.origin.x,b.origin.x)};
+  hits[a.side]={x,y,side:a.side,waves:[a.id,b.id],kind,start:Math.max(a.origin.x,b.origin.x)};
  };
  for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
   const a=groups[i],b=groups[j];if(a.side!==b.side||Math.hypot(a.origin.x-b.origin.x,a.origin.y-b.origin.y)<1e-9)continue;
@@ -25,6 +26,12 @@ export function airfoilDomain(s){
    const x=(c-p.c)/(p.m-m);if(x>u.x+1e-8&&x<v.x-1e-8)accept(x,p.m*x+p.c,a,{id:'surface',origin:u},'Wave meets surface');
   }
  }
- const limit=hit?Math.max(0,Math.min(end,hit.x-Math.min(.01,.02*(hit.x-hit.start)))):end;
- const result={limit,hit,clipped:limit<end-1e-6};cache.set(s,result);return result;
+ const stop=hit=>hit?Math.max(0,Math.min(end,hit.x-Math.min(.01,.02*(hit.x-hit.start)))):end;
+ const hit=Object.values(hits).filter(Boolean).sort((a,b)=>a.x-b.x)[0]??null,limit=stop(hit);
+ // The plate separates both streams up to its trailing edge. Either interaction
+ // can change the matched downstream state, so stop both sides there.
+ const sideLimits=s.geometry.connectedPlate&&hit?.x<Math.min(1,end)
+  ?{Upper:Math.min(1,stop(hits.Upper)),Lower:Math.min(1,stop(hits.Lower))}
+  :null;
+ const result={limit,hit,sideLimits,clipped:limit<end-1e-6};cache.set(s,result);return result;
 }

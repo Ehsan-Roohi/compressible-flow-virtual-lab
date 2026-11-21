@@ -1,7 +1,7 @@
 import {finiteTubeMode,finiteTubeFrame,closedPistonMode,sinusoidalExperiment} from './finite-tube.js?v=20261118-restore-sample';
 import {valveExperiment} from './valve-closure.js';
 import {multiRampMode,multiRampProblemPreset} from './multi-ramp-inlet.js?v=20261120-region-numbers';
-import {probeAirfoilField} from './airfoil-field.js?v=20261117-multi-inlet';
+import {probeAirfoilField} from './airfoil-field.js?v=20261121-airfoil-local-field';
 import {shockFanMode} from './shock-fan-example.js?v=20261118-wave-density';
 import {hasWallMethodChoice} from './wall-methods.js?v=20261120-wall-methods';
 import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
@@ -40,7 +40,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261121-airfoil-forces';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261120-example-sequence';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261121-airfoil-local-field';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
