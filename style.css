@@ -160,11 +160,6 @@ h1{font-weight:650;letter-spacing:-.7px}h2{font-size:16px;font-weight:650}h3{fon
 
 .tracking-view-controls{margin:0 14px 12px;font-size:14px}.tracking-view-controls label{display:block;font-weight:600;margin-bottom:6px}.tracking-view-controls select{width:100%;padding:9px;font-size:14px}.tracking-view-controls p{margin:7px 0 0;font-size:13px;line-height:1.55;color:#40576a}
 
-.visual-column .unsteady-results{margin-top:18px;grid-column:auto}
-.visual-column .unsteady-results #results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
-.visual-column .unsteady-results .result-row{margin:0 16px}
-.visual-column .unsteady-results .result-label{max-width:none}
-@media(max-width:600px){.visual-column .unsteady-results #results{grid-template-columns:1fr}}
 
 /* Shared spacing for the lab cards and responsive workspace. */
 :root{--workspace-gap:12px;--card-inset:12px}
@@ -178,15 +173,11 @@ main{max-width:none;margin:0;padding:0 clamp(8px,1.2vw,16px) 12px;min-width:0}
 .controls form>.input-group{padding-block:8px}
 .controls form>.input-group[data-station-input]{grid-column:1/-1}
 .scene,.field-controls{margin-inline:8px}
-.scene.finite-tube-scene{aspect-ratio:auto}
-.scene.finite-tube-scene>svg{height:auto}
 #waveKey{margin:6px var(--card-inset) 4px}
 .plot-controls{padding:6px var(--card-inset) 0}
 #chart{padding-inline:6px}
 .legend{padding-inline:var(--card-inset)}
 #examplesPanel{padding:10px var(--card-inset)}
-.controls #examplesPanel{padding:6px var(--card-inset);border:0;box-shadow:none}
-.visual-column .unsteady-results{margin-top:0}
 
 .work-grid>.output-column:not(:has(>:not([hidden]))){display:none}
 @media(min-width:801px){
