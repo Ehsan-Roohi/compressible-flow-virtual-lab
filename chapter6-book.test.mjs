@@ -6,7 +6,7 @@ import {plotOptions} from './plot-options.js';
 import {opposingShockSlipAngle} from './pressure-turning.js';
 import {fittedShockFanSlipLayer} from './channel-moc-shocks.js';
 import {deg,rad} from './physics.js';
-import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6GeometryExample,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js';
+import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6GeometryExample,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js';
 
 const run=(number,patch={})=>{
  const {lab,inputs}=getChapter6BookExample(`6-${number}`);
@@ -117,11 +117,11 @@ test('Chapter 6 numerical outputs reproduce the key book comparisons',()=>{
  near(run(10).result.nonlinear.CL,0,1e-10);
  near(run(10).result.nonlinear.CD,.004,.0002);
  near(run(12).result.nonlinear.CL,.146,.001);
- const forces=chapter6BookResult(run(13)).rows;
- near(forces[0].value,66.84,.6);
- near(forces[1].value,23.31,.15);
- const doubleChord=chapter6BookResult(run(13,{bookAirfoilChord:2})).rows;
- near(doubleChord[0].value,2*forces[0].value,1e-10);
+ const forces=run(13).result.forces.nonlinear;
+ near(forces.liftPerSpan/1000,66.84,.6);
+ near(forces.waveDragPerSpan/1000,23.31,.15);
+ const doubleChord=run(13,{bookAirfoilChord:2}).result.forces.nonlinear;
+ near(doubleChord.liftPerSpan,2*forces.liftPerSpan,1e-7);
  const shape=run(14).result;
  assert.equal(shape.geometry.panels.length,3);
  near(shape.nonlinear.CL,.48854,.00002);
@@ -139,7 +139,7 @@ test('The second diamond example uses the 6–11 book inputs and steady flow out
  near(lower[0].beta*180/Math.PI,27.42,.01);
  near(lower[0].after.M,2.29,.01);
  near(lower[1].after.M,2.72,.01);
- assert.deepEqual(chapter6AirfoilFields(second.inputs),[]);
+ assert.equal(second.result.forces.referenceChord,4);
  assert.equal(chapter6BookResult(second),null);
  assert.ok(run(11,{alpha:3}).result.nonlinear.CL>0);
 });

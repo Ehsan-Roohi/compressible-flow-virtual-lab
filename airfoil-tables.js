@@ -22,13 +22,13 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
   if(both)methodHeaders.push('SE − linear');
 
   function coefficientRow(label,getValue) {
-    const values=tableModels.map(model=>models.includes(model)?getValue(r[model]):null);
+    const values=tableModels.map(model=>models.includes(model)?getValue(r[model],model):null);
     const row=[label,...values.map(number)];
-    if(both)row.push(values.every(Number.isFinite)?number(getValue(r.nonlinear)-getValue(r.linear)):'—');
+    if(both)row.push(values.every(Number.isFinite)?number(getValue(r.nonlinear,'nonlinear')-getValue(r.linear,'linear')):'—');
     return row;
   }
 
-  const content=['<section class="card"><div class="card-head"><h2>Aerodynamic coefficients</h2></div>'];
+  const content=['<section class="card"><div class="card-head"><h2>Aerodynamic coefficients and forces</h2></div>'];
   const plate=r.geometry.connectedPlate;
   if(plate&&!coefficientsOnly)content.push(`<p class="airfoil-empty">Panel lengths are used as entered. The coefficient reference length is the horizontal end-to-end extent, ${number(plate.reference)} m.</p>`);
   if(models.length){
@@ -38,6 +38,14 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
       coefficientRow('Quarter-chord moment C<sub>M,c/4</sub>',z=>z.CM),
       coefficientRow('Lift-to-drag ratio L/D',z=>Math.abs(z.CD)>1e-12?z.CL/z.CD:null)
     ];
+    if(r.forces){
+      for(const [label,field] of [['Lift (kN)','lift'],['Wave drag (kN)','waveDrag'],
+        ['Lift per unit span (kN/m)','liftPerSpan'],['Wave drag per unit span (kN/m)','waveDragPerSpan']]){
+        rows.push(coefficientRow(label,(_,model)=>r.forces[model][field]/1000));
+      }
+      const {referenceChord,referenceSpan,referenceArea}=r.forces;
+      content.push(`<p class="control-hint">Reference chord ${number(referenceChord)} m × span ${number(referenceSpan)} m = ${number(referenceArea)} m²</p>`);
+    }
     if(coefficientsOnly)for(const p of r.geometry.panels){
       rows.push(coefficientRow(`C<sub>p</sub> · Region ${airfoilRegionLabel(r,p.id)}`,
         z=>z.panels.find(panel=>panel.id===p.id)?.Cp));
@@ -55,9 +63,8 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
     const cpHeaders=methodHeaders.map(name=>`C<sub>p</sub> · ${name}`);
     let surface=table('Surface pressure coefficients',['Region',...cpHeaders],cpRows);
     if(hasSE){
-      const rows=r.nonlinear.panels.map(p=>[airfoilRegionLabel(r,p.id),
-        number(p.M),number(p.p/1000),number(p.T),number(p.rho),number(p.u),number(p.p0/1000),number(p.T0),p.wave
-      ]);
+      const rows=[['1',r.freestream,'—'],...r.nonlinear.panels.map(p=>[airfoilRegionLabel(r,p.id),p,p.wave])]
+        .map(([region,z,wave])=>[region,...[z.M,z.p/1000,z.T,z.rho,z.u,z.p0/1000,z.T0].map(number),wave]);
       surface+=table('Flow properties by surface region',['Region','M','p (kPa)','T (K)','ρ (kg/m³)','u (m/s)','p₀ (kPa)','T₀ (K)','Wave'],rows);
     }
     content.push(detail('surface',hasSE?'Surface pressures and flow properties':'Surface pressure coefficients',surface));
@@ -87,10 +94,14 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
   return content.join('')+'</section>';
 }
 
-export function diamondWaveChanges(r) {
+export function airfoilWaveChanges(r) {
   if(!r.models.includes('nonlinear')||r.nonlinear.status!=='ok')return [];
-  const transitions={U1:['1','U1'],U2:['U1','U2'],L1:['1','L1'],L2:['L1','L2'],
-    'TE-U':['TE-U−','TE-U+'],'TE-L':['TE-L−','TE-L+']};
+  const upstream={Upper:'1',Lower:'1'},transitions=new Map();
+  for(const w of r.nonlinear.waves){
+    transitions.set(w.id,[upstream[w.side],w.id]);
+    upstream[w.side]=w.id;
+  }
+  for(const w of r.trailingEdge?.waves??[])transitions.set(w.id,[upstream[w.side],w.id+'+']);
   const properties=[
     ['Mach number',z=>z.M],['Static pressure (kPa)',z=>z.p/1000],
     ['Static temperature (K)',z=>z.T],['Density (kg/m³)',z=>z.rho],
@@ -98,9 +109,9 @@ export function diamondWaveChanges(r) {
     ['Stagnation pressure (kPa)',z=>z.p0/1000],['Stagnation temperature (K)',z=>z.T0]
   ];
   return [...r.nonlinear.waves,...(r.trailingEdge?.waves??[])]
-    .filter(w=>w.kind!=='No wave'&&transitions[w.id])
+    .filter(w=>w.kind!=='No wave')
     .map(w=>{
-      const [from,to]=transitions[w.id].map(key=>airfoilRegionLabel(r,key));
+      const [from,to]=transitions.get(w.id).map(key=>airfoilRegionLabel(r,key));
       const rows=properties.map(([property,read])=>{
         const before=read(w.before),after=read(w.after),delta=after-before;
         const change=Math.abs(delta)<=8*Number.EPSILON*Math.max(1,Math.abs(before),Math.abs(after))?0:delta;
@@ -111,11 +122,11 @@ export function diamondWaveChanges(r) {
     });
 }
 
-export function diamondWaveDetails(waves,fmt) {
+export function airfoilWaveDetails(waves,fmt) {
   return waves.map(({key,from,to,kind,beta,rows})=>{
     const name=`${from} → ${to} · ${kind}`;
     const note=beta===null?'':`<p class="control-hint">Shock angle β = ${fmt(beta,6)}°</p>`;
-    return detail('diamond-'+key,name,note+table(name,['Property','Before','After','Δ'],
+    return detail('wave-'+key,name,note+table(name,['Property','Before','After','Δ'],
       rows.map(({property,before,after,change})=>[property,fmt(before,5),fmt(after,5),fmt(change,4)])));
   }).join('');
 }

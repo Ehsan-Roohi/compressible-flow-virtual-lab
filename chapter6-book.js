@@ -78,11 +78,6 @@ export function chapter6ResetExample(lab,inputs){
 }
 
 const row=(label,value,unit)=>({label,value,unit});
-export function chapter6AirfoilFields(inputs){
- return getChapter6BookExample(inputs.bookExample)?.number===13?
-  [{key:'bookAirfoilChord',label:'Chord length',min:.01,max:20,step:.01,unit:'m'}]:[];
-}
-
 export function chapter6BookResult(d){
  const {inputs:x,result:r}=d;
  const n=getChapter6BookExample(x.bookExample)?.number;
@@ -93,11 +88,6 @@ export function chapter6BookResult(d){
   return {rows:[row(reference+'Leading ray · to inlet direction',side*corner.mu1,'°'),
    row(reference+'Trailing ray · to inlet direction',deg(corner.regions[2].theta)+side*corner.mu2,'°')]};
  }
- if(d.id==='airfoil'&&n===13){
-  if(!r.models.includes('nonlinear')||r.nonlinear.status!=='ok')return {notice:'Select a valid Shock–Expansion solution for the textbook result.'};
-  if(!(Number.isFinite(x.bookAirfoilChord)&&x.bookAirfoilChord>0))return {notice:'Enter a positive chord length for the forces per unit span.'};
-  const scale=r.q*x.bookAirfoilChord/1000;
-  return {rows:[row('Lift per unit span',r.nonlinear.CL*scale,'kN/m'),row('Wave drag per unit span',r.nonlinear.CD*scale,'kN/m')]};
- }
+
  return null;
 }

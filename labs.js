@@ -24,7 +24,7 @@ import {solveChannelMOC,mocProfilePlots} from './channel-moc.js?v=20261120-wall-
 import {fittedShockFanSlipLayer} from './channel-moc-shocks.js?v=20261120-moc-slip-angle';
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261120-single-wall';
-import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261115-wedge-drag';
+import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261121-airfoil-forces';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261119-cone-limit-help';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -139,6 +139,8 @@ export const labs={
  {key:'geometryInput',label:'Geometry definition',value:'Angles & lengths',options:['Angles & lengths','Dimensions']},
  {key:'upperSegments',label:'Upper surface segments',type:'segments',value:[{angle:4.573921259900861,length:0.5015974481593781}]},
  {key:'lowerSegments',label:'Lower surface segments',type:'segments',value:[{angle:-4.573921259900861,length:0.5015974481593781}]},
+ input('bookAirfoilChord','Reference chord',1,.01,100,.01,'m'),
+ input('airfoilSpan','Reference span',1,.01,100,.01,'m'),
  input('M','Freestream Mach',3,1.1,20,.01,'M∞'),input('alpha','Angle of attack α',4,-30,30,.1,'°'),
  {key:'plateLengthMode',label:'Length adjustment',value:'Adjust all lengths',options:['Adjust all lengths','Keep earlier lengths']},
  {key:'plateDefinition',label:'Plate geometry',value:'Two panels',options:['Two panels','Multiple panels']},
@@ -208,6 +210,7 @@ function experimentInputs(id,x={}){
  if(id==='airfoil')return labs.airfoil.inputs.filter(f=>{
   const flat=['Flat plate','Bent flat plate','Connected flat plates'].includes(x.airfoilShape),custom=x.airfoilShape==='Custom panels',angles=x.geometryInput==='Angles & lengths';
   if(['plateLengthMode','plateDefinition','bendHeight','bendPosition'].includes(f.key))return false;
+  if(f.key==='bookAirfoilChord')return x.airfoilShape!=='Connected flat plates';
   if(f.key==='airfoilFieldMode')return x.airfoilMethod!=='Linearized theory';
   if(f.key==='geometryInput')return custom||x.airfoilShape==='Diamond';
   if(f.key.startsWith('diamond')){if(x.airfoilShape!=='Diamond')return false;const mode=x.geometryInput==='Angles & lengths'?'Angle & length ratio':x.geometryInput;return mode==='Angles'?['diamondFrontAngle','diamondRearAngle'].includes(f.key):mode==='Length ratios'?['diamondFrontLength','diamondRearLength'].includes(f.key):['diamondFrontAngle','diamondFrontLength'].includes(f.key);}
@@ -513,6 +516,12 @@ export function calculate(id,x){
  else if(id==='airfoil'){
   result=solveAirfoil({...x,gamma:g,R});notice=result.warning;rows=[];
   for(const model of result.models){const z=result[model];if(z.status!=='ok')continue;const name=model==='linear'?'Linearized':'Shock–Expansion';rows.push(row(`${name} · lift coefficient`,z.CL,'CL'),row(`${name} · wave-drag coefficient`,z.CD,'CD,w'),row(`${name} · quarter-chord moment`,z.CM,'CM,c/4'));if(Math.abs(z.CD)>1e-12)rows.push(row(`${name} · lift-to-drag ratio`,z.CL/z.CD,'L/D'));}
+  rows.push(row('Reference chord',result.forces.referenceChord,'m'),row('Reference span',result.forces.referenceSpan,'m'),row('Reference area',result.forces.referenceArea,'m²'));
+  for(const model of result.models){
+   const load=result.forces[model],name=model==='linear'?'Linearized':'Shock–Expansion';
+   if(load)rows.push(row(`${name} · lift`,load.lift/1000,'kN'),row(`${name} · wave drag`,load.waveDrag/1000,'kN'),
+    row(`${name} · lift per unit span`,load.liftPerSpan/1000,'kN/m'),row(`${name} · wave drag per unit span`,load.waveDragPerSpan/1000,'kN/m'));
+  }
   if(result.models.length===2&&result.nonlinear.status==='ok')rows.push(row('Lift coefficient difference',result.nonlinear.CL-result.linear.CL,'ΔCL · SE − linear'),row('Drag coefficient difference',result.nonlinear.CD-result.linear.CD,'ΔCD · SE − linear'));
   for(const model of result.models)if(result[model].status==='ok')for(const panel of result[model].panels){
    const values=[['x start',panel.a.x,'x/c'],['x end',panel.b.x,'x/c'],['Flow angle',p.deg(panel.theta),'°'],['Segment length',panel.length,'L/c'],['Pressure coefficient',panel.Cp,'Cp'],...(model==='nonlinear'?[['Mach',panel.M,'M'],['Pressure',panel.p/1000,'kPa'],['Temperature',panel.T,'K'],['Density',panel.rho,'kg/m³'],['Speed',panel.u,'m/s'],['Stagnation pressure',panel.p0/1000,'kPa']]:[])];
