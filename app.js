@@ -771,10 +771,8 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
    ].map(renderRow).join('')}</details>`);
   }
   const plotResults=$('tubePlotResults');
-  const showTubeTime=!!d.result.incident&&!!d.result.finiteTube;
-  plotResults.hidden=!grouped.belowPlot.length&&!showTubeTime;
-  plotResults.innerHTML=grouped.belowPlot.map(({title,rows})=>`<section><h3>${title}</h3><dl class="tube-plot-values">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${fmt(r.value,6)} <small>${r.unit}</small></dd></div>`).join('')}</dl></section>`).join('')+(showTubeTime?
-   '<section id="tubeTimeSummary"><h3>Simulation time</h3><dl class="tube-plot-values"><div><dt>Selected time</dt><dd id="tubeSelectedTime"></dd></div><div><dt>End time</dt><dd id="tubeEndTime"></dd></div></dl></section>':'');
+  plotResults.hidden=!grouped.belowPlot.length;
+  plotResults.innerHTML=grouped.belowPlot.map(({title,rows})=>`<section><h3>${title}</h3><dl class="tube-plot-values">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${fmt(r.value,6)} <small>${r.unit}</small></dd></div>`).join('')}</dl></section>`).join('');
  }else $('results').innerHTML=results.map(renderRow).join('');
  renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();$('exportJson').disabled=false;$('exportCsv').disabled=false;$('pin').disabled=false;$('exportSvg').disabled=false;renderScene();updatePlotChoices();renderCompare();}
 function renderWaveKey(result){
@@ -831,10 +829,6 @@ function updateFiniteTimeCursor(){
  const scale=r.end>=1?1:1000,unit=r.end>=1?'s':'ms';
  const selected=(time*scale).toFixed(2),end=(r.end*scale).toFixed(2);
  $('unsteadyTimeReadout').textContent=`${selected} / ${end} ${unit}`;
- if($('tubeTimeSummary')){
-  $('tubeSelectedTime').textContent=`${selected} ${unit}`;
-  $('tubeEndTime').textContent=`${end} ${unit}`;
- }
  const cursor=$('finiteTimeCursor'),hit=$('chartHit');
  if(!cursor||!hit)return;
  const y=Number(hit.getAttribute('y'))+Number(hit.getAttribute('height'))*(1-time/r.end);
