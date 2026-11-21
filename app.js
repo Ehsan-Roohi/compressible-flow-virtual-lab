@@ -41,7 +41,7 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261121-piston-menu';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261121-nozzle-station-table';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261121-piston-menu';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
@@ -121,7 +121,7 @@ const pistonExamplePresets={
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261121-piston-menu',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261121-nozzle-station-table',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -668,14 +668,9 @@ function resultSidebarRows(d){
  return [{label:'Required friction parameter',value:d.result.lambda,unit:'4fꜰL/D = fᴅL/D'},...lengths];
 }
 function renderRegionTable(d){
- if(d.id==='nozzle'&&d.result.nozzleType==='converging'){
-  $('regionTablePanel').hidden=true;
-  $('regionTable').replaceChildren();
-  return;
- }
  const showShockGuide=d.id==='fanno'&&d.result.fullSystem&&d.inputs.fannoCondition===fannoConditions[0];
  const shockGuide=showShockGuide?'<p class="control-hint">Use the back-pressure slider above to set the shock location. The station properties in this table depend on the selected location.</p>':'';
- if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure||d.id==='nozzle'){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Gas properties across the shock':d.result.twoStagePiston?'Gas properties before catch-up':d.id==='nozzle'?'Nozzle station properties':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${r.label}</th>${r.values.map(v=>`<td>${fmt(v,6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${backPressureHTML(t.note)}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
+ if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Gas properties across the shock':d.result.twoStagePiston?'Gas properties before catch-up':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${r.label}</th>${r.values.map(v=>`<td>${fmt(v,6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${backPressureHTML(t.note)}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
   const summary=document.createElement('p');summary.className='control-hint';
   summary.textContent=highlights.map(r=>`${r.label} ${fmt(r.value,6)} ${r.unit}`.trim()).join(' · ');
   $('regionTable').append(summary);
@@ -713,7 +708,7 @@ function renderFlowRelations(d){
   detail.querySelector('summary').textContent=t.title;
   content=detail.lastElementChild;
  }
- content.innerHTML=`${d.id==='fanno'?'':`<h3>${t.title}</h3>`}<div class="flow-relations-scroll"><table><thead><tr><th scope="col">Parameter</th>${t.columns.map(c=>`<th scope="col">${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th scope="row">${r.label}</th>${r.values.map(v=>`<td>${fmt(v,8)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p>${t.note}</p>`;
+ content.innerHTML=`${d.id==='fanno'?'':`<h3>${t.title}</h3>`}<div class="flow-relations-scroll"><table><thead><tr><th scope="col">Parameter</th>${t.columns.map(c=>`<th scope="col">${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th scope="row">${r.label}</th>${r.values.map(v=>`<td>${fmt(v,8)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p>${t.note}</p>`:''}`;
  addDataExport(content,'relations',()=>({
   relations:t.rows.map(r=>Object.fromEntries([['property',r.label],...t.columns.map((c,i)=>[c,r.values[i]])]))
  }));

@@ -430,12 +430,12 @@ export function calculate(id,x){
   const type=x.nozzleType??'Converging–diverging';
   result=p.nozzle({...x,p0:x.p0===undefined?500000:x.p0*1000,minArea:x.minAreaCm2===undefined?.0006:x.minAreaCm2*1e-4});
   rows=[row('Exit Mach',result.Me),row('Exit static pressure',result.exitPressure/1000,'kPa'),row('Exit temperature',result.exitTemperature,'K'),row('Mass flow rate',result.massFlow,'kg/s'),row(type==='Converging'||type==='Diverging'?'Inlet Mach':'Throat Mach',type==='Converging'?result.points[0].M:result.minimumMach),row('Total-pressure recovery',result.p02p01,'p₀₂/p₀₁')];
-  const minimum=result.points.find(z=>z.A===1),exit=result.points.at(-1);
-  const stations=type==='Converging–diverging'?[['Throat',minimum],['Exit',exit]]:[['Inlet',result.points[0]],['Exit',exit]];
-  result.referenceTable={columns:stations.map(([label])=>label),rows:[
-   {label:'Mach number',values:stations.map(([,z])=>z.M)},
-   {label:'Static pressure (kPa)',values:stations.map(([,z])=>z.P/1000)},
-   {label:'Static temperature (K)',values:stations.map(([,z])=>z.T)},
+  const inlet=result.points[0],throat=result.points.find(z=>z.A===1),exit=result.points.at(-1);
+  const stations=[inlet,throat,exit];
+  result.referenceTable={title:'Nozzle station properties',columns:['Inlet','Throat','Exit'],rows:[
+   {label:'Mach number',values:stations.map(z=>z.M)},
+   {label:'Static pressure (kPa)',values:stations.map(z=>z.P/1000)},
+   {label:'Static temperature (K)',values:stations.map(z=>z.T)},
   ]};
   if(type==='Converging')rows.push(row('Critical exit pressure',result.onset*result.p0/1000,'kPa'),row('Choking pressure ratio',result.onset,'pᵦ/p₀'));
   else if(type==='Diverging'){

@@ -61,12 +61,19 @@ test('Chapter 8 presets reproduce the converging, choked throat and internal-sho
   const a=bookCase('8-1a').result,b=bookCase('8-1b').result;
   near(a.Me,.7324,.0001);near(a.exitPressure/1000,350,1e-6);
   assert.equal(b.Me,1);near(b.exitPressure/1000,264.14,.01);
+  for(const r of [a,b]){
+    assert.deepEqual(r.referenceTable.columns,['Inlet','Throat','Exit']);
+    for(const {values} of r.referenceTable.rows)assert.equal(values[1],values[2]);
+  }
   for(const [code,Me,pe,Te] of [['8-2a',2.63742,57.5152,209.06],['8-2b',.19745,1183.389,496.13]]){
     const {result}=bookCase(code);
     assert.equal(result.minimumMach,1);
     near(result.Me,Me,.00001);near(result.exitPressure/1000,pe,.01);near(result.exitTemperature,Te,.1);
-    assert.deepEqual(result.referenceTable.columns,['Throat','Exit']);
-    near(result.referenceTable.rows[1].values[0],642.391,.002);
+    assert.deepEqual(result.referenceTable.columns,['Inlet','Throat','Exit']);
+    assert.equal(result.referenceTable.rows[0].values[0],result.points[0].M);
+    assert.equal(result.referenceTable.rows[0].values[1],1);
+    near(result.referenceTable.rows[1].values[1],642.391,.002);
+    near(result.referenceTable.rows[2].values[1],416.667,.001);
   }
   const shock=bookCase('8-4');
   near(shock.result.AsAt,2.33973,.00001);near(shock.result.Me,.38034,.00001);
@@ -103,6 +110,8 @@ test('Nozzle modes select the corresponding chapter defaults',()=>{
     [{sonicBranch:'subsonic'},.19745],[{outletCondition:'Specified back pressure'},.38034]]){
     const x=nozzleModeDefaults(base,{nozzleType:'Diverging',...selection});
     assert.equal(x.MIn,1);
-    near(calculate('nozzle',x).result.Me,expectedMach,.00001);
+    const {result}=calculate('nozzle',x);
+    near(result.Me,expectedMach,.00001);
+    for(const {values} of result.referenceTable.rows)assert.equal(values[0],values[1]);
   }
 });
