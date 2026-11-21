@@ -482,36 +482,26 @@ function renderInputs(){restoreChapterControls();const samplingOpen=$('samplingS
  if(id==='collision')fields.sort((a,b)=>Number(b.key==='interactionType')-Number(a.key==='interactionType'));
  $('inputs').innerHTML=waveGeometrySelector()+fields.map(x=>`${x.section?`<h3 class="input-section">${x.section}</h3>`:''}<div class="input-group"${x.stationInput?' data-station-input':''}><div class="input-top"><label for="value-${x.key}">${x.label}</label><span class="unit">${backPressureHTML(x.unit??'')}</span></div>${id==='rayleigh'&&x.modeField?rayleighModeSelect(x):x.type==='wall-segments'?wallSegmentEditor(x):x.type==='segments'?segmentEditor(x):x.type==='textarea'?`<textarea id="value-${x.key}" name="${x.key}" rows="4" spellcheck="false">${String(inputs[x.key]??'').replaceAll('&','&amp;').replaceAll('<','&lt;')}</textarea>`:x.options?`<select id="value-${x.key}" name="${x.key}">${x.options.map(v=>`<option value="${v}" ${(x.selection??inputs[x.key])===v?'selected':''}>${x.optionLabels?.[v]??v}</option>`).join('')}</select>`:`<div class="number-wrap"><input id="value-${x.key}" name="${x.key}" type="number" value="${(x.displayScale??1)*inputs[x.key]+(x.displayOffset??0)}" min="${x.min}" max="${x.max}" step="any" inputmode="decimal" ${x.readOnly?'readonly':''} aria-label="${x.label} ${x.unit}" required></div><input id="range-${x.key}" type="range" ${x.readOnly?'disabled':''} min="${x.sliderMin??x.min}" max="${x.sliderMax??x.max}" step="${x.step}" value="${(x.displayScale??1)*inputs[x.key]+(x.displayOffset??0)}" aria-label="${x.label} slider"><div class="range-labels"><span>${x.sliderMin??x.min}</span><span>${x.sliderMax??x.max}</span></div>`}</div>`).join('');compactTypedInputs(fields);
 if(id==='tube'){
- const geometryFields=['finiteDriverLength','finiteDrivenLength','pistonTubeLength','finiteValveLength']
-  .map(key=>$('value-'+key)?.closest('.input-group')).filter(Boolean);
- if(geometryFields.length){
-  const geometry=document.createElement('details');
-  geometry.id='tubeGeometrySettings';geometry.className='sampling-settings';geometry.open=tubeGeometryOpen;
-  const summary=document.createElement('summary');summary.textContent='Tube geometry';
-  geometryFields[0].before(geometry);
-  geometry.append(summary,...geometryFields);
+ const gridField=fields.find(field=>field.key==='finiteCells');
+ if(gridField){
+  const control=$('value-finiteCells'),hint=document.createElement('p');
+  hint.id='hint-finiteCells';hint.className='control-hint';hint.textContent=gridField.help;
+  control.closest('.input-group').append(hint);
+  control.setAttribute('aria-describedby',hint.id);
+  $('range-finiteCells').setAttribute('aria-describedby',hint.id);
  }
-}
-const gridField=fields.find(field=>field.key==='finiteCells');
-if(gridField){
- const control=$('value-finiteCells'),hint=document.createElement('p');
- hint.id='hint-finiteCells';hint.className='control-hint';hint.textContent=gridField.help;
- control.closest('.input-group').append(hint);
- control.setAttribute('aria-describedby',hint.id);
- $('range-finiteCells').setAttribute('aria-describedby',hint.id);
- const sampling=document.createElement('details');
- sampling.id='samplingSettings';sampling.className='sampling-settings';sampling.open=samplingOpen;
- const summary=document.createElement('summary');summary.textContent=shockTube?'Resolution':'Simulation time and resolution';
- sampling.append(summary);
- const endTime=shockTube?null:$('value-finiteEndTime')?.closest('.input-group'),cells=control.closest('.input-group');
- (endTime??cells).before(sampling);
- if(endTime)sampling.append(endTime);
- sampling.append(cells);
-}
-if(shockTube){
- const endTime=$('value-finiteEndTime')?.closest('.input-group');
- const lastControls=[$('tubeGeometrySettings'),$('samplingSettings'),endTime].filter(Boolean);
- $('inputs').append(...lastControls);
+ for(const [panelId,title,open,keys] of [
+  ['tubeGeometrySettings','Tube geometry',tubeGeometryOpen,['finiteDriverLength','finiteDrivenLength','pistonTubeLength','finiteValveLength']],
+  ['samplingSettings','Simulation time and resolution',samplingOpen,['finiteEndTime','finiteCells']]
+ ]){
+  const groups=keys.map(key=>$('value-'+key)?.closest('.input-group')).filter(Boolean);
+  if(!groups.length)continue;
+  const panel=document.createElement('details');
+  panel.id=panelId;panel.className='sampling-settings';panel.open=open;
+  const summary=document.createElement('summary');summary.textContent=title;
+  panel.append(summary,...groups);
+  $('inputs').append(panel);
+ }
 }
 arrangeWallInputs();arrangeCompactGeometry(id,$('wallSetupPanel'));arrangeFannoGeometry(fields,geometryOpen);if(id==='rayleigh'){const heatInput=$('value-q');if(heatInput)heatInput.closest('.input-group').title='Positive q means heat is added to the flow. Negative q means heat is removed. The limits depend on the known inputs.';const notes={supplyReferenceMach:'Mach number at the moving upstream reference. Entry preserves stagnation pressure and temperature.',reservoirT0:'The selected pressure and temperature types apply at the same upstream station.'};for(const [key,note] of Object.entries(notes)){const control=$('value-'+key);if(control){const hint=document.createElement('p');hint.className='control-hint';hint.textContent=note;control.closest('.input-group').append(hint);}}}$('inputs').onsubmit=e=>e.preventDefault();renderExamples();bindWaveGeometrySelector();for(let x of fields){if(x.type==='wall-segments'){bindWallSegments(x);continue;}if(x.type==='segments'){bindSegmentEditor(x);continue;}let n=$('value-'+x.key),r=$('range-'+x.key);
 if(x.modeField){
