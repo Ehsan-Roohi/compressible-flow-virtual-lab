@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {calculate,defaults} from './labs.js';import {sceneSVG} from './graphics.js';import {airfoilTables,diamondRegionStates,diamondRegionDetails} from './airfoil-tables.js';import {plotOptions} from './plot-options.js';
+import {calculate,defaults} from './labs.js';import {sceneSVG} from './graphics.js';import {airfoilTables,diamondWaveChanges,diamondWaveDetails} from './airfoil-tables.js';import {plotOptions} from './plot-options.js';
 test('Diamond figure and state table retain textbook region numbers without charts',()=>{
  const d=calculate('airfoil',{...defaults('airfoil'),alpha:4}),svg=sceneSVG(d.scene,d.inputs).svg;
  assert.deepEqual([...svg.matchAll(/data-airfoil-region="([^"]+)"/g)].map(m=>m[1]).sort(),['1','2','3','4','5','6']);
@@ -37,16 +37,17 @@ test('Flat plate uses regions 1–5 consistently in the figure, tables and conto
  }
 });
 
-test('Diamond sidebar states include the freestream, four panels and both trailing-edge streams',()=>{
+test('Diamond sidebar reports before and after for each actual wave',()=>{
  const x={...defaults('airfoil'),airfoilShape:'Diamond',alpha:4},r=calculate('airfoil',x).result;
- const regions=diamondRegionStates(r);
- assert.deepEqual(regions.map(z=>z.region),['1','2','3','4','5','6 (upper)','6 (lower)']);
- assert.deepEqual(regions.map(z=>z.properties['Static pressure (kPa)']),
-  [r.freestream,...['U1','U2','L1','L2'].map(id=>r.nonlinear.panels.find(p=>p.id===id)),
-   r.trailingEdge.upper.after,r.trailingEdge.lower.after].map(z=>z.p/1000));
- assert.equal((diamondRegionDetails(regions,String).match(/<details /g)??[]).length,7);
+ const waves=diamondWaveChanges(r);
+ assert.deepEqual(waves.map(w=>[w.from,w.to]),[['1','2'],['2','3'],['1','4'],['4','5'],['3','6 (upper)'],['5','6 (lower)']]);
+ const pressure=waves[0].rows.find(z=>z.property==='Static pressure (kPa)');
+ assert.equal(pressure.before,r.freestream.p/1000);
+ assert.equal(pressure.after,r.nonlinear.waves[0].after.p/1000);
+ assert.equal(pressure.change,pressure.after-pressure.before);
+ assert.equal((diamondWaveDetails(waves,String).match(/<details /g)??[]).length,6);
  const linear=calculate('airfoil',{...x,airfoilMethod:'Linearized theory'}).result;
- assert.equal(diamondRegionStates(linear).filter(z=>z.properties).length,1);
+ assert.deepEqual(diamondWaveChanges(linear),[]);
 });
 
 test('Airfoil comparison results can show just the aerodynamic coefficients',()=>{
@@ -57,6 +58,7 @@ test('Airfoil comparison results can show just the aerodynamic coefficients',()=
  assert.match(html,/Shock–Expansion/);
  assert.match(html,/Linearized/);
  assert.match(html,/SE − linear/);
+ for(const n of [2,3,4,5])assert.ok(html.includes(`C<sub>p</sub> · Region ${n}`));
  assert.doesNotMatch(html,/<details|Trailing-edge matching|Surface pressures/);
  const unsupported={...d.result,nonlinear:{status:'unsupported',reason:'No attached shock'}};
  assert.match(airfoilTables(unsupported,String,{coefficientsOnly:true}),/Shock–Expansion[\s\S]+—/);

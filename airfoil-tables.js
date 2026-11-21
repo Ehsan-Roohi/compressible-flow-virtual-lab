@@ -32,12 +32,17 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
   const plate=r.geometry.connectedPlate;
   if(plate&&!coefficientsOnly)content.push(`<p class="airfoil-empty">Panel lengths are used as entered. The coefficient reference length is the horizontal end-to-end extent, ${number(plate.reference)} m.</p>`);
   if(models.length){
-    content.push(table('Aerodynamic coefficient comparison',['Quantity',...methodHeaders],[
+    const rows=[
       coefficientRow('Lift coefficient C<sub>L</sub>',z=>z.CL),
       coefficientRow('Wave-drag coefficient C<sub>D,w</sub>',z=>z.CD),
       coefficientRow('Quarter-chord moment C<sub>M,c/4</sub>',z=>z.CM),
       coefficientRow('Lift-to-drag ratio L/D',z=>Math.abs(z.CD)>1e-12?z.CL/z.CD:null)
-    ]));
+    ];
+    if(coefficientsOnly)for(const p of r.geometry.panels){
+      rows.push(coefficientRow(`C<sub>p</sub> · Region ${airfoilRegionLabel(r,p.id)}`,
+        z=>z.panels.find(panel=>panel.id===p.id)?.Cp));
+    }
+    content.push(table('Aerodynamic coefficient comparison',['Quantity',...methodHeaders],rows));
   }
   if(coefficientsOnly)return content.join('')+'</section>';
   if(r.models.includes('nonlinear')&&!hasSE)
@@ -82,32 +87,35 @@ export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
   return content.join('')+'</section>';
 }
 
-export function diamondRegionStates(r) {
-  const surface=r.models.includes('nonlinear')&&r.nonlinear.status==='ok'?r.nonlinear.panels:[];
-  const trailing=surface.length&&r.trailingEdge?.status==='ok'?r.trailingEdge:null;
-  const definitions=[
-    ['inlet','1',r.freestream],
-    ...['U1','U2','L1','L2'].map(id=>[id,airfoilRegionLabel(r,id),surface.find(p=>p.id===id)]),
-    ['upper-exit',airfoilRegionLabel(r,'TE-U+'),trailing?.upper.after],
-    ['lower-exit',airfoilRegionLabel(r,'TE-L+'),trailing?.lower.after]
+export function diamondWaveChanges(r) {
+  if(!r.models.includes('nonlinear')||r.nonlinear.status!=='ok')return [];
+  const transitions={U1:['1','U1'],U2:['U1','U2'],L1:['1','L1'],L2:['L1','L2'],
+    'TE-U':['TE-U−','TE-U+'],'TE-L':['TE-L−','TE-L+']};
+  const properties=[
+    ['Mach number',z=>z.M],['Static pressure (kPa)',z=>z.p/1000],
+    ['Static temperature (K)',z=>z.T],['Density (kg/m³)',z=>z.rho],
+    ['Speed (m/s)',z=>z.u],['Flow angle (°)',z=>z.theta*180/Math.PI],
+    ['Stagnation pressure (kPa)',z=>z.p0/1000],['Stagnation temperature (K)',z=>z.T0]
   ];
-  return definitions.map(([key,region,z])=>({key,region,properties:z?{
-    'Mach number':z.M,
-    'Static pressure (kPa)':z.p/1000,
-    'Static temperature (K)':z.T,
-    'Density (kg/m³)':z.rho,
-    'Speed (m/s)':z.u,
-    'Flow angle (°)':z.theta*180/Math.PI,
-    'Stagnation pressure (kPa)':z.p0/1000,
-    'Stagnation temperature (K)':z.T0
-  }:null}));
+  return [...r.nonlinear.waves,...(r.trailingEdge?.waves??[])]
+    .filter(w=>w.kind!=='No wave'&&transitions[w.id])
+    .map(w=>{
+      const [from,to]=transitions[w.id].map(key=>airfoilRegionLabel(r,key));
+      const rows=properties.map(([property,read])=>{
+        const before=read(w.before),after=read(w.after),delta=after-before;
+        const change=Math.abs(delta)<=8*Number.EPSILON*Math.max(1,Math.abs(before),Math.abs(after))?0:delta;
+        return {property,before,after,change};
+      });
+      const beta=Number.isFinite(w.beta)?w.beta*180/Math.PI:null;
+      return {key:w.id,from,to,kind:w.kind,beta,rows};
+    });
 }
 
-export function diamondRegionDetails(regions,fmt) {
-  return regions.map(({key,region,properties})=>
-    detail('diamond-'+key,`Region ${region}`,properties
-      ?table(`Region ${region} flow conditions`,['Property','Value'],
-        Object.entries(properties).map(([label,value])=>[label,fmt(value,6)]))
-      :'<p class="control-hint">Shock–Expansion state unavailable.</p>')
-  ).join('');
+export function diamondWaveDetails(waves,fmt) {
+  return waves.map(({key,from,to,kind,beta,rows})=>{
+    const name=`${from} → ${to} · ${kind}`;
+    const note=beta===null?'':`<p class="control-hint">Shock angle β = ${fmt(beta,6)}°</p>`;
+    return detail('diamond-'+key,name,note+table(name,['Property','Before','After','Δ'],
+      rows.map(({property,before,after,change})=>[property,fmt(before,5),fmt(after,5),fmt(change,4)])));
+  }).join('');
 }
