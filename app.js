@@ -109,8 +109,8 @@ const tubeChamberLabels={
  p4:'Driver pressure p₄',T4:'Driver temperature T₄'
 };
 const tubeInputOrder=[
- 'unsteadyExperiment','tubeSolutionMethod','tubeInput','driverRatio','shockRatio','inducedSpeed',
- 'p4','T4','p1','T1','tubeInitialVelocity','fluid','gamma','R',
+ 'fluid','gamma','R','unsteadyExperiment','tubeSolutionMethod','tubeInput',
+ 'driverRatio','shockRatio','inducedSpeed','p4','T4','p1','T1','tubeInitialVelocity',
  'finiteDriverLength','finiteDrivenLength','finiteCells','finiteEndTime'
 ];
 const pistonExamplePresets={
