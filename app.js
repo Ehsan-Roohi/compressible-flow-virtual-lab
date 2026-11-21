@@ -670,7 +670,41 @@ function resultSidebarRows(d){
  if(!hasFannoFrictionAnswer(d))return lengths;
  return [{label:'Required friction parameter',value:d.result.lambda,unit:'4fꜰL/D = fᴅL/D'},...lengths];
 }
+function hasNozzleDesignRegimes(d){
+ return d.id==='nozzle'&&d.result.nozzleType==='cd'&&d.inputs.nozzleSolve===nozzleSolveModes[2];
+}
+function nozzleRegimeTable(result){
+ const {design,exitShock,onset,p0}=result;
+ const formatLimits=scale=>{
+  const limits=[design,exitShock,onset,1].map(ratio=>ratio*scale);
+  let digits=6;
+  while(digits<17&&new Set(limits.map(value=>value.toPrecision(digits))).size<limits.length)digits++;
+  return limits.map(value=>Number(value.toPrecision(digits)));
+ };
+ const ratioLimits=formatLimits(1),pressureLimits=formatLimits(p0/1000);
+ const ratio='p<sub>b</sub>/p<sub>0</sub>',pressure='p<sub>b</sub>';
+ const regimes=[
+  ['No flow',([,,,reservoir],p)=>`${p} = ${reservoir}`],
+  ['Unchoked subsonic flow',([,,choke,reservoir],p)=>`${choke} &lt; ${p} &lt; ${reservoir}`],
+  ['Onset of choking · sonic throat, subsonic exit',([,,choke],p)=>`${p} = ${choke}`],
+  ['Normal shock inside the nozzle',([,shock,choke],p)=>`${shock} &lt; ${p} &lt; ${choke}`],
+  ['Normal shock at the nozzle exit',([,shock],p)=>`${p} = ${shock}`],
+  ['Overexpanded · compression outside the nozzle',([matched,shock],p)=>`${matched} &lt; ${p} &lt; ${shock}`],
+  ['Perfectly expanded',([matched],p)=>`${p} = ${matched}`],
+  ['Underexpanded · expansion outside the nozzle',([matched],p)=>`0 &lt; ${p} &lt; ${matched}`],
+ ];
+ return `<div class="region-table-scroll" tabindex="0" role="region" aria-label="Nozzle back-pressure regimes; scroll horizontally on smaller screens">
+  <table class="region-table"><caption>p<sub>0</sub> is the reservoir stagnation pressure. The design operating point is perfectly expanded.</caption>
+  <thead><tr><th scope="col">Flow regime</th><th scope="col">Back-pressure ratio</th><th scope="col">Back pressure (kPa)</th></tr></thead>
+  <tbody>${regimes.map(([label,range])=>`<tr><th scope="row">${label}</th><td>${range(ratioLimits,ratio)}</td><td>${range(pressureLimits,pressure)}</td></tr>`).join('')}</tbody></table></div>`;
+}
 function renderRegionTable(d){
+ if(hasNozzleDesignRegimes(d)){
+  $('regionTablePanel').hidden=false;
+  $('regionTableTitle').textContent='Nozzle back-pressure regimes';
+  $('regionTable').innerHTML=nozzleRegimeTable(d.result);
+  return;
+ }
  const showShockGuide=d.id==='fanno'&&d.result.fullSystem&&d.inputs.fannoCondition===fannoConditions[0];
  const shockGuide=showShockGuide?'<p class="control-hint">Use the back-pressure slider above to set the shock location. The station properties in this table depend on the selected location.</p>':'';
  if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Gas properties across the shock':d.result.twoStagePiston?'Gas properties before catch-up':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${r.label}</th>${r.values.map(v=>`<td>${fmt(v,6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${backPressureHTML(t.note)}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
@@ -711,7 +745,7 @@ function renderFlowRelations(d){
   detail.querySelector('summary').textContent=t.title;
   content=detail.lastElementChild;
  }
- content.innerHTML=`${d.id==='fanno'?'':`<h3>${t.title}</h3>`}<div class="flow-relations-scroll"><table><thead><tr><th scope="col">Parameter</th>${t.columns.map(c=>`<th scope="col">${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th scope="row">${r.label}</th>${r.values.map(v=>`<td>${fmt(v,8)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p>${t.note}</p>`:''}`;
+ content.innerHTML=`${d.id==='fanno'?'':`<h3>${t.title}</h3>`}<div class="flow-relations-scroll"><table><thead><tr><th scope="col">Parameter</th>${t.columns.map(c=>`<th scope="col">${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th scope="row">${r.label}</th>${r.values.map(v=>`<td>${fmt(v,8)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note&&!hasNozzleDesignRegimes(d)?`<p>${t.note}</p>`:''}`;
  addDataExport(content,'relations',()=>({
   relations:t.rows.map(r=>Object.fromEntries([['property',r.label],...t.columns.map((c,i)=>[c,r.values[i]])]))
  }));
