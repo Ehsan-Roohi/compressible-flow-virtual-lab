@@ -217,7 +217,7 @@ function experimentInputs(id,x={}){
   if(f.key==='upperSegments'&&x.airfoilShape==='Connected flat plates')return true;
   if(f.key==='upperSegments'&&x.airfoilShape==='Bent flat plate')return x.plateDefinition==='Multiple panels';
   if(f.key==='upperSegments')return !flat&&angles&&x.airfoilShape!=='Diamond';
-  if(f.key==='lowerSegments')return !flat&&angles&&x.airfoilShape!=='Diamond';
+  if(f.key==='lowerSegments')return custom&&angles;
   if(['thickness','peak'].includes(f.key))return false;
   if(f.key==='camber')return false;
   if(['upperProfile','lowerProfile'].includes(f.key))return custom&&!angles;
