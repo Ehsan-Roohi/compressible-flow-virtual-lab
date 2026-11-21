@@ -74,3 +74,33 @@ export function airfoilTables(r,fmt) {
   }
   return content.join('')+'</section>';
 }
+
+export function diamondRegionStates(r) {
+  const surface=r.models.includes('nonlinear')&&r.nonlinear.status==='ok'?r.nonlinear.panels:[];
+  const trailing=surface.length&&r.trailingEdge?.status==='ok'?r.trailingEdge:null;
+  const definitions=[
+    ['inlet','1',r.freestream],
+    ...['U1','U2','L1','L2'].map(id=>[id,airfoilRegionLabel(r,id),surface.find(p=>p.id===id)]),
+    ['upper-exit',airfoilRegionLabel(r,'TE-U+'),trailing?.upper.after],
+    ['lower-exit',airfoilRegionLabel(r,'TE-L+'),trailing?.lower.after]
+  ];
+  return definitions.map(([key,region,z])=>({key,region,properties:z?{
+    'Mach number':z.M,
+    'Static pressure (kPa)':z.p/1000,
+    'Static temperature (K)':z.T,
+    'Density (kg/m³)':z.rho,
+    'Speed (m/s)':z.u,
+    'Flow angle (°)':z.theta*180/Math.PI,
+    'Stagnation pressure (kPa)':z.p0/1000,
+    'Stagnation temperature (K)':z.T0
+  }:null}));
+}
+
+export function diamondRegionDetails(regions,fmt) {
+  return regions.map(({key,region,properties})=>
+    detail('diamond-'+key,`Region ${region}`,properties
+      ?table(`Region ${region} flow conditions`,['Property','Value'],
+        Object.entries(properties).map(([label,value])=>[label,fmt(value,6)]))
+      :'<p class="control-hint">Shock–Expansion state unavailable.</p>')
+  ).join('');
+}

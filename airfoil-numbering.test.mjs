@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {calculate,defaults} from './labs.js';import {sceneSVG} from './graphics.js';import {airfoilTables} from './airfoil-tables.js';import {plotOptions} from './plot-options.js';
+import {calculate,defaults} from './labs.js';import {sceneSVG} from './graphics.js';import {airfoilTables,diamondRegionStates,diamondRegionDetails} from './airfoil-tables.js';import {plotOptions} from './plot-options.js';
 test('Diamond figure and state table retain textbook region numbers without charts',()=>{
  const d=calculate('airfoil',{...defaults('airfoil'),alpha:4}),svg=sceneSVG(d.scene,d.inputs).svg;
  assert.deepEqual([...svg.matchAll(/data-airfoil-region="([^"]+)"/g)].map(m=>m[1]).sort(),['1','2','3','4','5','6']);
@@ -35,4 +35,16 @@ test('Flat plate uses regions 1–5 consistently in the figure, tables and conto
   assert.equal(sample(1.1,y+.002).region,'4');assert.equal(sample(1.1,y-.002).region,'5');
   assert.ok(!svg.includes('>TE-U+</text>')&&!svg.includes('>TE-L+</text>'));
  }
+});
+
+test('Diamond sidebar states include the freestream, four panels and both trailing-edge streams',()=>{
+ const x={...defaults('airfoil'),airfoilShape:'Diamond',alpha:4},r=calculate('airfoil',x).result;
+ const regions=diamondRegionStates(r);
+ assert.deepEqual(regions.map(z=>z.region),['1','2','3','4','5','6 (upper)','6 (lower)']);
+ assert.deepEqual(regions.map(z=>z.properties['Static pressure (kPa)']),
+  [r.freestream,...['U1','U2','L1','L2'].map(id=>r.nonlinear.panels.find(p=>p.id===id)),
+   r.trailingEdge.upper.after,r.trailingEdge.lower.after].map(z=>z.p/1000));
+ assert.equal((diamondRegionDetails(regions,String).match(/<details /g)??[]).length,7);
+ const linear=calculate('airfoil',{...x,airfoilMethod:'Linearized theory'}).result;
+ assert.equal(diamondRegionStates(linear).filter(z=>z.properties).length,1);
 });

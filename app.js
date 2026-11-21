@@ -26,7 +26,7 @@ import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selec
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
 import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6ResetExample,chapter6AirfoilFields,chapter6BookResult} from './chapter6-book.js?v=20261120-airfoil-shared-inputs';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
-import {airfoilTables} from './airfoil-tables.js?v=20261119-compact-layout';
+import {airfoilTables,diamondRegionStates,diamondRegionDetails} from './airfoil-tables.js?v=20261121-diamond-regions';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
@@ -541,7 +541,7 @@ function solve({stream=false}={}){
  stopAnimation();worker.postMessage({request,id,inputs});
 }
 
-worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('scene').classList.remove('finite-tube-scene');stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}renderResult();syncSweep();continueSweep();};
+worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('diamondRegionPanel').hidden=true;$('scene').classList.remove('finite-tube-scene');stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}renderResult();syncSweep();continueSweep();};
 worker.onerror=()=>{solvePending=false;stopSweep();syncSweep();$('status').textContent='Worker error';$('notice').hidden=false;$('notice').textContent='The calculation worker could not start. Serve this folder over HTTP(S) with module support.';};
 function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.length){box.hidden=true;box.innerHTML='';return;}const compact=id==='collision';box.hidden=false;box.innerHTML=`<h3>${compact?'WAVE ANGLES & ENTROPY':'SHOCK STATES · ONE-SIDED VALUES'}</h3>${groups.map(g=>`<section class="shock-state"><h4>${g.title}</h4>${compact?'':`<p>${g.location}</p><div class="shock-table-wrap"><table><thead><tr><th>Parameter</th><th>Before</th><th>After</th><th>After / before</th></tr></thead><tbody>${g.rows.map(r=>`<tr><th>${r.label}</th><td>${fmt(r.before)} ${r.unit}</td><td>${fmt(r.after)} ${r.unit}</td><td>${fmt(r.ratio)}</td></tr>`).join('')}</tbody></table></div>`}<dl>${g.extra.map(e=>`<div><dt>${e.label}</dt><dd>${fmt(e.value)} ${e.unit}</dd></div>`).join('')}</dl></section>`).join('')}`;addDataExport(box,'shocks',()=>({
   shocks:groups.flatMap(g=>[
@@ -660,23 +660,32 @@ function renderFlowRelations(d){
  }));
 }
 function renderAirfoilPanel(d){
- const box=$('airfoilPanel');
+ const box=$('airfoilPanel'),regions=$('diamondRegionPanel'),panels=[box,regions];
  box.hidden=d.id!=='airfoil';
+ regions.hidden=box.hidden||!d.result.geometry.diamond;
+ if(regions.hidden)regions.replaceChildren();
  if(box.hidden){box.replaceChildren();delete box.dataset.caseKey;return;}
  const caseKey=[d.inputs.bookExample,d.inputs.airfoilShape,d.inputs.airfoilMethod].join('|');
  const openKeys=new Set(),sameCase=box.dataset.caseKey===caseKey;
- const focusedKey=sameCase && box.contains(document.activeElement)
-  ? document.activeElement.closest('[data-airfoil-detail]')?.dataset.airfoilDetail : null;
- if(sameCase)for(const detail of box.querySelectorAll('details[open]'))openKeys.add(detail.dataset.airfoilDetail);
+ const focusedKey=sameCase&&panels.some(panel=>panel.contains(document.activeElement))
+  ?document.activeElement.closest('[data-airfoil-detail]')?.dataset.airfoilDetail:null;
+ if(sameCase)for(const panel of panels){
+  for(const detail of panel.querySelectorAll('[data-airfoil-detail][open]'))openKeys.add(detail.dataset.airfoilDetail);
+ }
  box.dataset.caseKey=caseKey;
  box.innerHTML=airfoilTables(d.result,fmt);
+ if(!regions.hidden){
+  const states=diamondRegionStates(d.result);
+  regions.innerHTML='<div class="card-head"><h2 id="diamondRegionTitle">Flow conditions by region</h2></div>'+diamondRegionDetails(states,fmt);
+  addDataExport(regions,'regions',()=>({regions:states.map(({region,properties})=>({region,...properties}))}));
+ }
  const book=d.chapter6Book;
  if(book){
   const section=box.querySelector('.card');
   if(book.notice)section.insertAdjacentHTML('beforeend',`<p class="control-hint">${book.notice}</p>`);
   else section.insertAdjacentHTML('beforeend',`<dl class="isentropic-grid">${book.rows.map(r=>`<div><dt>${r.label}</dt><dd>${fmt(r.value,6)} <small>${r.unit}</small></dd></div>`).join('')}</dl>`);
  }
- for(const detail of box.querySelectorAll('[data-airfoil-detail]')){
+ for(const panel of panels)for(const detail of panel.querySelectorAll('[data-airfoil-detail]')){
   detail.open=openKeys.has(detail.dataset.airfoilDetail);
   if(detail.dataset.airfoilDetail===focusedKey)detail.querySelector('summary')?.focus({preventScroll:true});
  }
