@@ -34,7 +34,7 @@ import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261121-piston-menu';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
-import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261120-example-sequence';
+import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
 import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
@@ -177,7 +177,10 @@ function openLab(){
   if(saved&&typeof saved==='object'){
    for(const key in inputs)if(key in saved)inputs[key]=saved[key];
    if(id==='wall'&&canonicalExample(saved.bookExample)==='6-7')inputs.bookExample='6–7';
-   if(id==='nozzle'&&!Object.hasOwn(saved,'bookExample'))inputs.bookExample='';
+   if(id==='nozzle'){
+    if(!Object.hasOwn(saved,'bookExample'))inputs.bookExample='';
+    if(saved.bookExample==='8-1b')inputs.bookExample='8-1a';
+   }
    if(id==='wall'&&saved.customInteraction===multiRampMode&&saved.inletSolutionVersion!==2){inputs.inletTerminal='Wall reflections';inputs.inletSolutionVersion=2;}
    if(id==='wall'&&saved.theta===undefined&&saved.wallSegments?.length)inputs.theta=Math.abs(saved.wallSegments[0].angle);
    if(id==='airfoil'&&!saved.geometryInput){
@@ -218,7 +221,7 @@ function openLab(){
  $('labTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(location.hash==='#'+b.dataset.lab)openLab();else location.hash=b.dataset.lab;});renderNav();
  if(id==='nozzle'){
   const code=example==='8-1'||example==='8-2'?example+'a':example;
-  if(nozzleExamples.some(entry=>entry.value===code)){loadNozzleExample({bookExample:code});return;}
+  if(code==='8-1b'||nozzleExamples.some(entry=>entry.value===code)){loadNozzleExample({bookExample:code});return;}
   selectNozzleExamplePlot();
  }
  renderInputs();

@@ -23,10 +23,8 @@ const pressureRatio = (M,gamma=1.4) => 1/isentropic(M,gamma).p0p;
 const subsonicRatio = (areaRatio,gamma=1.4) => pressureRatio(machFromArea(areaRatio,'subsonic',gamma),gamma);
 
 export const nozzleExamples = [
-  {value:'8-1a', label:'Converging, unchoked', inputs:{...converging,backRatio:350/500},
-    note:'Reservoir pressure 500 kPa, temperature 400 K and exit area 6 cm². Find the exit Mach and pressure at 350 kPa back pressure. The book does not specify the inlet area.'},
-  {value:'8-1b', label:'Converging, choked', inputs:{...converging,backRatio:200/500},
-    note:'Reduce the back pressure to 200 kPa and compare it with the computed sonic exit pressure.'},
+  {value:'8-1a', label:'Converging nozzle', inputs:{...converging,backRatio:350/500},
+    note:'With a 500 kPa reservoir, compare 350 kPa back pressure (pᵦ/p₀ = 0.70, unchoked) with 200 kPa (pᵦ/p₀ = 0.40, choked). Use the pressure sweep or enter the ratio to compare exit Mach and pressure.'},
   {value:'8-2a', label:'Perfectly expanded', inputs:{...cd,backRatio:pressureRatio(machFromArea(3))},
     note:'Find the throat and exit states for a perfectly expanded C–D nozzle. The throat area is a reference value because only the area ratio is specified.'},
   {value:'8-2b', label:'Sonic throat, subsonic exit', inputs:{...cd,backRatio:subsonicRatio(3)},
@@ -41,13 +39,16 @@ export const nozzleExamples = [
 
 export function nozzleModeDefaults(base,selection={}){
   const {nozzleType='Converging–diverging',nozzleSolve=nozzleSolveModes[0],outletCondition='Matched isentropic',sonicBranch='supersonic'}=selection;
-  const example=nozzleExamples.find(e=>e.value===selection.bookExample);
+  const chokedPreset=selection.bookExample==='8-1b';
+  const bookExample=chokedPreset?'8-1a':selection.bookExample;
+  const example=nozzleExamples.find(e=>e.value===bookExample);
   const choice=example??nozzleExamples.find(e=>e.value===(
     nozzleType==='Converging'?'8-1a':nozzleType==='Diverging'?
       (outletCondition==='Specified back pressure'?'8-4':sonicBranch==='subsonic'?'8-2b':'8-2a'):
       nozzleSolve===nozzleSolveModes[1]?'8-2c':nozzleSolve===nozzleSolveModes[2]?'8-3':'8-4'
   ));
   const inputs={...base,...nozzleBookInputs,nozzleSolve:nozzleSolveModes[0],...choice.inputs,bookExample:choice.value};
+  if(chokedPreset)inputs.backRatio=200/500;
   if(!example&&nozzleType==='Diverging'){
     return {...inputs,nozzleType,MIn:1,sonicBranch:outletCondition==='Specified back pressure'?'supersonic':sonicBranch,outletCondition,bookExample:''};
   }

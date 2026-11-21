@@ -57,8 +57,10 @@ function bookCase(code, overrides={}){
 const near=(actual,expected,tolerance)=>assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} differs from ${expected}`);
 
 test('Chapter 8 presets reproduce the converging, choked throat and internal-shock examples',()=>{
-  assert.deepEqual(nozzleExamples.map(e=>e.value),['8-1a','8-1b','8-2a','8-2b','8-2c','8-3','8-4']);
-  const a=bookCase('8-1a').result,b=bookCase('8-1b').result;
+  assert.deepEqual(nozzleExamples.map(e=>e.value),['8-1a','8-2a','8-2b','8-2c','8-3','8-4']);
+  const a=bookCase('8-1a').result,choked=bookCase('8-1b'),b=choked.result;
+  assert.equal(choked.inputs.bookExample,'8-1a');
+  assert.equal(b.backRatio,0.4);
   near(a.Me,.7324,.0001);near(a.exitPressure/1000,350,1e-6);
   assert.equal(b.Me,1);near(b.exitPressure/1000,264.14,.01);
   for(const r of [a,b]){
