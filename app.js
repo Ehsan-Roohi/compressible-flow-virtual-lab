@@ -663,7 +663,7 @@ function renderAirfoilPanel(d,coefficientsOnly){
  const box=$('airfoilPanel'),regions=$('airfoilWavePanel'),panels=[box,regions];
  box.hidden=d.id!=='airfoil';
  const waves=!box.hidden?airfoilWaveChanges(d.result):[];
- regions.hidden=!waves.length;
+ regions.hidden=box.hidden;
  if(regions.hidden)regions.replaceChildren();
  if(box.hidden){box.replaceChildren();delete box.dataset.caseKey;return;}
  const caseKey=[d.inputs.bookExample,d.inputs.airfoilShape,d.inputs.airfoilMethod].join('|');
@@ -675,11 +675,18 @@ function renderAirfoilPanel(d,coefficientsOnly){
  }
  box.dataset.caseKey=caseKey;
  box.innerHTML=airfoilTables(d.result,fmt,{coefficientsOnly});
- if(!regions.hidden){
-  regions.innerHTML='<div class="card-head"><h2 id="airfoilWaveTitle">Changes across waves</h2></div>'+airfoilWaveDetails(waves,fmt);
-  addDataExport(regions,'waves',()=>({waves:waves.flatMap(({from,to,kind,beta,rows})=>
-   rows.map(row=>({from,to,kind,beta,...row})))}));
- }
+ const trailing=d.result.trailingEdge;
+ const matched=trailing?.status==='ok';
+ const angle=matched?(Math.abs(trailing.slipAngle)<1e-10?0:trailing.slipAngle):null;
+ const angleLabel=trailing?.interfaceKind==='Common streamline'?'Common flow angle φ':'Slip-line angle φ';
+ const method='Local Shock–Expansion match · angle to horizontal';
+ regions.innerHTML=`<div class="card-head"><h2 id="airfoilWaveTitle">${waves.length?'Changes across waves':'Trailing edge'}</h2></div>
+  <div class="result-row" title="${method}"><span class="result-label">${angleLabel}</span><span class="result-value">${matched?fmt(angle,6):'Unavailable'}${matched?'<small>°</small>':''}</span></div>
+  <p class="airfoil-empty">${matched?method:'No accepted trailing-edge match.'}</p>`+airfoilWaveDetails(waves,fmt);
+ addDataExport(regions,'waves',()=>({
+  trailingEdge:{property:angleLabel,value:angle,unit:'°',interface:trailing?.interfaceKind??null,status:trailing?.status??'unavailable',method},
+  waves:waves.flatMap(({from,to,kind,beta,rows})=>rows.map(row=>({from,to,kind,beta,...row})))
+ }));
  const book=d.chapter6Book;
  if(book&&!coefficientsOnly){
   const section=box.querySelector('.card');
