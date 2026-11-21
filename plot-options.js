@@ -1,7 +1,7 @@
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
 import {rayleighBookPressurePlot} from './rayleigh-book.js?v=20261120-example-sequence';
-import {finiteTubeFrame,finiteTubeScale,finiteTubeWallStates,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261121-tube-wall-states';
+import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261121-tube-time-only';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261120-four-shock-polar';
@@ -119,14 +119,6 @@ function basePlotOptions(d,time=.001){
   let samples, profileNote;
   if(r.finiteTube){
    options.splice(0,1,...finiteMapOptions(r));
-   if(r.incident){
-    const history=r.frames.map(frame=>({time:frame.time*1000,states:finiteTubeWallStates(frame,r.R)}));
-    for(const [property,label,unit] of [['pressure','Wall pressure history','kPa'],['temperature','Wall temperature history','K']]){
-     options.push({key:`tube-wall-${property}`,label,chart:{title:label,xlabel:'Time t (ms)',ylabel:unit,
-      series:['Driver end','Driven end'].map((name,i)=>({name,points:history.map(f=>[f.time,f.states[i][property]])}))},
-      note:'Numerical gas properties in the cells adjacent to the two closed end walls.'});
-    }
-   }
    if(r.movingPiston){
     const title=r.closedValve?'Pressure history at the piston and valve':'Pressure history at the piston and fixed wall';
     options.push({key:'piston-wall-pressure',label:title,chart:{title,xlabel:'Time t (ms)',ylabel:'p (kPa)',series:[

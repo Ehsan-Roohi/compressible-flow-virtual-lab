@@ -10,7 +10,6 @@ export const finiteTubeFields = [
  {key:'tubeDomain',label:'Tube model',value:'Before wall reflections',options:['Before wall reflections',finiteTubeMode]},
  {key:'finiteDriverLength',label:'Driver length · left of diaphragm',value:4,min:.1,max:20,step:.1,unit:'m'},
  {key:'finiteDrivenLength',label:'Driven length · right of diaphragm',value:6,min:.1,max:20,step:.1,unit:'m'},
- {key:'finiteDiameter',label:'Tube diameter',value:.3,min:.01,max:2,step:.01,unit:'m',help:'Sets area and total gas mass. The tube has constant area.'},
  {key:'finiteValveLength',label:'Initial valve tube length',value:6,min:.1,max:100000,sliderMax:30,step:.1,unit:'m'},
  {key:'finiteEndTime',label:'Simulation end time',value:30,min:1,max:100,step:1,unit:'ms'},
  {key:'finiteCells',label:'Computational cells',value:600,min:160,max:1200,step:20,unit:'cells',help:'Number of cells used to divide the gas along the tube. More cells resolve wave fronts more sharply and take longer to compute.'}
@@ -164,7 +163,7 @@ function simulate(x,left,right,end,gamma,R,motion){
 export function solveFiniteTube(raw){
  const {inputs:x,result:incident}=solveTube(raw);
  const {gamma,R,cp}=gas(x.gamma??1.4,x.R??287);
- for(const [v,label] of [[x.finiteDriverLength,'Driver length'],[x.finiteDrivenLength,'Driven length'],[x.finiteDiameter,'Diameter'],[x.finiteEndTime,'End time']])positive(v,label);
+ for(const [v,label] of [[x.finiteDriverLength,'Driver length'],[x.finiteDrivenLength,'Driven length'],[x.finiteEndTime,'End time']])positive(v,label);
  requireValue(x.finiteEndTime<=100,'Set the simulation end time to 100 ms or less.');
  requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use an integer grid size from 160 to 1200 cells.');
  const left=-x.finiteDriverLength,right=x.finiteDrivenLength,end=x.finiteEndTime/1000;
@@ -219,7 +218,7 @@ export function solveFiniteTube(raw){
    ['Contact surface reaches sample · analytical',contactSample*1000,'ms'],
    ['Time between shock and contact at sample',(contactSample-shockSample)*1000,'ms']
   ]:[]),
-  ['Initial gas mass',domain.massPerArea*Math.PI*x.finiteDiameter**2/4,'kg'],
+  ['Initial gas mass per unit area',domain.massPerArea,'kg/m²'],
   ['Simulated time',end*1000,'ms'],['Numerical time steps',domain.steps]
  ];
  const h02=(cp*incident.T2+.5*incident.u**2)/1000;
@@ -368,14 +367,6 @@ export function finiteTubeFrame(r,time){
 }
 
 const fieldScales=new WeakMap();
-// The wall-adjacent cells provide the numerical gas state at each closed end.
-export function finiteTubeWallStates(frame,R){
- return [0,frame.pressure.length-1].map(i=>({
-  pressure:frame.pressure[i]/1000,
-  temperature:frame.pressure[i]/(R*frame.density[i])
- }));
-}
-
 export function finiteTubeScale(frames,property){
  let scales=fieldScales.get(frames);
  if(!scales){scales={};fieldScales.set(frames,scales);}

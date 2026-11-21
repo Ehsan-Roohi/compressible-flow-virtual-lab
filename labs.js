@@ -2,7 +2,7 @@ import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {linearizedTube,movingShockSonicMach,tubeSolutionMethods} from './linearized-tube.js?v=20261121-tube-methods';
-import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261120-example-sequence';
+import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261121-tube-time-only';
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
 import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-sinusoidal-piston';
 import {tubeFields,tubeModes,resolveTubeInputs,solveTube} from './tube-input.js?v=20261117-moving-tube';
@@ -193,7 +193,7 @@ function experimentInputs(id,x={}){
   const finite=x.tubeDomain===finiteTubeMode;
   return labs.tube.inputs.filter(f=>!['pistonSpeed1','pistonSpeed2','pistonDelay','valveInletSpeed','pistonDomain','pistonTubeLength','finiteValveLength','pistonEpsilon','pistonFrequency','pistonCycles'].includes(f.key))
    .filter(f=>finite||!f.key.startsWith('finite'))
-   .filter(f=>x.tubeSolutionMethod!=='Linearized'||!['finiteCells','finiteDiameter'].includes(f.key))
+   .filter(f=>x.tubeSolutionMethod!=='Linearized'||f.key!=='finiteCells')
    .filter(f=>f.key==='p4'?(x.tubeInput??tubeModes[0])===tubeModes[0]:f.key==='driverRatio'?x.tubeInput===tubeModes[1]:f.key==='shockRatio'?x.tubeInput===tubeModes[2]:f.key==='inducedSpeed'?x.tubeInput===tubeModes[3]:true);
  }
  if(['rayleigh','fanno'].includes(id)&&(x.ductProblem??'Single duct')!=='Single duct')return systemFields(id,x); 
