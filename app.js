@@ -104,6 +104,10 @@ function defaults(id,selection={}){
 const movingNormalShockPreset={
  bookExample:'7–1',tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,p1:100,T1:300,T4:300
 };
+const tubeChamberLabels={
+ p1:'Driven pressure p₁',T1:'Driven temperature T₁',
+ p4:'Driver pressure p₄',T4:'Driver temperature T₄'
+};
 const pistonExamplePresets={
  'Single-stage piston':{unsteadyExperiment:'Single-stage piston',bookExample:'7–2',pistonSpeed1:150,p1:100,T1:298,pistonTubeLength:6,finiteEndTime:10},
  'Two-stage piston':{unsteadyExperiment:'Two-stage piston',bookExample:'7–3',fluid:'Custom gas',gamma:1.667,R:2077,pistonSpeed1:25,pistonSpeed2:50,pistonDelay:1,T1:300,p1:100,pistonTubeLength:40000,finiteEndTime:90000,finiteCells:1200},
@@ -460,12 +464,9 @@ function renderInputs(){restoreChapterControls();const samplingOpen=$('samplingS
  });
  const pistonType=id==='tube'&&Object.hasOwn(pistonExamplePresets,inputs.unsteadyExperiment);
  const fields=(id==='rayleigh'?rayleighFormFields(definedFields,inputs):id==='fanno'?fannoFormFields(definedFields,inputs):definedFields).filter(field=>id!=='tube'||!['tubeDomain','pistonDomain'].includes(field.key))
- .filter(field=>!shockTube||!['p1','p4','T1','T4','inletPressureType','driverPressureType','temperatureInput','driverTemperatureType'].includes(field.key)
-  ||inputs.tubeInput==='Chamber pressures'&&['p1','p4'].includes(field.key)
-  ||field.key==='T1'&&inputs.tubeInput===movingNormalShockPreset.tubeInput)
- .map(field=>!shockTube?field:field.key==='p1'?{...field,label:'Driven pressure p₁'}:
-  field.key==='p4'?{...field,label:'Driver pressure p₄'}:
-  field.key==='T1'?{...field,label:'Initial gas temperature T₁'}:field)
+ .filter(field=>!shockTube||!['inletPressureType','driverPressureType','temperatureInput','driverTemperatureType'].includes(field.key))
+ .filter(field=>!shockTube||!['p1','p4'].includes(field.key)||inputs.tubeInput==='Chamber pressures')
+ .map(field=>shockTube&&Object.hasOwn(tubeChamberLabels,field.key)?{...field,label:tubeChamberLabels[field.key]}:field)
  .flatMap(field=>id==='tube'&&field.key==='unsteadyExperiment'?[
   {...field,options:['Shock tube','Piston',valveExperiment],selection:pistonType?'Piston':inputs.unsteadyExperiment},
   ...(pistonType?[{key:'pistonType',label:'Piston type',options:Object.keys(pistonExamplePresets),selection:inputs.unsteadyExperiment,
