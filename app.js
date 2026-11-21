@@ -898,7 +898,6 @@ function loadNozzleExample(selection){
  renderInputs();
  solve();
 }
-$('loadNozzleBook').onclick=()=>loadNozzleExample({bookExample:'8-4'});
 $('loadRayleighBook').onclick=()=>{
  const select=$('exampleSelect');
  if(id!=='rayleigh'||!select)return;

@@ -258,16 +258,7 @@ body{font-family:Georgia,"Times New Roman",serif}
 }
 
 /* Put the active nozzle experiment ahead of the longer setup form on a phone. */
-.sweep-mobile-label, #sweepDetails > summary, .nozzle-case-actions { display: none; }
-body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px; }
-#loadNozzleBook {
-  border: 1px solid #638b7c;
-  border-radius: 4px;
-  background: white;
-  color: #225447;
-  padding: 6px 10px;
-  font: inherit;
-}
+.sweep-mobile-label, #sweepDetails > summary { display: none; }
 
 @media (max-width: 800px) {
   body[data-lab] .work-grid { grid-template-areas: "visual" "controls" "outputs"; }
@@ -301,7 +292,6 @@ body[data-lab="nozzle"] .nozzle-case-actions { display: block; margin: 0 0 10px;
   body[data-lab="nozzle"] #pressureScrub { display: block; height: 34px; margin: 0; }
   body[data-lab="nozzle"] .sweep-state { margin: 3px 0 0; }
   body[data-lab="nozzle"] .sweep-endpoints { margin: -2px 0 5px; }
-  body[data-lab="nozzle"] .nozzle-case-actions { display: inline-block; margin: 0; }
   body[data-lab="nozzle"] #sweepDetails > summary {
     display: list-item;
     width: fit-content;
