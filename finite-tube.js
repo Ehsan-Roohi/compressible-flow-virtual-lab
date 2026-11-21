@@ -368,6 +368,14 @@ export function finiteTubeFrame(r,time){
 }
 
 const fieldScales=new WeakMap();
+// The wall-adjacent cells provide the numerical gas state at each closed end.
+export function finiteTubeWallStates(frame,R){
+ return [0,frame.pressure.length-1].map(i=>({
+  pressure:frame.pressure[i]/1000,
+  temperature:frame.pressure[i]/(R*frame.density[i])
+ }));
+}
+
 export function finiteTubeScale(frames,property){
  let scales=fieldScales.get(frames);
  if(!scales){scales={};fieldScales.set(frames,scales);}
