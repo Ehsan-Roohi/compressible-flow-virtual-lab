@@ -48,3 +48,16 @@ test('Diamond sidebar states include the freestream, four panels and both traili
  const linear=calculate('airfoil',{...x,airfoilMethod:'Linearized theory'}).result;
  assert.equal(diamondRegionStates(linear).filter(z=>z.properties).length,1);
 });
+
+test('Airfoil comparison results can show just the aerodynamic coefficients',()=>{
+ const d=calculate('airfoil',{...defaults('airfoil'),airfoilShape:'Diamond',airfoilMethod:'Compare both'});
+ const html=airfoilTables(d.result,String,{coefficientsOnly:true});
+ assert.equal((html.match(/<table /g)??[]).length,1);
+ assert.match(html,/Aerodynamic coefficient comparison/);
+ assert.match(html,/Shock–Expansion/);
+ assert.match(html,/Linearized/);
+ assert.match(html,/SE − linear/);
+ assert.doesNotMatch(html,/<details|Trailing-edge matching|Surface pressures/);
+ const unsupported={...d.result,nonlinear:{status:'unsupported',reason:'No attached shock'}};
+ assert.match(airfoilTables(unsupported,String,{coefficientsOnly:true}),/Shock–Expansion[\s\S]+—/);
+});

@@ -12,16 +12,17 @@ function detail(key,title,content) {
   return `<details class="airfoil-detail" data-airfoil-detail="${key}"><summary>${title}</summary>${content}</details>`;
 }
 
-export function airfoilTables(r,fmt) {
+export function airfoilTables(r,fmt,{coefficientsOnly=false}={}) {
   const number=v=>Number.isFinite(v)?fmt(v,6):'—';
   const models=r.models.filter(model=>r[model].status==='ok');
   const hasSE=models.includes('nonlinear'),hasLinear=models.includes('linear');
-  const both=hasSE&&hasLinear;
-  const methodHeaders=models.map(model=>model==='linear'?'Linearized':'Shock–Expansion');
+  const tableModels=coefficientsOnly?r.models:models;
+  const both=tableModels.includes('nonlinear')&&tableModels.includes('linear');
+  const methodHeaders=tableModels.map(model=>model==='linear'?'Linearized':'Shock–Expansion');
   if(both)methodHeaders.push('SE − linear');
 
   function coefficientRow(label,getValue) {
-    const values=models.map(model=>getValue(r[model]));
+    const values=tableModels.map(model=>models.includes(model)?getValue(r[model]):null);
     const row=[label,...values.map(number)];
     if(both)row.push(values.every(Number.isFinite)?number(getValue(r.nonlinear)-getValue(r.linear)):'—');
     return row;
@@ -29,7 +30,7 @@ export function airfoilTables(r,fmt) {
 
   const content=['<section class="card"><div class="card-head"><h2>Aerodynamic coefficients</h2></div>'];
   const plate=r.geometry.connectedPlate;
-  if(plate)content.push(`<p class="airfoil-empty">Panel lengths are used as entered. The coefficient reference length is the horizontal end-to-end extent, ${number(plate.reference)} m.</p>`);
+  if(plate&&!coefficientsOnly)content.push(`<p class="airfoil-empty">Panel lengths are used as entered. The coefficient reference length is the horizontal end-to-end extent, ${number(plate.reference)} m.</p>`);
   if(models.length){
     content.push(table('Aerodynamic coefficient comparison',['Quantity',...methodHeaders],[
       coefficientRow('Lift coefficient C<sub>L</sub>',z=>z.CL),
@@ -38,6 +39,7 @@ export function airfoilTables(r,fmt) {
       coefficientRow('Lift-to-drag ratio L/D',z=>Math.abs(z.CD)>1e-12?z.CL/z.CD:null)
     ]));
   }
+  if(coefficientsOnly)return content.join('')+'</section>';
   if(r.models.includes('nonlinear')&&!hasSE)
     content.push(`<p class="airfoil-empty">Shock–Expansion unavailable. ${r.nonlinear.reason}</p>`);
   if(hasSE&&r.trailingEdge?.status!=='ok')
