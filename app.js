@@ -461,9 +461,11 @@ function renderInputs(){restoreChapterControls();const samplingOpen=$('samplingS
  const pistonType=id==='tube'&&Object.hasOwn(pistonExamplePresets,inputs.unsteadyExperiment);
  const fields=(id==='rayleigh'?rayleighFormFields(definedFields,inputs):id==='fanno'?fannoFormFields(definedFields,inputs):definedFields).filter(field=>id!=='tube'||!['tubeDomain','pistonDomain'].includes(field.key))
  .filter(field=>!shockTube||!['p1','p4','T1','T4','inletPressureType','driverPressureType','temperatureInput','driverTemperatureType'].includes(field.key)
+  ||inputs.tubeInput==='Chamber pressures'&&['p1','p4'].includes(field.key)
   ||field.key==='T1'&&inputs.tubeInput===movingNormalShockPreset.tubeInput)
- .map(field=>shockTube&&field.key==='tubeInput'?{...field,optionLabels:{...field.optionLabels,'Chamber pressures':'Preset chamber pressures'}}:
-  shockTube&&field.key==='T1'?{...field,label:'Initial gas temperature T₁'}:field)
+ .map(field=>!shockTube?field:field.key==='p1'?{...field,label:'Driven pressure p₁'}:
+  field.key==='p4'?{...field,label:'Driver pressure p₄'}:
+  field.key==='T1'?{...field,label:'Initial gas temperature T₁'}:field)
  .flatMap(field=>id==='tube'&&field.key==='unsteadyExperiment'?[
   {...field,options:['Shock tube','Piston',valveExperiment],selection:pistonType?'Piston':inputs.unsteadyExperiment},
   ...(pistonType?[{key:'pistonType',label:'Piston type',options:Object.keys(pistonExamplePresets),selection:inputs.unsteadyExperiment,
