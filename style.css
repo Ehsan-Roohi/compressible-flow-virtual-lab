@@ -414,3 +414,17 @@ body:is([data-lab="rayleigh"],[data-lab="fanno"],[data-lab="normal"]) .region-ta
 #airfoilWavePanel .airfoil-scroll { padding-inline: 0; }
 #airfoilWavePanel .airfoil-scroll th, #airfoilWavePanel .airfoil-scroll td { padding: 5px 4px; }
 #airfoilWavePanel .airfoil-scroll th[scope="row"] { white-space: normal; }
+
+.tube-result-group + .tube-result-group{border-top:1px solid var(--line)}
+.tube-result-group h3,.tube-result-group summary,#tubePlotResults h3{
+ margin:0;padding:8px var(--card-inset) 4px;color:var(--ink);font-size:14px;font-weight:700
+}
+.tube-result-group summary{cursor:pointer;padding-block:8px}
+#tubePlotResults[hidden]{display:none}
+#tubePlotResults{margin:8px var(--card-inset);border-top:1px solid var(--line)}
+#tubePlotResults h3{padding-inline:0}
+.tube-plot-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:6px;margin:0 0 6px}
+.tube-plot-values>div{padding:6px 8px;background:#f4f7f6;border-radius:4px}
+.tube-plot-values dt{font-size:13px}
+.tube-plot-values dd{margin:2px 0 0;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+.tube-plot-values dd small{font-size:12px;font-weight:400}

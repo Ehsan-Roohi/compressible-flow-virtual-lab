@@ -1,3 +1,4 @@
+import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {finiteTubeMode,finiteTubeFrame,closedPistonMode,sinusoidalExperiment} from './finite-tube.js?v=20261118-restore-sample';
 import {valveExperiment} from './valve-closure.js';
@@ -523,6 +524,7 @@ function solve({stream=false}={}){
  $('fieldProbe').hidden=true;$('chartProbe').hidden=true;request++;solvePending=true;
  if(!keepView){
   current=null;
+  $('tubePlotResults').hidden=true;
   for(const key of ['ductImageNote','ductChartNote','flowRelationsPanel','regionTablePanel','trackingEventPanel'])$(key).hidden=true;
   $('status').textContent='Solving…';$('status').className='status';$('comparison').hidden=true;
   for(const key of ['exportJson','exportCsv','pin','exportSvg'])$(key).disabled=true;
@@ -705,7 +707,18 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
  $('results').closest('.results').hidden=coefficientsOnly;arrangeCollisionOutput(d.result);const matchingView=!!d.result.tracking&&!!d.result.finalStreamMatch&&!d.inspectTrackingEvent;if($('engineLabel'))$('engineLabel').textContent=d.result.finiteTube?'FINITE-VOLUME EULER':d.result.bodyLab?(d.result.bodyComparison?'WEDGE vs CONE':'2D WEDGE'):d.result.comparison?'COMPARE BOTH':d.result.tracking?'SHOCK–EXPANSION':d.result.moc?.fitted?'MOC · FITTED SHOCKS':d.result.moc?'NUMERICAL MOC':'ANALYTICAL ENGINE';if(d.result.tracking)$('limitations').textContent='Attached, downstream-supersonic waves only. Expansion fans use finite fronts; check refinement. The field stops at a physical, accuracy or event-budget limit.';else if(d.result.interaction)$('limitations').textContent='The regular shock interaction and slip direction are solved. The view ends before the next wall reflection. General shock–fan interactions and Mach reflections are outside this model.';$('model').textContent=d.model;$('gasResultSummary').textContent=d.gas?`${d.gas.name} · cₚ = ${fmt(d.gas.cp,6)}, cᵥ = ${fmt(d.gas.cv,6)} J/(kg·K)`:'';$('status').textContent=['heat-limit','length-limit'].includes(d.result.status)?'Limit exceeded':d.result.status==='sonic-limit'?'Sonic limit':d.result.status==='detached'?'Detached shock':d.result.status==='unsupported'?'Model limit':d.result.status==='partial'?'Local solution':d.result.tracking&&d.result.tracking.hasFanApproximation?'Mixed solution':'Solved';$('status').className='status'+(['heat-limit','length-limit','detached','unsupported'].includes(d.result.status)?' error':'');if(d.result.external&&!d.result.external.outlet){$('status').textContent=d.result.external.status==='no-flow'?'No flow':'Model limit';$('status').className=d.result.external.status==='no-flow'?'status':'status error';}$('notice').hidden=matchingView||!d.notice;$('notice').textContent=d.result.tracking&&d.notice?'Event-driven solution: '+d.notice:d.notice??'';if(matchingView){$('status').textContent='Matched reference';$('status').className='status';$('model').textContent='Uniform final-stream matching · schematic reference';}renderIsentropicRelations(d);renderTrackingPanel(d);renderRegionTable(d);renderFlowRelations(d);renderAirfoilPanel(d,coefficientsOnly);const sidebar=resultSidebarRows(d);const slip=opposingShockSlipRows(d);
  const results=sidebar.filter(r=>(!slip.length||r.label!=='Signed slip-line angle φ')&&(d.result.ductSystem||!['rayleigh','fanno'].includes(d.id)||['Maximum heat to sonic state','Remaining heat to sonic state','Required duct length','Maximum duct length','Friction length','Available sonic friction length','Required friction parameter','Maximum friction parameter (sonic exit)','Static-pressure ratio','Heat transfer','Total-pressure ratio','Entropy change'].includes(r.label))&&(d.id!=='normal'||['Pressure ratio','Temperature ratio','Density ratio','Total-pressure recovery','Entropy increase'].includes(r.label))&&!['airfoil','foundations'].includes(d.id)&&!d.result.tracking&&!r.panel&&!(d.id==='collision'&&r.label!=='Signed slip-line angle φ')&&!(d.id==='cone'&&['Conical shock angle β','Recovered cone angle','Surface Mach','Surface pressure','Surface temperature'].includes(r.label)));
  if(slip.length)results.unshift(...slip);
- $('results').innerHTML=results.map(r=>`<div class="result-row"${d.id==='cone'&&coneLimitHelp.has(r.label)?` title="${coneLimitHelp.get(r.label)}"`:''}><span class="result-label">${r.label}</span><span class="result-value">${fmt(r.value)}<small>${backPressureHTML(r.unit)}</small></span></div>`).join('');renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();$('exportJson').disabled=false;$('exportCsv').disabled=false;$('pin').disabled=false;$('exportSvg').disabled=false;renderScene();updatePlotChoices();renderCompare();}
+ const renderRow=r=>`<div class="result-row"${d.id==='cone'&&coneLimitHelp.has(r.label)?` title="${coneLimitHelp.get(r.label)}"`:''}><span class="result-label">${r.label}</span><span class="result-value">${fmt(r.value)}<small>${backPressureHTML(r.unit)}</small></span></div>`;
+ $('tubePlotResults').hidden=true;
+ if(d.id==='tube'){
+  const grouped=groupTubeResults(results);
+  $('results').innerHTML=grouped.sidebar.map(({title,rows,collapsed})=>collapsed
+   ?`<details class="tube-result-group"><summary>${title}</summary>${rows.map(renderRow).join('')}</details>`
+   :`<section class="tube-result-group"><h3>${title}</h3>${rows.map(renderRow).join('')}</section>`).join('');
+  const plotResults=$('tubePlotResults');
+  plotResults.hidden=!grouped.belowPlot.length;
+  plotResults.innerHTML=grouped.belowPlot.map(({title,rows})=>`<section><h3>${title}</h3><dl class="tube-plot-values">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${fmt(r.value,6)} <small>${r.unit}</small></dd></div>`).join('')}</dl></section>`).join('');
+ }else $('results').innerHTML=results.map(renderRow).join('');
+ renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();$('exportJson').disabled=false;$('exportCsv').disabled=false;$('pin').disabled=false;$('exportSvg').disabled=false;renderScene();updatePlotChoices();renderCompare();}
 function renderWaveKey(result){
  const key=$('waveKey');
  key.hidden=!result.finiteTube;
