@@ -187,6 +187,22 @@ test('closed Example 7–3 preserves the helium merger result and reaches the wa
  assert.ok(r.checks.mass<1e-10&&r.checks.energy<1e-10);
 });
 
+test('Example 7–2 uses a moving piston and generates one shock in stationary air',()=>{
+ const d=calculate('tube',{...base,unsteadyExperiment:'Single-stage piston',
+  pistonSpeed1:150,T1:298,p1:100,pistonTubeLength:6,finiteEndTime:10});
+ const r=d.result;
+ assert.ok(r.singleStagePiston&&r.movingPiston);
+ near(r.initialShocks.firstSpeed,447.542165,1e-6);
+ near(r.frames.at(-1).left,1.5,1e-9);
+ assert.ok(r.checks.mass<1e-10&&r.checks.energy<1e-10);
+ const svg=finiteTubeDrawing(r,.004).svg;
+ assert.match(svg,/data-launch-shock="1"/);
+ assert.doesNotMatch(svg,/data-launch-shock="2"|data-contact-surface/);
+ const keys=inputDefinitions('tube',d.inputs).map(f=>f.key);
+ assert.ok(keys.includes('pistonSpeed1')&&keys.includes('T1'));
+ assert.ok(!keys.includes('pistonSpeed2')&&!keys.includes('tubeInput'));
+});
+
 test('every browser example opens the closed model and the separate demo is gone',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8');
  const elements=new Map();
@@ -203,6 +219,11 @@ test('every browser example opens the closed model and the separate demo is gone
  assert.equal(initial.shockRatio,10);
  const a=calculate('tube',initial).result.incident,b=calculate('tube',{...initial,T1:400}).result.incident;
  near(b.shockSpeed/a.shockSpeed,Math.sqrt(400/300),1e-9);
+ for(const [type,code] of [['Single-stage piston','7–2'],['Two-stage piston','7–3'],['Sinusoidal piston','7–10']]){
+  const preset=vm.runInContext(`defaults('tube',{unsteadyExperiment:${JSON.stringify(type)}})`,context);
+  assert.equal(preset.bookExample,code);
+  assert.equal(preset.unsteadyExperiment,type);
+ }
  context.renderExamples();
  assert.doesNotMatch(elements.get('examplesPanel').innerHTML,/closed-piston-demo/);
  for(const code of ['7–1','7–2','7–3','7–4','7–7','7–10','7–12','7–13']){

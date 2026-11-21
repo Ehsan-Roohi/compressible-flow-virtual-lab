@@ -3,9 +3,10 @@ import {gas,positive,requireValue} from './numerics.js';
 
 import {valveExperiment} from './valve-closure.js';
 
+export const singlePistonExperiment='Single-stage piston';
 export const pistonExperiment='Two-stage piston';
 export const pistonFields=[
- {key:'unsteadyExperiment',label:'Experiment',value:'Shock tube',options:['Shock tube',pistonExperiment,'Sinusoidal piston',valveExperiment]},
+ {key:'unsteadyExperiment',label:'Experiment',value:'Shock tube',options:['Shock tube',singlePistonExperiment,pistonExperiment,'Sinusoidal piston',valveExperiment]},
  {key:'pistonSpeed1',label:'First piston speed',value:25,min:.001,max:10000,step:1,unit:'m/s'},
  {key:'pistonSpeed2',label:'Second piston speed',value:50,min:.001,max:10000,step:1,unit:'m/s'},
  {key:'pistonDelay',label:'Time of second speed increase',value:1,min:.000001,max:10000,step:.1,unit:'s'}
@@ -13,19 +14,20 @@ export const pistonFields=[
 
 // Speeds in the returned states are laboratory-frame velocities. Jump checks
 // use a separate shock-fixed frame for each shock.
-export function solvePistonShocks(x){
- const g=x.gamma??1.4,R=x.R??287,{cp}=gas(g,R);
- for(const [v,label] of [[x.T1,'Initial temperature'],[x.p1,'Initial pressure'],[x.pistonSpeed1,'First piston speed'],[x.pistonSpeed2,'Second piston speed'],[x.pistonDelay,'Delay']])positive(v,label);
- requireValue(x.pistonSpeed2>x.pistonSpeed1,'The second piston speed must exceed the first to generate a second compression shock.');
- const s1=state(0,x.T1,x.p1*1000,g,R);
- const jump=(before,target)=>{
+export function pistonShockJump(before,target,g,R){
   const delta=target-before.u,q=(g+1)*delta/(4*before.a),M=q+Math.hypot(1,q),n=normalShock(M,g),speed=before.u+M*before.a;
   const T=before.T*n.T,p=before.p*n.p,a=Math.sqrt(g*R*T),after=state(target/a,T,p,g,R);
   const checks=conservation(state(M,before.T,before.p,g,R),state(n.M2,T,p,g,R),g,R);
   const inducedResidual=Math.abs(speed-(speed-before.u)/n.rho-target)/Math.max(1,speed);
   return {speed,relativeMach:M,relativeSpeed:M*before.a,before,after,ratios:n,checks:{...checks,inducedVelocity:inducedResidual}};
- };
- const first=jump(s1,x.pistonSpeed1),second=jump(first.after,x.pistonSpeed2),delay=x.pistonDelay,launchX=x.pistonSpeed1*delay;
+}
+
+export function solvePistonShocks(x){
+ const g=x.gamma??1.4,R=x.R??287,{cp}=gas(g,R);
+ for(const [v,label] of [[x.T1,'Initial temperature'],[x.p1,'Initial pressure'],[x.pistonSpeed1,'First piston speed'],[x.pistonSpeed2,'Second piston speed'],[x.pistonDelay,'Delay']])positive(v,label);
+ requireValue(x.pistonSpeed2>x.pistonSpeed1,'The second piston speed must exceed the first to generate a second compression shock.');
+ const s1=state(0,x.T1,x.p1*1000,g,R);
+ const first=pistonShockJump(s1,x.pistonSpeed1,g,R),second=pistonShockJump(first.after,x.pistonSpeed2,g,R),delay=x.pistonDelay,launchX=x.pistonSpeed1*delay;
  requireValue(second.speed>first.speed,'The shock speeds cannot be resolved for this speed increment. Increase the second piston speed.');
  const catchTime=(second.speed-x.pistonSpeed1)*delay/(second.speed-first.speed),catchX=first.speed*catchTime;
  requireValue(Number.isFinite(catchTime)&&Number.isFinite(catchX)&&catchTime>delay,'No finite catch-up point for these inputs.');

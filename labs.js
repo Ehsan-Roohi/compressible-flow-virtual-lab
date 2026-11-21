@@ -2,16 +2,16 @@ import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {linearizedTube,movingShockSonicMach,tubeSolutionMethods} from './linearized-tube.js?v=20261121-tube-methods';
-import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261121-tube-time-only';
+import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveSingleStagePiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261121-piston-menu';
 import {valveExperiment,valveInfo,solveValveClosure} from './valve-closure.js';
-import {pistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261117-sinusoidal-piston';
+import {pistonExperiment,singlePistonExperiment,pistonFields,solvePistonShocks} from './piston-shocks.js?v=20261121-piston-menu';
 import {tubeFields,tubeModes,resolveTubeInputs,solveTube} from './tube-input.js?v=20261117-moving-tube';
 import {multiRampMode,multiRampPreset,solveMultiRamp,multiRampPlot,inletFlowSides,inletLowerDefinitions} from './multi-ramp-inlet.js?v=20261117-inlet-contour-fit2';
 import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261120-shock-fan-contours';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
-import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261117-sinusoidal-piston';
+import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261121-piston-menu';
 import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261119-fanno-system-relations';
 import {ductInputs} from './duct-input.js?v=20261112-state-inputs';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
@@ -182,6 +182,12 @@ function experimentInputs(id,x={}){
   return labs.tube.inputs.filter(f=>keys.includes(f.key)).map(f=>f.key==='p1'?{...f,label:'Initial gas pressure'}:
    f.key==='T1'?{...f,label:'Initial gas temperature'}:f.key==='finiteEndTime'?{...f,max:10000,sliderMax:100}:f);
  }
+ if(id==='tube'&&x.unsteadyExperiment===singlePistonExperiment){
+  const keys=['unsteadyExperiment','pistonSpeed1','pistonTubeLength','finiteEndTime','finiteCells','p1','T1'];
+  return labs.tube.inputs.filter(f=>keys.includes(f.key)).map(f=>f.key==='pistonSpeed1'?{...f,label:'Piston speed'}:
+   f.key==='p1'?{...f,label:'Initial gas pressure'}:f.key==='T1'?{...f,label:'Initial gas temperature'}:
+   f.key==='finiteEndTime'?{...f,max:100000,sliderMax:Math.max(100,x.finiteEndTime??0)}:f);
+ }
  if(id==='tube'&&x.unsteadyExperiment===pistonExperiment){
   const closed=x.pistonDomain===closedPistonMode;
   const keys=['unsteadyExperiment','pistonDomain','pistonSpeed1','pistonSpeed2','pistonDelay','p1','T1'];
@@ -315,12 +321,13 @@ export function nozzleInfo(x){
 
 export function defaults(id){return {...(id==='wall'?{customInteraction:'',inletFlowSide:inletFlowSides[0],inletLowerDefinition:inletLowerDefinitions[0],inletLowerHeightRatio:.5,inletLowerWallLengthRatio:1,inletLowerStartRatio:0,inletLowerCowlRatio:1,inletBottomSegments:[{angle:-8,length:1}],inletSolutionVersion:2,inletReference:2,inletHeightRatio:.5,inletCowlRatio:1,inletTerminal:'Wall reflections',inletLowerSegments:multiRampPreset.inletLowerSegments.map(p=>({...p})),inletUpperWallRatio:1,inletUpperStartRatio:0}:{}),...(id==='wall'?{fanShockAngle:10,fanExpansionAngle:10}:{}),...(id==='wall'?{ramjetOrientation:ramjetOrientations[0]}:{}),...(['airfoil','fanno','wall','tube','cone','rayleigh'].includes(id)?{bookExample:''}:{}),...stateInputDefaults,...systemDefaults,...Object.fromEntries(labs[id].inputs.map(x=>[x.key,x.value])),...(id==='rayleigh'?{rayleighInput:'Heat transfer + Inlet Mach',targetMach:.8,targetPressure:80}:{}),...(id==='balances'?controlVolumePreset():{}),inletT0:350,outletT0:400,inletBranch:'Subsonic',targetMach:.8,fannoInput:'Friction length',fluid:'Air',gamma:1.4,R:287,...(['oblique','expansion'].includes(id)?{cornerView:'Analytical contours',cornerColorVersion:1}:{})};}
 export function calculate(id,x){
- const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
+ const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,singlePistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
  x=normalizeStateInputs(id,id==='nozzle'?resolveNozzleCase(x):x);
  const closed=id==='tube'&&x.unsteadyExperiment===pistonExperiment&&x.pistonDomain===closedPistonMode;
  const closedValve=id==='tube'&&x.unsteadyExperiment===valveExperiment&&x.tubeDomain===finiteTubeMode;
+ const single=id==='tube'&&x.unsteadyExperiment===singlePistonExperiment;
  const sinusoidal=id==='tube'&&x.unsteadyExperiment===sinusoidalExperiment;
- const shockTube=id==='tube'&&![pistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
+ const shockTube=id==='tube'&&![pistonExperiment,singlePistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
  if(shockTube&&x.tubeSolutionMethod==='Linearized'){
   x=resolveTubeInputs(x);
   const acoustic=linearizedTube(x);
@@ -328,12 +335,12 @@ export function calculate(id,x){
   return {id,inputs:x,gas:gasInfo(x),model:'Linear acoustics · common reference state',result:{status:'ok',acoustic},
    rows,chart:acoustic.chart,scene:{kind:'linearizedTube',...acoustic},checks:{},notice:null,shockDetails:[],version:'0.1.0'};
  }
- if(finite||closed||closedValve||sinusoidal){
-  const solved=sinusoidal?solveSinusoidalPiston(x):closedValve?solveClosedValve(x):closed?solveClosedPiston(x):solveFiniteTube(x),result=solved.result;
+ if(finite||closed||closedValve||single||sinusoidal){
+  const solved=single?solveSingleStagePiston(x):sinusoidal?solveSinusoidalPiston(x):closedValve?solveClosedValve(x):closed?solveClosedPiston(x):solveFiniteTube(x),result=solved.result;
   const notice=sinusoidal
    ?'The linear comparison uses a fixed origin and a small-amplitude sinusoidal piston velocity. The comparison curves apply before reflected waves return. Numerical fields include the moving piston and repeated reflections.'
    :result.movingPiston
-   ?(closedValve?'The upstream piston continues at the initial gas speed after the valve closes. Initial shock values are analytical; the field includes later reflections.':'Reflections are computed at the fixed wall and the moving piston.')+
+   ?(closedValve?'The upstream piston continues at the initial gas speed after the valve closes. Initial shock values are analytical; the field includes later reflections.':single?'The piston moves at constant speed into initially stationary gas. The launch shock speed is analytical. The finite tube shows wall reflections if they occur during the simulation.':'Reflections are computed at the fixed wall and the moving piston.')+
     (result.stoppedAtGap?' The solve stops at 10% of the initial gas gap to avoid full closure.':'')+
     (closed&&result.end<result.motion.delay?' The second speed change is after the simulated interval.':'')
    :result.incident.initialVelocity===0

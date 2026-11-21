@@ -48,7 +48,7 @@ export function normalizeStateInputs(id,raw){
   x.inletPressureType='Static pressure';x.temperatureInput='Static temperature';
   return x;
  }
- if(id==='tube'&&!['Two-stage piston','Sinusoidal piston'].includes(x.unsteadyExperiment)){
+ if(id==='tube'&&!['Single-stage piston','Two-stage piston','Sinusoidal piston'].includes(x.unsteadyExperiment)){
   const R=x.R??287, u=x.tubeInitialVelocity??0;
   if(u!==0){
    const kineticTemperature=(g-1)*u*u/(2*g*R);

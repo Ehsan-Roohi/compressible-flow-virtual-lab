@@ -1,7 +1,7 @@
 import {contourColor} from './contour-raster.js?v=20261117-closed-piston';
 import {gas, positive, requireValue} from './numerics.js';
-import {normalShock} from './physics.js';
-import {solvePistonShocks} from './piston-shocks.js?v=20261117-valve-closure';
+import {normalShock,state} from './physics.js';
+import {pistonShockJump,solvePistonShocks} from './piston-shocks.js?v=20261121-piston-menu';
 import {solveValveClosure} from './valve-closure.js';
 import {solveTube} from './tube-input.js?v=20261117-moving-tube';
 
@@ -236,6 +236,34 @@ export function solveFiniteTube(raw){
   sample,wallTime,driverWallTime,contactTime,referenceEnd,chart,driverMassPerArea:-left*x.p4*1000/(R*x.T4),...domain},rows};
 }
 
+export function solveSingleStagePiston(x){
+ const {gamma,R,cp}=gas(x.gamma??1.4,x.R??287);
+ const length=x.pistonTubeLength,speed=x.pistonSpeed1;
+ for(const [value,label] of [[length,'Initial piston tube length'],[speed,'Piston speed'],[x.p1,'Initial pressure'],[x.T1,'Initial temperature'],[x.finiteEndTime,'End time']])positive(value,label);
+ requireValue(x.finiteEndTime<=100000,'Set the piston simulation end time to 100000 ms or less.');
+ requireValue(Number.isInteger(x.finiteCells)&&x.finiteCells>=160&&x.finiteCells<=1200,'Use an integer grid size from 160 to 1200 cells.');
+ const shock=pistonShockJump(state(0,x.T1,x.p1*1000,gamma,R),speed,gamma,R);
+ const gapLimit=.9*length/speed,end=Math.min(x.finiteEndTime/1000,gapLimit);
+ const motion={delay:0,speed1:speed,speed2:speed};
+ const domain=simulate({...x,p4:x.p1,T4:x.T1,tubeInitialVelocity:0},0,length,end,gamma,R,motion);
+ const arrival=length/shock.speed,isolatedEnd=Math.min(end,arrival);
+ const chart={title:'Single-stage piston and shock trajectories',xlabel:'Position from initial piston face x (m)',ylabel:'Time t (ms)',series:[
+  {name:'Domain',hideLegend:true,width:0,points:[[0,0],[length,end*1000]]},
+  {name:'Moving piston',color:'#192737',points:[[0,0],[speed*end,end*1000]]},
+  {name:'Fixed wall',color:'#192737',points:[[length,0],[length,end*1000]]},
+  {name:'Incident shock · analytical',color:'#fff',legendColor:'#627586',points:[[0,0],[shock.speed*isolatedEnd,isolatedEnd*1000]]}
+ ]};
+ const rows=[
+  ['Shock speed · laboratory',shock.speed,'m/s'],['Incident shock Mach · relative to upstream gas',shock.relativeMach],
+  ['Pressure behind shock',shock.after.p/1000,'kPa'],['Temperature behind shock',shock.after.T,'K'],
+  ['Gas speed behind shock',shock.after.u,'m/s'],['Shock pressure ratio',shock.ratios.p,'p₂/p₁'],
+  ['First shock reaches fixed wall · analytical',arrival*1000,'ms'],
+  ['Simulated time',end*1000,'ms']
+ ];
+ return {inputs:x,result:{status:'ok',finiteTube:true,movingPiston:true,singleStagePiston:true,left:0,right:length,
+  end,gamma,R,cp,chart,motion,initialShocks:{firstSpeed:shock.speed,end:isolatedEnd},stoppedAtGap:end===gapLimit,...domain},rows};
+}
+
 export function solveClosedPiston(x){
  const free=solvePistonShocks(x),{gamma,R,cp}=free;
  const length=x.pistonTubeLength;
@@ -443,7 +471,7 @@ function pistonShockMarks(r,t,X,arrows){
   return `<path data-launch-shock="${number}" d="M${x} 92V197" stroke="#20394a" stroke-width="1.25"/>`;
  };
  const first=marker(shocks.firstSpeed*t,shocks.firstSpeed,1);
- return t<r.motion.delay?first:first+marker(shocks.launchX+shocks.secondSpeed*(t-r.motion.delay),shocks.secondSpeed,2);
+ return r.singleStagePiston||t<r.motion.delay?first:first+marker(shocks.launchX+shocks.secondSpeed*(t-r.motion.delay),shocks.secondSpeed,2);
 }
 
 export function tubeSampleMark(x,top,bottom){
