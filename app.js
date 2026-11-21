@@ -488,7 +488,8 @@ if(gridField){
 }
 if(shockTube){
  const endTime=$('value-finiteEndTime')?.closest('.input-group');
- if(endTime)$('inputs').append(endTime);
+ const lastControls=[$('tubeGeometrySettings'),$('samplingSettings'),endTime].filter(Boolean);
+ $('inputs').append(...lastControls);
 }
 arrangeWallInputs();arrangeCompactGeometry(id,$('wallSetupPanel'));arrangeFannoGeometry(fields,geometryOpen);if(id==='rayleigh'){const heatInput=$('value-q');if(heatInput)heatInput.closest('.input-group').title='Positive q means heat is added to the flow. Negative q means heat is removed. The limits depend on the known inputs.';const notes={supplyReferenceMach:'Mach number at the moving upstream reference. Entry preserves stagnation pressure and temperature.',reservoirT0:'The selected pressure and temperature types apply at the same upstream station.'};for(const [key,note] of Object.entries(notes)){const control=$('value-'+key);if(control){const hint=document.createElement('p');hint.className='control-hint';hint.textContent=note;control.closest('.input-group').append(hint);}}}$('inputs').onsubmit=e=>e.preventDefault();renderExamples();bindWaveGeometrySelector();for(let x of fields){if(x.type==='wall-segments'){bindWallSegments(x);continue;}if(x.type==='segments'){bindSegmentEditor(x);continue;}let n=$('value-'+x.key),r=$('range-'+x.key);
 if(x.modeField){
@@ -740,7 +741,7 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
  $('tubePlotResults').hidden=true;
  if(d.id==='tube'){
   const grouped=groupTubeResults(results);
-  $('results').innerHTML=grouped.sidebar.map(({title,rows,collapsed})=>collapsed
+  $('results').innerHTML=grouped.sidebar.filter(({title})=>title!=='Simulation').map(({title,rows,collapsed})=>collapsed
    ?`<details class="tube-result-group"><summary>${title}</summary>${rows.map(renderRow).join('')}</details>`
    :`<section class="tube-result-group"><h3>${title}</h3>${rows.map(renderRow).join('')}</section>`).join('');
   if(d.result.incident||d.result.acoustic){
