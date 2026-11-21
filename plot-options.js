@@ -1,3 +1,4 @@
+import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
 import {rayleighBookPressurePlot} from './rayleigh-book.js?v=20261120-example-sequence';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261117-sinusoidal-piston';
@@ -114,6 +115,7 @@ function basePlotOptions(d,time=.001){
   family('regions-','Region number · comparison only',samples,[['M','Region Mach numbers','M',s=>s.M],['p','Region pressure ratios','p/p₁',s=>s.p],['T','Region temperature ratios','T/T₁',s=>s.T],['rho','Region density ratios','ρ/ρ₁',s=>s.rho],['p0','Region stagnation-pressure recovery','p₀/p₀₁',s=>s.p0]]);
   options.filter(o=>o.key.startsWith('regions-')).forEach(o=>{o.chart.scatter=true;o.note='Independent uniform regions are compared; points do not represent a spatial path.';});
  }else if(id==='tube'){
+  if(r.acoustic)return [{key:'tube-method-waves',label:r.acoustic.chart.title,chart:r.acoustic.chart,note:tubeComparisonNote}];
   let samples, profileNote;
   if(r.finiteTube){
    options.splice(0,1,...finiteMapOptions(r));
@@ -182,6 +184,7 @@ function basePlotOptions(d,time=.001){
   }
   family('tube-profile-','Position x (m)',samples,[['p','Pressure profile','p (kPa)',s=>s.p/1000],['T','Temperature profile','T (K)',s=>s.T],['rho','Density profile','ρ (kg/m³)',s=>s.rho],['u','Velocity profile','u (m/s)',s=>s.u],['M','Laboratory-frame Mach profile','M = |u|/a',s=>s.M],['a','Sound-speed profile','a (m/s)',s=>Math.sqrt(g*R*s.T)],['T0','Stagnation-temperature profile','T₀ (K)',s=>s.T*isentropic(s.M,g).T0T],['p0','Stagnation-pressure profile','p₀ (kPa)',s=>s.p*isentropic(s.M,g).p0p/1000],['h0','Stagnation-enthalpy profile','h₀ (kJ/kg)',s=>(g*R*s.T/(g-1)+s.u*s.u/2)/1000]]);
   options.filter(o=>o.key.startsWith('tube-profile-')).forEach(o=>o.note=profileNote);
+  if(r.tubeComparison)options.unshift({key:'tube-method-waves',label:r.tubeComparison.chart.title,chart:r.tubeComparison.chart,note:tubeComparisonNote});
  }
  if(['rayleigh','fanno'].includes(id))for(const o of options){if(o.key.includes('-axial-'))continue;if(o.label.includes('ratio')){o.label+=` (${o.chart.ylabel})`;o.chart.title=o.label;o.chart.series.forEach(s=>s.name=o.label);}o.chart.markers=[['Inlet',r.s1],['Outlet',r.s2]].filter(([,s])=>s).flatMap(([name,s])=>{const point=o.chart.series[0]?.points.find(p=>Math.abs(p[0]-s.M)<1e-10);return point?[{name,x:point[0],y:point[1],anchor:name==='Outlet'?'end':'start'}]:[]});}
  return options.filter(o=>id!=='normal'||['normal-M','normal-p','normal-rho','normal-T','normal-p0','normal-dsR'].includes(o.key)).filter(o=>o.chart.series.some(s=>s.points.length));

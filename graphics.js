@@ -238,6 +238,23 @@ if(s.comparison){
  }
  else if(s.kind==='coneDetached'){inner+=txt(320,135,'Detached shock · no attached solution','#17212b',18,'middle')+txt(320,175,`θc,max = ${fmt(s.limits.thetaMaxDeg,6)}°`,'#17212b',16,'middle');label='Attached-shock limit exceeded';meta='Detached flow field is not computed';}
  else if(s.kind==='cone'){let {x,y,length:L}=coneGeometry(s),b=s.beta,c=s.thetaCone;let h=s.history,vals=fieldValues(s,'cone',quantity),lo=inputs.bodyRange?.min??Math.min(...vals),hi=inputs.bodyRange?.max??Math.max(...vals),norm=v=>hi-lo<1e-14?.5:(v-lo)/(hi-lo);field={quantity,label:quantityLabel(quantity,'cone'),min:lo,max:hi,units:quantity==='mach'?'M':quantity==='pressure'?'p/p∞':quantity==='temperature'?'T/T∞':'ρ/ρ∞'};for(let i=0;i<h.length-1;i++){let a=h[i],d=h[i+1],v=vals[i];for(let sign of [-1,1])inner+=poly([[x,y],[x+L,y+sign*L*Math.tan(a.theta)],[x+L,y+sign*L*Math.tan(d.theta)]],(inputs.bodyRange?cornerContourColor:contourColor)(norm(v)));}inner+=poly([[x,y],[x+L,y-L*Math.tan(c)],[x+L,y+L*Math.tan(c)]],'#d7d9d5','#56636b',1.5);for(let sign of [-1,1])inner+=line(x,y,x+L,y+sign*L*Math.tan(b),'#000000',2);inner+=directedArrow(24,145,70,0)+directedArrow(24,184,70,0)+coneAnnotations(s,inputs,{txt,line,fmt});label=`Taylor–Maccoll analytical field · ${field.label}`;meta='Conical similarity · meridional plane · no CFD';}
+ else if(s.kind==='linearizedTube'){
+  const left=-(inputs.finiteDriverLength??4),right=inputs.finiteDrivenLength??6,time=s.end/2;
+  const X=x=>35+(x-left)/(right-left)*570;
+  const boundaries=[left,s.leftSpeed*time,s.rightSpeed*time,right];
+  const labels=['Driver','Intermediate region','Driven'];
+  const pressures=[inputs.p4*1000,s.pressure,inputs.p1*1000];
+  const color=v=>contourColor((v-pressures[2])/(pressures[0]-pressures[2]));
+  for(let i=0;i<3;i++){
+   const a=X(boundaries[i]),b=X(boundaries[i+1]),mid=(a+b)/2,ink=i===1?'#17212b':'#ffffff';
+   inner+=poly([[a,103],[b,103],[b,205],[a,205]],color(pressures[i]));
+   if(b-a>77)inner+=txt(mid,150,labels[i],ink,14,'middle')+txt(mid,176,`${fmt(pressures[i]/1000,6)} kPa`,ink,13,'middle');
+  }
+  for(const x of boundaries.slice(1,-1))inner+=line(X(x),92,X(x),216,'#29394b',1.7,'5 4');
+  inner+=line(35,103,605,103,'#29394b',1.4)+line(35,205,605,205,'#29394b',1.4)+txt(320,52,`Linear acoustics · t = ${fmt(time*1000,5)} ms`,'#17212b',16,'middle');
+  inner+=txt(35,242,`x = ${fmt(left)} m`,undefined,13)+txt(605,242,`x = ${fmt(right)} m`,undefined,13,'end');
+  label='Linearized shock-tube pressure';meta='Two acoustic waves · before wall reflections';
+ }
  else if(s.kind==='tube'){const head=s.head*time,tail=s.tail*time,contact=s.contact*time,shock=s.shockSpeed*time;const xmin=s.closedBounds?.[0]??Math.min(-1,head*1.1),xmax=s.closedBounds?.[1]??Math.max(1.8,shock*1.1),X=x=>35+(x-xmin)/(xmax-xmin)*570;
   inner+=poly([[35,92],[X(head),92],[X(head),213],[35,213]],shade(inputs.p4*1000));for(let i=0;i<50;i++){let a=head+(tail-head)*i/50,b=head+(tail-head)*(i+1)/50,xi=(a+b)/(2*time)-(s.initialVelocity??0),sound=2*s.a4/(inputs.gamma+1)-(inputs.gamma-1)*xi/(inputs.gamma+1),pressure=inputs.p4*1000*(sound/s.a4)**(2*inputs.gamma/(inputs.gamma-1));inner+=poly([[X(a),92],[X(b),92],[X(b),213],[X(a),213]],shade(pressure)).replace('<polygon ','<polygon data-expansion-band ');}inner+=poly([[X(tail),92],[X(shock),92],[X(shock),213],[X(tail),213]],shade(s.p))+poly([[X(shock),92],[605,92],[605,213],[X(shock),213]],shade(inputs.p1*1000));for(let [x,name,col,dash] of [[head,'head','#7a9a80',''],[tail,'tail','#7a9a80',''],[contact,'contact','#62858e','5 4'],[shock,'shock','#000000','']]){inner+=line(X(x),83,X(x),223,col,1.5,dash)+txt(X(x),name==='contact'?250:69,name,col,9,'middle');}inner+=line(35,92,605,92,'#819783',2)+line(35,213,605,213,'#819783',2)+txt(320,34,`t = ${fmt(time*1000,3)} ms · before wall reflection`,undefined,11,'middle')+txt(320,162,`u₂ = u₃ = ${fmt(s.u)} m/s`,'#ffffff',14,'middle')+txt(35,281,`x = ${fmt(xmin)} m`,undefined,9)+txt(605,281,`x = ${fmt(xmax)} m`,undefined,9,'end');if(s.closedBounds)inner+=line(35,92,35,213,'#20394a',2)+line(605,92,605,213,'#20394a',2);
   if(s.sample!=null)inner+=tubeSampleMark(X(s.sample),92,213);
