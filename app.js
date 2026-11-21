@@ -668,6 +668,11 @@ function resultSidebarRows(d){
  return [{label:'Required friction parameter',value:d.result.lambda,unit:'4fꜰL/D = fᴅL/D'},...lengths];
 }
 function renderRegionTable(d){
+ if(d.id==='nozzle'&&d.result.nozzleType==='converging'){
+  $('regionTablePanel').hidden=true;
+  $('regionTable').replaceChildren();
+  return;
+ }
  const showShockGuide=d.id==='fanno'&&d.result.fullSystem&&d.inputs.fannoCondition===fannoConditions[0];
  const shockGuide=showShockGuide?'<p class="control-hint">Use the back-pressure slider above to set the shock location. The station properties in this table depend on the selected location.</p>':'';
  if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure||d.id==='nozzle'){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Gas properties across the shock':d.result.twoStagePiston?'Gas properties before catch-up':d.id==='nozzle'?'Nozzle station properties':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${r.label}</th>${r.values.map(v=>`<td>${fmt(v,6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${backPressureHTML(t.note)}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
