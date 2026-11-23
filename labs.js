@@ -26,6 +26,7 @@ import {fittedShockFanSlipLayer} from './channel-moc-shocks.js?v=20261120-moc-sl
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261120-single-wall';
 import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261121-airfoil-forces';
+import {criticalMachMethods,solveCriticalMach} from './critical-mach.js';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261119-cone-limit-help';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -84,7 +85,7 @@ export const chapters=[
  [6,'Supersonic Wave Lab','Oblique shocks, expansion & interaction',['wall','collision']],
  [7,'Unsteady waves','Shock-tube wave system',['tube']],
  [8,'Nozzle flow','Quasi-1D regimes & shock position',['nozzle']],
- [9,'Supersonic airfoils','Linearized and shock–expansion methods',['airfoil']],
+ [9,'Airfoils','Supersonic airfoil analysis and critical Mach number',['airfoil','critical-mach']],
  [10,'Wedge & Cone Lab','Taylor–Maccoll similarity solution',['cone']]
 ];
 export const labs={
@@ -159,6 +160,16 @@ export const labs={
  {key:'upperProfile',label:'Upper vertices · x/c,y/c',type:'textarea',value:'0,0; 0.3,0.04; 0.7,0.03; 1,0'},
  {key:'lowerProfile',label:'Lower vertices · x/c,y/c',type:'textarea',value:'0,0; 0.3,-0.04; 0.7,-0.03; 1,0'},T,P,g
  ],model:'Steady 2D sharp airfoil · sequential weak shocks and centered expansions · small-disturbance comparison',equation:'Cp = (p − p∞)/q∞ · φ/(U∞c) = −½ ∫ Cp d(x/c)',limitations:'Surface panels and local trailing-edge pressure/direction matching are solved. Upstream wave intersections, subsequent downstream interactions, viscous wake thickness and mixing are not resolved. Shock–expansion requires attached shocks and supersonic surface states. Linearized potential is first order and uses zero perturbation potential at the leading edge.'},
+ 'critical-mach':{chapter:9,title:'Critical Mach Number',tag:'CHAPTER 9 · SONIC ONSET',
+  description:'Estimate the freestream Mach number at which the flow first reaches Mach 1 on the airfoil surface.',
+  inputs:[
+   {...input('gamma','Specific heat ratio',1.4,1.01,2,.001,'γ'),section:'Gas properties'},
+   input('minimumIncompressibleCp','Minimum incompressible pressure coefficient',-.9,-3,-.01,.01,'Cₚ,₀ min'),
+   {key:'compressibilityCorrection',label:'Compressibility correction',value:criticalMachMethods[0],options:criticalMachMethods},
+  ],
+  model:'Two-dimensional subsonic airfoil flow · constant specific heat ratio',
+  equation:'Find where the corrected minimum surface Cp equals the sonic Cp from Eq. (9–115).',
+  limitations:'Use the lowest incompressible Cp from either surface of the same airfoil at the same angle of attack. These corrections estimate sonic onset. The location of the minimum requires a surface pressure distribution.'},
  linear:{chapter:9,title:'Linearized diamond airfoil',tag:'SMALL-DISTURBANCE THEORY',description:'Inspect surface pressure, lift and wave drag for a thin, symmetric double-wedge airfoil.',inputs:[input('M','Freestream Mach',3,1.1,8,.01,'M∞'),input('alpha','Angle of attack',4,-10,10,.1,'°'),input('thickness','Thickness-to-chord ratio',.08,0,.2,.005,'t/c')],model:'Linearized supersonic flow · small slopes and angle of attack',equation:'Cᴸ = 4α/√(M∞² − 1)   ·   Cᴰ = 4[α² + (t/c)²]/√(M∞² − 1)',limitations:'Angles in the equations are radians. This is an approximation, especially near Mach 1. Viscous drag and finite-span effects are absent.'},
  cone:{chapter:10,title:'Wedge & Cone Lab',tag:'AXISYMMETRIC SIMILARITY',description:'Compare two-dimensional wedge flow with axisymmetric cone flow; inspect shock angles and surface properties.',inputs:[{key:'bodyGeometry',label:'Geometry',value:'Cone',options:['Cone','Wedge','Compare both']},{key:'nearbyWall',label:'Nearby wall',value:'None',options:['None','Below wedge','Above wedge','Both walls']},input('wallDistance','Tip-to-wall distance',1,.001,100,.01,'m'),input('wedgeAlpha','Wedge angle of attack α',0,-20,20,.1,'°'),input('M','Freestream Mach',2,1.2,6,.0001,'M∞'),input('thetaCone','Cone half-angle',10,1,35,.1,'°'),T,P,g],model:'Steady, inviscid, axisymmetric sharp cone · zero angle of attack',equation:'dVᵣ/dθ = Vθ   ·   Vθ(θc) = 0',limitations:'Adaptive RK4 step doubling and a bracketed shock-angle search. Strong branches and detached cones are outside this release. Full book-example acceptance is pending.'}
 };
@@ -304,6 +315,7 @@ function groupStationInputs(fields){
  });
 }
 export function inputDefinitions(id,x={}){
+ if(id==='critical-mach')return labs[id].inputs;
  const fields=stateInputFields(id,x,ductInputDefinitions(id,x)).filter(f=>f.key!=='trackingStation').map(f=>id==='rayleigh'&&f.key==='M1'&&(x.ductSolve==='Upstream reference + sonic outlet'||x.ductProblem==='Upstream adjustment to sonic outlet')?{...f,min:.00001,max:.999999,sliderMin:.00001,sliderMax:.999999}:f);
  const ordered=id==='rayleigh'?
   ['ductProblem','ductSolve','rayleighInput'].flatMap(key=>fields.filter(f=>f.key===key))
@@ -321,6 +333,13 @@ export function nozzleInfo(x){
 
 export function defaults(id){return {...(id==='wall'?{customInteraction:'',inletFlowSide:inletFlowSides[0],inletLowerDefinition:inletLowerDefinitions[0],inletLowerHeightRatio:.5,inletLowerWallLengthRatio:1,inletLowerStartRatio:0,inletLowerCowlRatio:1,inletBottomSegments:[{angle:-8,length:1}],inletSolutionVersion:2,inletReference:2,inletHeightRatio:.5,inletCowlRatio:1,inletTerminal:'Wall reflections',inletLowerSegments:multiRampPreset.inletLowerSegments.map(p=>({...p})),inletUpperWallRatio:1,inletUpperStartRatio:0}:{}),...(id==='wall'?{fanShockAngle:10,fanExpansionAngle:10}:{}),...(id==='wall'?{ramjetOrientation:ramjetOrientations[0]}:{}),...(['airfoil','fanno','wall','tube','cone','rayleigh'].includes(id)?{bookExample:''}:{}),...stateInputDefaults,...systemDefaults,...Object.fromEntries(labs[id].inputs.map(x=>[x.key,x.value])),...(id==='rayleigh'?{rayleighInput:'Heat transfer + Inlet Mach',targetMach:.8,targetPressure:80}:{}),...(id==='balances'?controlVolumePreset():{}),inletT0:350,outletT0:400,inletBranch:'Subsonic',targetMach:.8,fannoInput:'Friction length',fluid:'Air',gamma:1.4,R:287,...(['oblique','expansion'].includes(id)?{cornerView:'Analytical contours',cornerColorVersion:1}:{})};}
 export function calculate(id,x){
+ if(id==='critical-mach'){
+  const {minimumIncompressibleCp,gamma,compressibilityCorrection}=x;
+  const result=solveCriticalMach(minimumIncompressibleCp,gamma,compressibilityCorrection);
+  return {id,inputs:x,model:labs[id].model,result,chart:result.chart,scene:null,
+   rows:[row('Critical Mach number',result.mach,'Mcr'),row('Sonic pressure coefficient',result.pressureCoefficient,'Cp,cr')],
+   checks:{},shockDetails:[],notice:null,version:'0.1.0'};
+ }
  const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,singlePistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
  x=normalizeStateInputs(id,id==='nozzle'?resolveNozzleCase(x):x);
  const closed=id==='tube'&&x.unsteadyExperiment===pistonExperiment&&x.pistonDomain===closedPistonMode;

@@ -5,6 +5,19 @@ import {labs,defaults,calculate,inputDefinitions} from './labs.js';
 import {sceneSVG,chartSVG} from './graphics.js';
 import {rayleigh,deg} from './physics.js';
 import {cone} from './cone.js';
-test('every registered laboratory computes and renders finite SVG at default inputs',()=>{for(let id of Object.keys(labs)){let x=defaults(id),d=calculate(id,x),s=sceneSVG(d.scene,x),c=chartSVG(d.chart);assert.ok(d.rows.length>0,id);assert.ok(!/NaN|Infinity|undefined/.test(s.svg),id+' scene');assert.ok(!/NaN|Infinity|undefined/.test(c.svg),id+' chart');assert.ok(s.svg.includes('<title>'),id);assert.ok(c.svg.includes('<title>'),id);}});
+test('every registered laboratory computes and renders finite SVG at default inputs',()=>{
+ for(const id of Object.keys(labs)){
+  const x=defaults(id),d=calculate(id,x),chart=chartSVG(d.chart);
+  assert.ok(d.rows.length>0,id);
+  assert.ok(!/NaN|Infinity|undefined/.test(chart.svg),id+' chart');
+  assert.ok(chart.svg.includes('<title>'),id);
+  if(id==='critical-mach')assert.equal(d.scene,null);
+  else{
+   const scene=sceneSVG(d.scene,x);
+   assert.ok(!/NaN|Infinity|undefined/.test(scene.svg),id+' scene');
+   assert.ok(scene.svg.includes('<title>'),id);
+  }
+ }
+});
 test('scientific engine rejects malformed numeric inputs',()=>{for(let id of Object.keys(labs)){let x=defaults(id);let key=inputDefinitions(id,x).find(f=>!f.options&&!f.readOnly&&!f.type).key;x[key]=NaN;assert.throws(()=>calculate(id,x),undefined,id);}});
 test('independent Python references for Rayleigh and Taylor–Maccoll',()=>{let ref=JSON.parse(readFileSync(new URL('./reference.json',import.meta.url)));for(let r of ref.rayleigh){let s=rayleigh({M1:r.M1,q:r.q});assert.ok(Math.abs(s.s2.M-r.M2)<2e-9);}for(let r of ref.cone){let s=cone({M:r.M,thetaCone:r.thetaCone});assert.ok(Math.abs(deg(s.beta)-r.betaDeg)<2e-6);assert.ok(Math.abs(s.surface.M-r.surfaceM)<2e-7);assert.ok(Math.abs(s.surface.p-r.surfaceP)<2e-7);}});

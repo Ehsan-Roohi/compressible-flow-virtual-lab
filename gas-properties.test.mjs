@@ -5,13 +5,14 @@ import {calculate,defaults,inputDefinitions,labs} from './labs.js';
 import {controlVolume,controlVolumePreset} from './control-volume.js';
 import {sceneSVG,chartSVG} from './graphics.js';
 const near=(a,b,t=2e-9)=>assert.ok(Math.abs(a-b)<t*Math.max(1,Math.abs(a),Math.abs(b)),`${a} vs ${b}`);
+const gasLabs=Object.keys(labs).filter(id=>id!=='critical-mach');
 test('Gas presets use SI constants and thermodynamically consistent fixed heat capacities',()=>{
  assert.equal(gasPresets['Hydrogen (H₂)'].R,4124);assert.equal(gasPresets['Helium (He)'].R,2076.9);
  for(const [name,p] of Object.entries(gasPresets)){const x=selectGas({},name),r=gasInfo(x);assert.equal(r.name,name);near(r.cp-r.cv,p.R);near(r.cp/r.cv,p.gamma);assert.equal(r.referenceTemperature,300);}
  const x=selectGas({gamma:1.22,R:500},'Custom gas');assert.equal(x.gamma,1.22);assert.equal(gasInfo(x).name,'Custom gas');assert.throws(()=>selectGas({},'unknown'));
 });
-test('All laboratory interfaces expose one working gas, gamma and R selector',()=>{
- for(const id of Object.keys(labs))for(const fluid of ['Air','Hydrogen (H₂)','Custom gas']){const x=selectGas(defaults(id),fluid),f=inputDefinitions(id,x);for(const key of ['fluid','gamma','R'])assert.equal(f.filter(v=>v.key===key).length,1);assert.equal(f.find(v=>v.key==='R').readOnly,fluid!=='Custom gas');assert.ok(f.find(v=>v.key==='R').max>=4124);}
+test('Laboratories with a working gas expose a single gas, gamma and R selector',()=>{
+ for(const id of gasLabs)for(const fluid of ['Air','Hydrogen (H₂)','Custom gas']){const x=selectGas(defaults(id),fluid),f=inputDefinitions(id,x);for(const key of ['fluid','gamma','R'])assert.equal(f.filter(v=>v.key===key).length,1);assert.equal(f.find(v=>v.key==='R').readOnly,fluid!=='Custom gas');assert.ok(f.find(v=>v.key==='R').max>=4124);}
 });
 test('Changing R at fixed gamma scales density, sound speed and shock entropy consistently',()=>{
  for(const id of ['foundations','normal']){
@@ -31,9 +32,9 @@ test('Rayleigh, Fanno and nozzle dimensional properties use the selected gas',()
  if(id==='nozzle'){near(b.massFlow,a.massFlow/2);near(b.Me,a.Me);}
  }
 });
-test('Named gases render across all experiments; control-volume examples adapt to the chosen gas',()=>{
+test('Named gases render in gas-selectable experiments; control-volume examples adapt to the chosen gas',()=>{
  for(const name of Object.keys(gasPresets)){
- for(const id of Object.keys(labs)){
+ for(const id of gasLabs){
  let x=selectGas(defaults(id),name);if(id==='balances')x={...x,...controlVolumePreset('nozzle',x)};
  const d=calculate(id,x);assert.equal(d.gas.name,name);assert.ok(!/NaN|Infinity|undefined/.test(sceneSVG(d.scene,x).svg),name+' '+id);assert.ok(!/NaN|Infinity|undefined/.test(chartSVG(d.chart).svg));
  }
