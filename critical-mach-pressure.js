@@ -1,6 +1,7 @@
 import {requireValue} from './numerics.js';
 import {nacaPanelContour, normalizeNacaSection} from './wing-naca-geometry.js';
 import {solveAirfoilPanelCoordinates} from './wing-airfoil-panel-2d.js';
+import {pressureAirfoilCode, publishedPressureSources} from './critical-mach-data.js';
 
 export const automaticPressure = 'NACA airfoil · automatic';
 export const manualPressure = 'Enter Cp manually';
@@ -9,40 +10,41 @@ const panelSource = {
  label: 'Wing AeroStruct · 2D vortex panel method',
  url: 'https://ehsan-roohi.github.io/Aerospace-Structures/wing-panel-stress-analyzer/#wing',
 };
-const experiments = {
- '4412': {
-  // The digitized 12° file duplicates 8° in the source; do not use it.
-  angles: [0, 2, 4, 8], mach: .059, reynolds: 1.8e6,
-  label: 'NACA TR-613 · Pinkerton (digitized)',
-  url: 'https://ntrs.nasa.gov/citations/19930091689',
-  dataUrl: 'https://ehsan-roohi.github.io/Aerospace-Structures/wing-panel-stress-analyzer/ml-airfoil/experiment-reference.json',
- },
- '0012': {
-  // Upper-surface tap data represent both sides by symmetry only at 0°.
-  angles: [0], mach: .16, reynolds: 2.88e6,
-  label: 'Turbulence Modeling Resource · Gregory & O’Reilly (digitized)',
-  url: 'https://tmbwg.github.io/turbmodels/naca0012_val.html',
-  dataUrl: 'https://tmbwg.github.io/turbmodels/NACA0012_validation/CP_Gregory_expdata.dat',
- },
-};
-
 function pressureSamples(rows, side) {
  if (!Array.isArray(rows)) return [];
  return rows.filter(pair => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite) &&
   pair[0] >= 0 && pair[0] <= 1.005).map(([x, cp]) => ({x, cp, side}));
 }
 
-function measuredDistribution(text, code, alpha, source) {
- if (code === '4412') {
+function readAspireDistribution(text) {
+ // ASPIRE rows start at the upper trailing edge, pass the nose and return along the lower surface.
+ const [header, ...lines] = text.trim().split(/\r?\n/);
+ const [label, machField] = header.split(',');
+ const mach = Number.parseFloat(machField);
+ if (label !== '' || !Number.isFinite(mach) || mach < 0 || mach > .2) return null;
+ const rows = lines.map(line => line.split(',').map(value => value.trim() ? Number(value) : NaN));
+ const leading = rows.reduce((i, point, j) => point[0] < rows[i][0] ? j : i, 0);
+ const upper = pressureSamples(rows.slice(0, leading + 1), 'upper');
+ const lower = pressureSamples(rows.slice(leading), 'lower');
+ if (upper.length < 10 || lower.length < 10 || rows[leading][0] > .025 ||
+     upper[0].x < .69 || lower.at(-1).x < .69 ||
+     upper.some((point, i) => i > 0 && point.x > upper[i - 1].x) ||
+     lower.some((point, i) => i > 0 && point.x < lower[i - 1].x)) return null;
+ return {samples: [...upper, ...lower], mach};
+}
+
+function measuredDistribution(text, alpha, source) {
+ if (source.format === 'aspire') return readAspireDistribution(text);
+ if (source.format === 'pinkerton') {
   const data = JSON.parse(text);
-  if (data.source?.type !== 'experiment' || data.mach !== source.mach || data.reynolds !== source.reynolds) return [];
+  if (data.source?.type !== 'experiment' || data.mach !== source.mach || data.reynolds !== source.reynolds) return null;
   const match = data.cases?.find(row => row.alphaDeg === alpha);
   const upper = pressureSamples(match?.branch1, 'upper'), lower = pressureSamples(match?.branch2, 'lower');
-  return upper.length >= 10 && lower.length >= 10 ? [...upper, ...lower] : [];
+  return upper.length >= 10 && lower.length >= 10 ? {samples: [...upper, ...lower], mach: source.mach} : null;
  }
  const section = text.split(/^zone\s*,\s*t=/m).find(part => part.startsWith('"alpha=0"'));
  const rows = section?.trim().split(/\r?\n/).slice(1).map(line => line.trim().split(/\s+/).map(Number));
- return pressureSamples(rows, 'both');
+ return {samples: pressureSamples(rows, 'both'), mach: source.mach};
 }
 
 const downloaded = new Map();
@@ -65,19 +67,20 @@ function minimumSample(samples) {
 
 export async function readPublishedPressure(inputs, read = fetchPublishedData) {
  if (inputs.criticalPressureSource !== automaticPressure) return null;
- const code = String(inputs.criticalNacaCode ?? '').trim().replace(/^NACA\s*/i, '');
- const alpha = inputs.criticalAlpha, source = experiments[code];
- if (!source?.angles?.includes(alpha)) return null;
- try {
-  const samples = measuredDistribution(await read(source.dataUrl), code, alpha, source);
-  const min = samples.length >= 10 ? minimumSample(samples) : null;
-  if (!min || min.cp >= 0) return null;
-  // Remove the small freestream compressibility correction from the measured baseline.
-  const cp = min.cp * Math.sqrt(1 - source.mach ** 2);
-  return {...min, cp, measuredCp: min.cp, kind: 'published', source, code, alpha};
- } catch {
-  return null;
+ const code = pressureAirfoilCode(inputs.criticalNacaCode), alpha = inputs.criticalAlpha;
+ for (const source of publishedPressureSources(code, alpha)) {
+  try {
+   const data = measuredDistribution(await read(source.dataUrl), alpha, source);
+   const min = data?.samples.length >= 10 ? minimumSample(data.samples) : null;
+   if (!min || min.cp >= 0) continue;
+   // Remove the small freestream compressibility correction from the measured baseline.
+   const cp = min.cp * Math.sqrt(1 - data.mach ** 2);
+   return {...min, cp, measuredCp: min.cp, kind: 'published', source: {...source, mach: data.mach}, code, alpha};
+  } catch {
+   // Continue to the next matching experiment, then use the panel solve if necessary.
+  }
  }
+ return null;
 }
 
 let lastPanelCase;

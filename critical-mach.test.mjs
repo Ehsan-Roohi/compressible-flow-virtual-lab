@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {compareCriticalMach, criticalMachMethods, solveCriticalMach} from './critical-mach.js';
 import {automaticPressure, manualPressure, readPublishedPressure} from './critical-mach-pressure.js';
+import {publishedPressureAngles} from './critical-mach-data.js';
 import {calculate, chapters, defaults, inputDefinitions} from './labs.js';
 import {chartSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
@@ -110,6 +111,44 @@ test('symmetric NACA 0012 uses the zero-angle zone without consuming the next an
  assert.equal(match.measuredCp, -.42);
  assert.equal(match.side, 'both');
  assert.equal(match.x, .2);
+});
+
+const aspireFixture = (mach, nearNose = 0) => {
+ const branch = Array.from({length: 11}, (_, i) => [nearNose + (1 - nearNose) * i / 10, i === 2 ? -1.1 : 0]);
+ const lower = branch.map(([x, cp], i) => [x, i === 3 ? -1.6 : cp]);
+ return [`,${mach}`, ...[...branch.reverse(), ...lower.slice(1)].map(row => row.join(','))].join('\n');
+};
+
+test('ASPIRE reads both surfaces and uses the Mach in the CSV rather than the rounded file tag', async () => {
+ const inputs = {...defaults('critical-mach'), criticalNacaCode: 'NACA 0015', criticalAlpha: 0};
+ const read = async url => {
+  assert.match(url, /NACA%200015_A0_M0\.13_Re1\.5e6_A\.csv$/);
+  return aspireFixture(.12);
+ };
+ const match = await readPublishedPressure(inputs, read);
+ assert.equal(match.source.mach, .12);
+ assert.equal(match.source.reynolds, 1.5e6);
+ assert.equal(match.measuredCp, -1.6);
+ assert.equal(match.side, 'lower');
+ assert.equal(match.x, .3);
+ assert.deepEqual(publishedPressureAngles('23012'), [-6.32, -.27, 2.7, 5.74, 8.83, 12.05]);
+ assert.equal(await readPublishedPressure({...inputs, criticalAlpha: .1}, read), null);
+ assert.equal(await readPublishedPressure(inputs, async () => aspireFixture(.12, .15)), null);
+ assert.equal(await readPublishedPressure(inputs, async () => aspireFixture(.4)), null);
+});
+
+test('the alternate report for 4412 runs after an unavailable primary source', async () => {
+ const inputs = {...defaults('critical-mach'), criticalAlpha: 2};
+ const requests = [];
+ const match = await readPublishedPressure(inputs, async url => {
+  requests.push(url);
+  if (url.endsWith('experiment-reference.json')) throw Error('Offline');
+  return aspireFixture(.051);
+ });
+ assert.equal(requests.length, 2);
+ assert.match(requests[1], /TR-563\/NACA%204412_A2\.0_M0\.05_Re3\.1e6_A_NACA%20TR-563\.csv$/);
+ assert.equal(match.source.mach, .051);
+ assert.match(match.source.label, /TR-563/);
 });
 
 test('missing, unavailable and mismatched measurements fall back to the existing Wing AeroStruct panel solution', async () => {
