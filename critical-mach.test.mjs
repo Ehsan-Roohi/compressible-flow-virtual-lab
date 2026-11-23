@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {criticalMachMethods, solveCriticalMach} from './critical-mach.js';
+import {compareCriticalMach, criticalMachMethods, solveCriticalMach} from './critical-mach.js';
 import {calculate, chapters, defaults, inputDefinitions} from './labs.js';
+import {chartSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 
 test('each Chapter 9 correction gives a distinct sonic crossing for the same pressure input', () => {
@@ -35,4 +36,36 @@ test('the critical Mach lab keeps the airfoil route first and exposes only its r
  assert.equal(plotOptions(data)[0].chart, data.chart);
  assert.throws(() => calculate(id, {...inputs, minimumIncompressibleCp: 0}), /negative value/);
  assert.throws(() => calculate(id, {...inputs, gamma: 1}), /greater than 1/);
+});
+
+test('comparison shows the same three solutions on one chart with a shared sonic curve', () => {
+ const id = 'critical-mach';
+ const settings = defaults(id);
+ assert.deepEqual(inputDefinitions(id).at(-1).options, [...criticalMachMethods, compareCriticalMach]);
+ for (const [cp0, gamma] of [[-.9, 1.4], [-.01, 1.01], [-3, 2]]) {
+  const data = calculate(id, {...settings, minimumIncompressibleCp: cp0, gamma, compressibilityCorrection: compareCriticalMach});
+  const {corrections} = data.result;
+  const {series, markers, yRange} = data.chart;
+  assert.deepEqual(corrections.map(r => r.method), criticalMachMethods);
+  assert.equal(series.length, 4);
+  assert.equal(markers.length, 3);
+  assert.equal(data.rows.length, 6);
+  for (const [i, result] of corrections.entries()) {
+   const single = solveCriticalMach(cp0, gamma, result.method);
+   const crossing = [single.mach, single.pressureCoefficient];
+   assert.deepEqual([result.mach, result.pressureCoefficient], crossing);
+   assert.deepEqual([markers[i].x, markers[i].y], crossing);
+   assert.equal(markers[i].color, series[i].color);
+   const hasCrossing = ({points}) => points.some(([x, y]) => x === crossing[0] && y === crossing[1]);
+   assert.ok(hasCrossing(series[i]) && hasCrossing(series.at(-1)));
+   assert.ok(Math.abs(series[i].points.at(-1)[1] - yRange[0]) < 1e-7);
+   assert.deepEqual(data.rows.slice(2 * i, 2 * i + 2).map(r => r.value), crossing);
+  }
+  const {svg, legend} = chartSVG(plotOptions(data)[0].chart);
+  assert.doesNotMatch(svg, /NaN|Infinity|undefined/);
+  for (const method of criticalMachMethods) {
+   assert.ok(legend.includes(method));
+   assert.ok(svg.includes(`<title>${method}</title>`));
+  }
+ }
 });

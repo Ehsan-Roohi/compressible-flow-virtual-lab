@@ -32,7 +32,7 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261123-critical-mach';
+import {plotOptions} from './plot-options.js?v=20261124-critical-mach-comparison';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
@@ -41,8 +41,8 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261123-critical-mach';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261123-critical-mach';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-critical-mach-comparison';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-critical-mach-comparison';
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
@@ -121,7 +121,7 @@ const pistonExamplePresets={
 const $=id=>document.getElementById(id);let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261123-critical-mach',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-critical-mach-comparison',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -817,6 +817,10 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
   const plotResults=$('tubePlotResults');
   plotResults.hidden=!grouped.belowPlot.length;
   plotResults.innerHTML=grouped.belowPlot.map(({title,rows})=>`<section><h3>${title}</h3><dl class="tube-plot-values">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${fmt(r.value,6)} <small>${r.unit}</small></dd></div>`).join('')}</dl></section>`).join('');
+ }else if(d.id==='critical-mach'&&d.result.corrections){
+  $('results').innerHTML=`<div class="flow-relations-panel flow-relations-scroll">
+   <table aria-label="Critical Mach number comparison"><thead><tr><th scope="col">Method</th><th scope="col">M<sub>cr</sub></th><th scope="col">C<sub>p,cr</sub></th></tr></thead>
+   <tbody>${d.result.corrections.map(({method,mach,pressureCoefficient})=>`<tr><th scope="row">${method}</th><td>${fmt(mach)}</td><td>${fmt(pressureCoefficient)}</td></tr>`).join('')}</tbody></table></div>`;
  }else $('results').innerHTML=results.map(renderRow).join('');
  renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();$('exportJson').disabled=false;$('exportCsv').disabled=false;$('pin').disabled=false;$('exportSvg').disabled=!d.scene;if(d.scene)renderScene();updatePlotChoices();renderCompare();}
 function renderWaveKey(result){

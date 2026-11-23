@@ -1,6 +1,8 @@
 import {bisect, linspace, requireValue} from './numerics.js';
 
 export const criticalMachMethods = ['Prandtl–Glauert', 'Kármán–Tsien', 'Laitone'];
+export const compareCriticalMach = 'Compare all three';
+const comparisonColors = ['#167c70', '#285ca8', '#ae542c'];
 
 function sonicPressureChange(mach, gamma) {
  return Math.expm1(gamma / (gamma - 1) *
@@ -22,53 +24,69 @@ function correctionTerms(mach, cp0, gamma, method) {
  return [beta, 1];
 }
 
-export function solveCriticalMach(cp0, gamma, method) {
- requireValue(Number.isFinite(cp0) && cp0 < 0, 'Enter a negative value for the minimum incompressible pressure coefficient.');
- requireValue(Number.isFinite(gamma) && gamma > 1, 'Enter a specific heat ratio greater than 1.');
- requireValue(criticalMachMethods.includes(method), 'Select a compressibility correction.');
+const root = (fn, upper = 1) => bisect(fn, 0, upper, {ftol: 0}).value;
 
+function solveCorrection(cp0, gamma, method, sonicDelta, dynamicPressureRatio) {
  const terms = mach => correctionTerms(mach, cp0, gamma, method);
- const dynamicPressureRatio = mach => gamma * mach ** 2 / 2;
- const sonicCp = mach => sonicPressureChange(mach, gamma) / dynamicPressureRatio(mach);
  const correctedCp = mach => {
   const [denominator, factor] = terms(mach);
   return cp0 * factor / denominator;
  };
- const root = (fn, upper = 1) => bisect(fn, 0, upper, {ftol: 0}).value;
  // Only the branch connected to the incompressible limit has a positive denominator.
  const upper = method === criticalMachMethods[0] ? 1 : root(mach => terms(mach)[0]);
  const mach = root(mach => {
   const [denominator, factor] = terms(mach);
-  return sonicPressureChange(mach, gamma) * denominator - dynamicPressureRatio(mach) * cp0 * factor;
+  return sonicDelta(mach) * denominator - dynamicPressureRatio(mach) * cp0 * factor;
  }, upper);
- const pressureCoefficient = sonicCp(mach);
- const plotFloor = 2.4 * pressureCoefficient;
- const sonicStart = root(mach => sonicPressureChange(mach, gamma) - dynamicPressureRatio(mach) * plotFloor);
- const correctedEnd = root(mach => {
+ const pressureCoefficient = sonicDelta(mach) / dynamicPressureRatio(mach);
+ const endAt = plotFloor => root(mach => {
   const [denominator, factor] = terms(mach);
   return denominator - cp0 / plotFloor * factor;
  }, upper);
- const intersection = [mach, pressureCoefficient];
+ return {method, mach, pressureCoefficient, correctedCp, endAt};
+}
+
+export function solveCriticalMach(cp0, gamma, method) {
+ requireValue(Number.isFinite(cp0) && cp0 < 0, 'Enter a negative value for the minimum incompressible pressure coefficient.');
+ requireValue(Number.isFinite(gamma) && gamma > 1, 'Enter a specific heat ratio greater than 1.');
+ const compare = method === compareCriticalMach;
+ requireValue(compare || criticalMachMethods.includes(method), 'Select a compressibility correction.');
+
+ const sonicDelta = mach => sonicPressureChange(mach, gamma);
+ const dynamicPressureRatio = mach => gamma * mach ** 2 / 2;
+ const sonicCp = mach => sonicDelta(mach) / dynamicPressureRatio(mach);
+ const solutions = (compare ? criticalMachMethods : [method])
+  .map(name => solveCorrection(cp0, gamma, name, sonicDelta, dynamicPressureRatio));
+ const corrections = solutions.map(({method, mach, pressureCoefficient}) => ({method, mach, pressureCoefficient}));
+ const {mach, pressureCoefficient} = corrections[0];
+ const plotFloor = 2.4 * Math.min(...corrections.map(result => result.pressureCoefficient));
+ const sonicStart = root(mach => sonicDelta(mach) - dynamicPressureRatio(mach) * plotFloor);
+ const intersections = corrections.map(result => [result.mach, result.pressureCoefficient]);
+ const sonicStops = [sonicStart, ...intersections.map(([x]) => x).sort((a, b) => a - b), 1];
  const chart = {
-  title: 'Critical Mach number',
+  title: compare ? 'Critical Mach number comparison' : 'Critical Mach number',
   xlabel: 'Freestream Mach number M∞',
   ylabel: 'Pressure coefficient Cp',
   yRange: [plotFloor, 0],
   invertYAxis: true,
-  xReference: {x: mach, y: pressureCoefficient, label: `Mcr = ${Number(mach.toPrecision(5))}`},
-  markers: [{x: mach, y: pressureCoefficient, name: 'Sonic onset'}],
+  ...(compare ? {} : {xReference: {x: mach, y: pressureCoefficient, label: `Mcr = ${Number(mach.toPrecision(5))}`}}),
+  markers: intersections.map(([x, y], i) => compare
+   ? {x, y, name: '', color: comparisonColors[i], title: corrections[i].method}
+   : {x, y, name: 'Sonic onset'}),
   series: [
-   {name: `Minimum Cp · ${method}`, points: [
-    ...linspace(0, mach, 61).slice(0, -1).map(m => [m, correctedCp(m)]),
-    intersection,
-    ...linspace(mach, correctedEnd, 61).slice(1).map(m => [m, correctedCp(m)]),
-   ]},
-   {name: 'Sonic Cp · Eq. (9–115)', dash: '6 4', points: [
-    ...linspace(sonicStart, mach, 61).slice(0, -1).map(m => [m, sonicCp(m)]),
-    intersection,
-    ...linspace(mach, 1, 61).slice(1).map(m => [m, sonicCp(m)]),
-   ]},
+   ...solutions.map(({method, mach, correctedCp, endAt}, i) => ({
+    name: compare ? method : `Minimum Cp · ${method}`,
+    ...(compare ? {color: comparisonColors[i]} : {}),
+    points: [
+     ...linspace(0, mach, 61).slice(0, -1).map(m => [m, correctedCp(m)]),
+     intersections[i],
+     ...linspace(mach, endAt(plotFloor), 61).slice(1).map(m => [m, correctedCp(m)]),
+    ],
+   })),
+   {name: 'Sonic Cp · Eq. (9–115)', dash: '6 4', ...(compare ? {color: '#414b58'} : {}),
+    points: sonicStops.slice(1).flatMap((end, i) => linspace(sonicStops[i], end, 61).slice(0, -1).map(m => [m, sonicCp(m)]))
+     .concat([[1, 0]])},
   ],
  };
- return {status: 'ok', mach, pressureCoefficient, method, chart};
+ return {status: 'ok', method, chart, ...(compare ? {corrections} : {mach, pressureCoefficient})};
 }

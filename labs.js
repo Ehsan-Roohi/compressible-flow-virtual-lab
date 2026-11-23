@@ -26,7 +26,7 @@ import {fittedShockFanSlipLayer} from './channel-moc-shocks.js?v=20261120-moc-sl
 import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261120-single-wall';
 import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261121-airfoil-forces';
-import {criticalMachMethods,solveCriticalMach} from './critical-mach.js';
+import {compareCriticalMach,criticalMachMethods,solveCriticalMach} from './critical-mach.js?v=20261124-critical-mach-comparison';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261119-cone-limit-help';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -165,7 +165,7 @@ export const labs={
   inputs:[
    {...input('gamma','Specific heat ratio',1.4,1.01,2,.001,'γ'),section:'Gas properties'},
    input('minimumIncompressibleCp','Minimum incompressible pressure coefficient',-.9,-3,-.01,.01,'Cₚ,₀ min'),
-   {key:'compressibilityCorrection',label:'Compressibility correction',value:criticalMachMethods[0],options:criticalMachMethods},
+   {key:'compressibilityCorrection',label:'Compressibility correction',value:criticalMachMethods[0],options:[...criticalMachMethods,compareCriticalMach]},
   ],
   model:'Two-dimensional subsonic airfoil flow · constant specific heat ratio',
   equation:'Find where the corrected minimum surface Cp equals the sonic Cp from Eq. (9–115).',
@@ -336,9 +336,14 @@ export function calculate(id,x){
  if(id==='critical-mach'){
   const {minimumIncompressibleCp,gamma,compressibilityCorrection}=x;
   const result=solveCriticalMach(minimumIncompressibleCp,gamma,compressibilityCorrection);
+  const rows=result.corrections
+   ?result.corrections.flatMap(({method,mach,pressureCoefficient})=>[
+    row(`Critical Mach number · ${method}`,mach,'Mcr'),
+    row(`Sonic pressure coefficient · ${method}`,pressureCoefficient,'Cp,cr'),
+   ])
+   :[row('Critical Mach number',result.mach,'Mcr'),row('Sonic pressure coefficient',result.pressureCoefficient,'Cp,cr')];
   return {id,inputs:x,model:labs[id].model,result,chart:result.chart,scene:null,
-   rows:[row('Critical Mach number',result.mach,'Mcr'),row('Sonic pressure coefficient',result.pressureCoefficient,'Cp,cr')],
-   checks:{},shockDetails:[],notice:null,version:'0.1.0'};
+   rows,checks:{},shockDetails:[],notice:null,version:'0.1.0'};
  }
  const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,singlePistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
  x=normalizeStateInputs(id,id==='nozzle'?resolveNozzleCase(x):x);
