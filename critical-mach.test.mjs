@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {compareCriticalMach, criticalMachMethods, solveCriticalMach} from './critical-mach.js';
+import {automaticPressure, manualPressure, readPublishedPressure} from './critical-mach-pressure.js';
 import {calculate, chapters, defaults, inputDefinitions} from './labs.js';
 import {chartSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
@@ -27,8 +28,11 @@ test('the critical Mach lab keeps the airfoil route first and exposes only its r
  const chapter = chapters.find(([number]) => number === 9);
  assert.deepEqual(chapter[3], ['airfoil', 'critical-mach']);
  const id = 'critical-mach';
- assert.deepEqual(inputDefinitions(id).map(({key}) => key), ['gamma', 'minimumIncompressibleCp', 'compressibilityCorrection']);
- const inputs = defaults(id);
+ assert.deepEqual(inputDefinitions(id).map(({key}) => key),
+  ['gamma', 'criticalPressureSource', 'criticalNacaCode', 'criticalAlpha', 'compressibilityCorrection']);
+ const inputs = {...defaults(id), criticalPressureSource: manualPressure};
+ assert.deepEqual(inputDefinitions(id, inputs).map(({key}) => key),
+  ['gamma', 'criticalPressureSource', 'minimumIncompressibleCp', 'compressibilityCorrection']);
  assert.equal(inputs.compressibilityCorrection, criticalMachMethods[0]);
  const data = calculate(id, inputs);
  assert.equal(data.rows[0].value, data.result.mach);
@@ -40,7 +44,7 @@ test('the critical Mach lab keeps the airfoil route first and exposes only its r
 
 test('comparison shows the same three solutions on one chart with a shared sonic curve', () => {
  const id = 'critical-mach';
- const settings = defaults(id);
+ const settings = {...defaults(id), criticalPressureSource: manualPressure};
  assert.deepEqual(inputDefinitions(id).at(-1).options, [...criticalMachMethods, compareCriticalMach]);
  for (const [cp0, gamma] of [[-.9, 1.4], [-.01, 1.01], [-3, 2]]) {
   const data = calculate(id, {...settings, minimumIncompressibleCp: cp0, gamma, compressibilityCorrection: compareCriticalMach});
@@ -68,4 +72,61 @@ test('comparison shows the same three solutions on one chart with a shared sonic
    assert.ok(svg.includes(`<title>${method}</title>`));
   }
  }
+});
+
+test('automatic mode uses the minimum measured pressure of both surfaces at the exact angle', async () => {
+ const id = 'critical-mach', inputs = {...defaults(id), criticalAlpha: 4, compressibilityCorrection: compareCriticalMach};
+ const points = (min, at) => Array.from({length: 11}, (_, i) => [i / 10, i === at ? min : 0]);
+ const fixture = JSON.stringify({source: {type: 'experiment'}, mach: .059, reynolds: 1.8e6, cases: [
+  {alphaDeg: 2, branch1: points(-4, 3), branch2: points(-3, 4)},
+  {alphaDeg: 4, branch1: points(-.9, 3), branch2: points(-1.25, 2)},
+ ]});
+ let requests = 0;
+ const read = async url => {
+  requests++;
+  assert.match(url, /experiment-reference\.json$/);
+  return fixture;
+ };
+ const match = await readPublishedPressure(inputs, read);
+ assert.equal(match.side, 'lower');
+ assert.equal(match.x, .2);
+ assert.equal(match.measuredCp, -1.25);
+ assert.equal(match.cp, -1.25 * Math.sqrt(1 - .059 ** 2));
+ const {result} = calculate(id, inputs, match);
+ assert.equal(result.pressureInput.kind, 'published');
+ for (const method of result.corrections) {
+  assert.equal(method.mach, solveCriticalMach(match.cp, inputs.gamma, method.method).mach);
+ }
+ assert.equal(await readPublishedPressure({...inputs, criticalAlpha: 4.1}, read), null);
+ assert.equal(await readPublishedPressure({...inputs, criticalPressureSource: manualPressure}, read), null);
+ assert.equal(requests, 1);
+});
+
+test('symmetric NACA 0012 uses the zero-angle zone without consuming the next angle', async () => {
+ const inputs = {...defaults('critical-mach'), criticalNacaCode: '0012'};
+ const points = Array.from({length: 11}, (_, i) => `${i / 10} ${i === 2 ? -.42 : 0}`).join('\n');
+ const fixture = `# Upper surface only\nvariables="x/c","cp"\nzone, t="alpha=0"\n${points}\nzone, t="alpha=10"\n0.1 -5\n`;
+ const match = await readPublishedPressure(inputs, async () => fixture);
+ assert.equal(match.measuredCp, -.42);
+ assert.equal(match.side, 'both');
+ assert.equal(match.x, .2);
+});
+
+test('missing, unavailable and mismatched measurements fall back to the existing Wing AeroStruct panel solution', async () => {
+ const id = 'critical-mach', inputs = defaults(id);
+ const unavailable = await readPublishedPressure(inputs, async () => { throw Error('Offline'); });
+ assert.equal(unavailable, null);
+ const {result} = calculate(id, inputs, unavailable);
+ assert.equal(result.pressureInput.kind, 'panel');
+ assert.equal(result.pressureInput.panelsPerSide, 160);
+ assert.ok(Math.abs(result.pressureInput.cp + .921) < .2);
+ const other = {...inputs, criticalPressureSource: automaticPressure, criticalNacaCode: '0012', criticalAlpha: -2};
+ const mismatched = {code: '4412', alpha: 0, cp: -4};
+ const fallback = calculate(id, other, mismatched).result.pressureInput;
+ assert.equal(fallback.kind, 'panel');
+ assert.equal(fallback.side, 'lower');
+ assert.equal(fallback.code, '0012');
+ assert.notEqual(fallback.cp, mismatched.cp);
+ assert.throws(() => calculate(id, {...inputs, criticalNacaCode: '0000'}), /thickness/);
+ assert.throws(() => calculate(id, {...inputs, criticalAlpha: 16}), /angle of attack/);
 });
