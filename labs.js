@@ -1,4 +1,4 @@
-import {calculateAppendix,calculatorMachRange,calculatorModes} from './appendix-calculator.js?v=20261124-appendix-calculator';
+import {calculateAppendix,calculatorMachRange,calculatorModes} from './appendix-calculator.js?v=20261124-compact-shock-calculators';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';

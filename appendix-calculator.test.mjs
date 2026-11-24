@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {calculate, defaults, inputDefinitions} from './labs.js';
-import {calculatorModes} from './appendix-calculator.js';
+import {calculatorModes, shockCalculatorLabs} from './appendix-calculator.js';
 import {sceneSVG, chartSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 
@@ -19,10 +19,14 @@ test('all appendix calculators accept a Mach number, pressure, temperature and e
     const inlet=d.result.s1??d.result;
     near(inlet.p,137900);
     near(inlet.T,277.78);
-    const view=sceneSVG(d.scene,d.inputs);
-    assert.match(view.svg,/<svg/);
-    assert.ok(plotOptions(d).length>0);
-    assert.match(chartSVG(plotOptions(d)[0].chart).svg,/<svg/);
+    if(Object.hasOwn(shockCalculatorLabs,mode)){
+      assert.equal(d.scene,undefined);
+      assert.deepEqual(plotOptions(d),[]);
+      assert.ok(shockCalculatorLabs[mode].href);
+    }else{
+      assert.match(sceneSVG(d.scene,d.inputs).svg,/<svg/);
+      assert.match(chartSVG(plotOptions(d)[0].chart).svg,/<svg/);
+    }
   }
 });
 

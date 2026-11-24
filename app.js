@@ -1,4 +1,4 @@
-import {calculatorMachRange} from './appendix-calculator.js?v=20261124-appendix-calculator';
+import {calculatorMachRange,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-compact-shock-calculators';
 import {createUnitView} from './unit-system.js?v=20261124-us-units';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -44,7 +44,7 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-appendix-calculator';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-compact-shock-calculators';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-appendix-calculator';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -188,7 +188,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-appendix-calculator',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-compact-shock-calculators',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -672,6 +672,9 @@ function pendingAirfoilScene(){
  catch{return '<div class="error-display">Check airfoil geometry.</div>';}
 }
 function solve({stream=false}={}){
+ const compactShock=id==='foundations'&&Object.hasOwn(shockCalculatorLabs,inputs.calculatorMode);
+ document.body.classList.toggle('compact-shock-calculator',compactShock);
+
  if(id==='fanno'&&inputs.ductProblem===fannoSystemMode&&inputs.fannoCondition===fannoConditions[0]){
   const plan=getSweepPlan();if(plan.enabled&&Number.isFinite(inputs.backRatio)){
    inputs.backRatio=Math.max(plan.min,Math.min(plan.max,inputs.backRatio));
@@ -708,6 +711,15 @@ function renderIsentropicRelations(d){
  if(d.result.calculatorSections){
   const sections=d.result.calculatorSections.map(({title,rows})=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${displayValue(r.value,r.unit,8)}${r.unit?` <small>${unitView.label(r.unit)}</small>`:''}</dd></div>`).join('')}</dl></section>`);
   panel.innerHTML=`<div class="card-head"><h2>${d.inputs.calculatorMode}</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${sections.join('')}`;
+  const detailLab=shockCalculatorLabs[d.inputs.calculatorMode];
+  if(detailLab){
+   const note=document.createElement('p'),link=document.createElement('a');
+   note.className='isentropic-note';
+   link.href=detailLab.href;
+   link.textContent=detailLab.label+' ↗';
+   note.append('For flow visualization and plots, open ',link,'.');
+   panel.append(note);
+  }
   addDataExport(panel,'calculator',()=>({rows:d.rows}));
   return;
  }

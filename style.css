@@ -423,3 +423,14 @@ body[data-lab="nozzle"] #flowRelationsPanel td { font-size: 12px; }
 .lab-header .top-actions { flex-wrap: wrap; }
 .units-selector { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 13px; }
 .units-selector select { width: auto; min-height: 30px; padding: 3px 6px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; }
+
+body.compact-shock-calculator .work-grid > .visual-column { display: none; }
+@media (min-width:801px) {
+  body.compact-shock-calculator .work-grid {
+    grid-template-columns: clamp(190px,21%,240px) minmax(0,1fr);
+    grid-template-areas: "controls outputs";
+  }
+}
+@media (max-width:800px) {
+  body.compact-shock-calculator .work-grid { grid-template-areas: "controls" "outputs"; }
+}
