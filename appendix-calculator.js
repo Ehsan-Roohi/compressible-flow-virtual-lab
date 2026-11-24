@@ -2,7 +2,9 @@ import {
   deg, rad, state, normalShock, rayleighRatios, fannoRatios, obliqueShock,
   shockLimit, turnAngle, isentropicRelations, linspace,
 } from './physics.js';
-import {cone} from './cone.js';
+import {cone,coneFromShock} from './cone.js';
+import {coneAttachmentLimit} from './cone-limits.js';
+import {bisect,requireValue} from './numerics.js';
 import {conicalRelations} from './reference-relations.js?v=20261119-cone-limit-help';
 
 export const calculatorModes = {
@@ -31,6 +33,12 @@ const modesByMach = {
   [calculatorModes.conical]: {min:1.01,max:10},
 };
 export const calculatorMachRange = mode => modesByMach[mode] ?? modesByMach[calculatorModes.isentropic];
+
+export const obliqueInputs={
+  weak:'Turn angle (weak shock)',strong:'Turn angle (strong shock)',
+  wave:'Wave angle',normalMach:'Upstream normal Mach number M₁ₙ',
+};
+export const conicalInputs={cone:'Cone half-angle',wave:'Wave angle',surfaceMach:'Surface Mach number M꜀'};
 
 const row = (label, value, unit = '') => ({label,value,unit});
 const section = (title, rows) => ({title,rows});
@@ -137,46 +145,66 @@ function obliqueShockPlots(M,g,limit){
     }));
 }
 
-function shockCalculator(inlet, g, R, theta){
-  const sections=[],comparisons=[];
+function obliqueJumpFromInput(M,g,x,limit){
+  const known=x.calculatorObliqueGiven??obliqueInputs.weak;
+  if(known===obliqueInputs.weak||known===obliqueInputs.strong){
+    const theta=x.calculatorTurn??10;
+    requireValue(Number.isFinite(theta)&&theta>=0&&theta<=90,'Deflection angle must be between 0° and 90°.');
+    if(rad(theta)>limit.theta+1e-12)return {theta:rad(theta),jump:null};
+    const branch=known===obliqueInputs.strong?'strong':'weak';
+    return {theta:rad(theta),jump:obliqueShock(M,rad(theta),g,branch)};
+  }
+  let beta;
+  if(known===obliqueInputs.normalMach){
+    const n=x.calculatorObliqueNormalMach;
+    requireValue(Number.isFinite(n)&&n>=1&&n<=M,'Upstream normal Mach number must be between 1 and the inlet Mach number.');
+    beta=Math.asin(n/M);
+  }else{
+    const wave=x.calculatorObliqueBeta;
+    requireValue(Number.isFinite(wave)&&wave>=deg(limit.mu)-1e-10&&wave<=90,
+      'The wave angle must lie between the inlet Mach angle and 90°.');
+    beta=Math.max(limit.mu,rad(wave));
+  }
+  const theta=Math.max(0,turnAngle(M,beta,g));
+  const jump=normalShock(Math.max(1,M*Math.sin(beta)),g);
+  return {theta,jump:{...jump,beta,theta,M2:jump.M2/Math.sin(beta-theta),branch:beta<=limit.beta?'weak':'strong'}};
+}
+
+function shockCalculator(inlet,g,R,oblique){
   const result={status:'ok',s1:inlet};
   const {M}=inlet;
-  let plots;
-  if(theta!==undefined){
-    if(!Number.isFinite(theta)||theta<0||theta>90)throw Error('Deflection angle must be between 0° and 90°.');
+  const sections=[];
+  let plots,jump;
+  if(oblique){
     const limit=shockLimit(M,g);
     plots=obliqueShockPlots(M,g,limit);
+    const solved=obliqueJumpFromInput(M,g,oblique,limit);
+    jump=solved.jump;
     sections.push(section('Flow deflection',[
-      row('Flow deflection angle θ',theta,'°'),row('Maximum attached deflection θmax',deg(limit.theta),'°'),
+      row('Flow deflection angle θ',deg(solved.theta),'°'),row('Maximum attached deflection θmax',deg(limit.theta),'°'),
     ]));
-    if(rad(theta)>limit.theta+1e-12){
+    if(!jump){
       result.status='detached';
       return {result,sections,comparisons:[stateComparison(inlet,null,'Outlet')],plots,
         notice:'The specified deflection exceeds the limit for an attached oblique shock.'};
     }
   }else{
+    jump=normalShock(M,g);
     plots=machPlots(calculatorModes.normal,M,m=>normalShock(m,g),shockPlotProperties);
   }
-  const solutions=theta===undefined
-    ?[['',normalShock(inlet.M,g)]]
-    :[['Weak shock',obliqueShock(inlet.M,rad(theta),g,'weak')],['Strong shock',obliqueShock(inlet.M,rad(theta),g,'strong')]];
-  for(const [title,jump] of solutions){
-    const downstream=state(jump.M2,inlet.T*jump.T,inlet.p*jump.p,g,R);
-    sections.push(section(title||'Shock ratios',[
-      ...(jump.beta===undefined?[]:[row('Shock angle β',deg(jump.beta),'°')]),
-      ...shockRows(jump),
-    ]));
-    const comparison=stateComparison(inlet,downstream,'Outlet',title);
-    if(jump.beta!==undefined){
-      comparison.rows.splice(1,0,{
-        label:'Mach number normal to shock (M₁ₙ / M₂ₙ)',unit:'',
-        inlet:M*Math.sin(jump.beta),outlet:downstream.M*Math.sin(jump.beta-jump.theta),
-      });
-    }
-    comparisons.push(comparison);
-    result.s2??=downstream;
+  const title=oblique?(jump.branch==='weak'?'Weak shock':'Strong shock'):'';
+  const downstream=state(jump.M2,inlet.T*jump.T,inlet.p*jump.p,g,R);
+  sections.push(section(title||'Shock ratios',[
+    ...(oblique?[row('Shock angle β',deg(jump.beta),'°')]:[]),...shockRows(jump),
+  ]));
+  const comparison=stateComparison(inlet,downstream,'Outlet',title);
+  if(oblique){
+    comparison.rows.splice(1,0,{
+      label:'Mach number normal to shock',unit:'',
+      inlet:Math.max(1,M*Math.sin(jump.beta)),outlet:downstream.M*Math.sin(jump.beta-jump.theta),
+    });
   }
-  return {result,sections,comparisons,plots};
+  return {result:{...result,s2:downstream},sections,comparisons:[comparison],plots};
 }
 
 function ductCalculator(mode,inlet,g,R){
@@ -224,16 +252,39 @@ function prandtlMeyerCalculator(inlet,g,R){
     comparisons:[stagnationComparison(inlet,g,R)],plots};
 }
 
-function conicalCalculator(inlet,g,R,halfAngle){
+function coneFromInput(M,g,x){
+  const known=x.calculatorConeGiven??conicalInputs.cone;
+  const integrate=beta=>coneFromShock(M,beta,g,{step:.001,tolerance:1e-11});
+  const mu=Math.asin(1/M);
+  if(known===conicalInputs.wave){
+    const wave=x.calculatorConeBeta;
+    requireValue(Number.isFinite(wave)&&wave>deg(mu)&&wave<90,
+      'The conical wave angle must be greater than the inlet Mach angle and below 90°.');
+    return integrate(rad(wave));
+  }
+  if(known===conicalInputs.surfaceMach){
+    const target=x.calculatorConeSurfaceMach;
+    requireValue(Number.isFinite(target)&&target>0&&target<M,
+      'Surface Mach number must be positive and below the inlet Mach number.');
+    const limit=coneAttachmentLimit(M,g),edge=integrate(limit.betaAtLimit);
+    requireValue(target>=edge.surface.M-1e-9,
+      `For the weak attached branch, surface Mach number must be at least ${Number(edge.surface.M.toPrecision(9))}.`,'cone-unresolved');
+    const residual=beta=>beta===mu?M-target:integrate(beta).surface.M-target;
+    return integrate(bisect(residual,mu,limit.betaAtLimit,{ftol:1e-9,xtol:1e-11}).value);
+  }
+  return cone({M,thetaCone:x.calculatorConeAngle??20,gamma:g});
+}
+
+function conicalCalculator(inlet,g,R,x){
   let solved;
   try{
-    solved=cone({M:inlet.M,thetaCone:halfAngle,gamma:g});
+    solved=coneFromInput(inlet.M,g,x);
   }catch(error){
-    if(error.code!=='cone-unresolved')throw error;
+    if(!['cone-unresolved','cone-limit-unresolved','cone-singularity','nonconverged'].includes(error.code))throw error;
     return {result:{status:'unsupported',s1:inlet},
-      sections:[section('Cone geometry',[row('Cone half-angle θ꜀',halfAngle,'°')])],
+      sections:[],
       comparisons:[stateComparison(inlet,null,'Behind shock'),stateComparison(inlet,null,'Cone surface')],plots:[],
-      notice:'No attached weak conical shock was found for this Mach number and cone half-angle.'};
+      notice:error.message};
   }
   const r=conicalRelations(solved,inlet.M,g);
   const sections=[
@@ -275,9 +326,9 @@ export function calculateAppendix(x,gas){
     throw Error(`Enter an inlet Mach number between ${range.min} and ${range.max} for ${mode}.`);
   const inlet=state(M,T1,p1*1000,g,R);
   const calculated=mode===calculatorModes.normal?shockCalculator(inlet,g,R):
-    mode===calculatorModes.oblique?shockCalculator(inlet,g,R,x.calculatorTurn):
+    mode===calculatorModes.oblique?shockCalculator(inlet,g,R,x):
     mode===calculatorModes.expansion?prandtlMeyerCalculator(inlet,g,R):
-    mode===calculatorModes.conical?conicalCalculator(inlet,g,R,x.calculatorConeAngle??20):
+    mode===calculatorModes.conical?conicalCalculator(inlet,g,R,x):
     ductCalculator(mode,inlet,g,R);
   const {sections,comparisons,plots,result}=calculated;
   const {rows,...output}=calculatorOutput(sections,comparisons);

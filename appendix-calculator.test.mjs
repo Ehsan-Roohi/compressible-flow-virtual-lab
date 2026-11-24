@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {calculate, defaults, inputDefinitions} from './labs.js';
-import {calculatorModes, shockCalculatorLabs} from './appendix-calculator.js';
+import {calculatorModes, shockCalculatorLabs, obliqueInputs, conicalInputs} from './appendix-calculator.js';
 import {chartSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 
@@ -56,18 +56,31 @@ test('the appendix ratios retain the book conventions and derive correct dimensi
   near(pm.result.relations.machAngle,30);
 });
 
-test('oblique calculator resolves both branches and reports the attached-shock limit',()=>{
-  const attached=run(calculatorModes.oblique,{M:2,calculatorTurn:10});
-  const sections=attached.result.calculatorSections;
-  const beta=name=>sections.find(s=>s.title===name).rows.find(r=>r.label==='Shock angle β').value;
-  near(beta('Weak shock'),39.31393,1e-5);
-  near(beta('Strong shock'),83.70008,1e-5);
-  for(const table of attached.result.calculatorComparisons){
-    const normalMach=table.rows[1], angle=beta(table.title)*Math.PI/180;
+test('oblique calculator selects a branch and recovers it from wave angle or normal Mach number',()=>{
+  for(const [known,title,beta] of [[obliqueInputs.weak,'Weak shock',39.3139318],[obliqueInputs.strong,'Strong shock',83.7000804]]){
+    const attached=run(calculatorModes.oblique,{M:2,calculatorTurn:10,calculatorObliqueGiven:known});
+    const [table]=attached.result.calculatorComparisons;
+    assert.equal(table.title,title);
+    const actualBeta=attached.rows.find(r=>r.label.endsWith('Shock angle β')).value;
+    near(actualBeta,beta,1e-5);
+    const normalMach=table.rows[1],angle=actualBeta*Math.PI/180;
+    assert.equal(normalMach.label,'Mach number normal to shock');
     near(normalMach.inlet,2*Math.sin(angle));
     const squared=normalMach.inlet**2;
     near(normalMach.outlet,Math.sqrt((1+.2*squared)/(1.4*squared-.2)));
+    for(const patch of [
+      {calculatorObliqueGiven:obliqueInputs.wave,calculatorObliqueBeta:actualBeta},
+      {calculatorObliqueGiven:obliqueInputs.normalMach,calculatorObliqueNormalMach:normalMach.inlet},
+    ]){
+      const inverse=run(calculatorModes.oblique,{M:2,...patch});
+      assert.equal(inverse.result.calculatorComparisons[0].title,title);
+      near(inverse.result.calculatorSections[0].rows[0].value,10);
+      near(inverse.result.s2.M,attached.result.s2.M);
+    }
   }
+});
+
+test('oblique calculator reports the attached-shock limit and rejects invalid inverse inputs',()=>{
   const detached=run(calculatorModes.oblique,{M:2,calculatorTurn:30});
   assert.equal(detached.result.status,'detached');
   assert.match(detached.notice,/exceeds the limit/);
@@ -79,6 +92,8 @@ test('oblique calculator resolves both branches and reports the attached-shock l
   assert.deepEqual(weak.points.at(-1),strong.points.at(-1));
   near(weak.points.at(-1)[0],detached.result.calculatorSections[0].rows[1].value);
   assert.throws(()=>run(calculatorModes.normal,{M:.5}),/Mach number between/);
+  assert.throws(()=>run(calculatorModes.oblique,{M:2,calculatorObliqueGiven:obliqueInputs.wave,calculatorObliqueBeta:20}),/inlet Mach angle/);
+  assert.throws(()=>run(calculatorModes.oblique,{M:2,calculatorObliqueGiven:obliqueInputs.normalMach,calculatorObliqueNormalMach:2.1}),/inlet Mach number/);
 });
 
 test('all calculator modes report ratios separately from aligned inlet and outlet or reference properties',()=>{
@@ -88,7 +103,7 @@ test('all calculator modes report ratios separately from aligned inlet and outle
     assert.ok(calculatorSections.flatMap(s=>s.rows).some(r=>r.label.includes('/')),mode);
     assert.ok(calculatorSections.flatMap(s=>s.rows).every(r=>!r.unit||r.unit==='°'),mode);
     const oblique=mode===calculatorModes.oblique;
-    assert.equal(calculatorComparisons.length,oblique||mode===calculatorModes.conical?2:1,mode);
+    assert.equal(calculatorComparisons.length,mode===calculatorModes.conical?2:1,mode);
     for(const comparison of calculatorComparisons){
       assert.equal(comparison.rows.length,oblique?9:8,mode);
       const values=Object.fromEntries(comparison.rows.map(r=>[r.label,r]));
@@ -127,7 +142,34 @@ test('conical flow distinguishes the shock and wall states and reports unsupport
   const mach=plotOptions(d)[0].chart.series[0].points;
   near(mach[0][1],r.surfaceMach);
   near(mach.at(-1)[1],r.postShockMach);
+  for(const patch of [
+    {calculatorConeGiven:conicalInputs.wave,calculatorConeBeta:r.waveAngle},
+    {calculatorConeGiven:conicalInputs.surfaceMach,calculatorConeSurfaceMach:r.surfaceMach},
+  ]){
+    const inverse=run(calculatorModes.conical,{M:5,...patch}).result.relations;
+    near(inverse.coneAngle,20);
+    near(inverse.waveAngle,r.waveAngle);
+    near(inverse.pcp1,r.pcp1);
+  }
   const unresolved=run(calculatorModes.conical,{M:2,calculatorConeAngle:69});
   assert.equal(unresolved.result.status,'unsupported');
   assert.deepEqual(plotOptions(unresolved),[]);
+});
+
+test('shock input menus show only the numeric field relevant to the selected relation',()=>{
+  for(const [mode,key,choices] of [
+    [calculatorModes.oblique,'calculatorObliqueGiven',[
+      [obliqueInputs.weak,'calculatorTurn'],[obliqueInputs.strong,'calculatorTurn'],
+      [obliqueInputs.wave,'calculatorObliqueBeta'],[obliqueInputs.normalMach,'calculatorObliqueNormalMach'],
+    ]],
+    [calculatorModes.conical,'calculatorConeGiven',[
+      [conicalInputs.cone,'calculatorConeAngle'],[conicalInputs.wave,'calculatorConeBeta'],
+      [conicalInputs.surfaceMach,'calculatorConeSurfaceMach'],
+    ]],
+  ]){
+    for(const [selection,expected] of choices){
+      const fields=inputDefinitions('foundations',{...defaults('foundations'),calculatorMode:mode,[key]:selection});
+      assert.deepEqual(fields.filter(f=>f.key.startsWith('calculator')).map(f=>f.key),['calculatorMode',key,expected]);
+    }
+  }
 });
