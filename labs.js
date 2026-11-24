@@ -13,7 +13,7 @@ import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
 import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261121-piston-menu';
-import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261124-duct-entropy';
+import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261124-reverse-duct-example';
 import {ductInputs,fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
 import {solveBodyLab,bodyPlots} from './wedge-cone.js?v=20261115-wedge-drag';

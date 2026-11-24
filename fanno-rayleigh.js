@@ -10,6 +10,7 @@ export const rayleighFannoOrder = 'Rayleigh → Fanno';
 export const sonicRayleighOutlet = 'Sonic outlet';
 export const specifiedRayleighHeat = 'Specified heat transfer';
 export const fannoRayleighExample = '5–P3';
+export const rayleighFannoExample = 'rayleigh-fanno-known-friction';
 export const fannoRayleighInfo = {
  description: 'Apply wall friction and heat transfer in separate sections of a constant-area duct. Choose the order of the sections.',
  model: 'Steady one-dimensional flow · separate friction and heat-transfer sections',
@@ -23,6 +24,27 @@ export const fannoRayleighPreset = Object.freeze({
  ductLength: 3.3, hydraulicDiameter: .305, frictionFactor: .005, frictionConvention: 'Fanning',
  ductStageOrder: fannoRayleighOrder, rayleighCoolingBranch: 'Subsonic', fannoRayleighOutlet: sonicRayleighOutlet, q: 50,
 });
+
+// Use the same inlet and duct geometry to isolate the effect of changing the stage order.
+export const rayleighFannoPreset = Object.freeze({
+ ...fannoRayleighPreset,
+ ductStageOrder: rayleighFannoOrder, fannoRayleighOutlet: specifiedRayleighHeat, q: 35,
+});
+
+export function stagedDuctDefaults(order) {
+ return order === rayleighFannoOrder
+  ? {...rayleighFannoPreset, bookExample: rayleighFannoExample}
+  : {...fannoRayleighPreset, bookExample: fannoRayleighExample};
+}
+
+export function changeDuctStageOrder(inputs, order) {
+ const previous = inputs.ductStageOrder === rayleighFannoOrder ? rayleighFannoPreset : fannoRayleighPreset;
+ const isDefault = Object.entries(previous).every(([key, value]) =>
+  (key === 'q' && previous.fannoRayleighOutlet === sonicRayleighOutlet) || inputs[key] === value);
+ return isDefault
+  ? {...inputs, ...stagedDuctDefaults(order)}
+  : {...inputs, ductStageOrder: order, bookExample: ''};
+}
 
 const stationProperties = [
  ['Mach number', '', state => state.M],

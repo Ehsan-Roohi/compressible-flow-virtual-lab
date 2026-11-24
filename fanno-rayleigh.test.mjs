@@ -7,7 +7,7 @@ import {sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 import {fannoSystemMode} from './fanno-system.js';
 import {fannoRatios} from './physics.js';
-import {fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample, fannoRayleighOrder, rayleighFannoOrder, specifiedRayleighHeat} from './fanno-rayleigh.js';
+import {fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample, fannoRayleighOrder, rayleighFannoOrder, rayleighFannoPreset, rayleighFannoExample, stagedDuctDefaults, changeDuctStageOrder, specifiedRayleighHeat} from './fanno-rayleigh.js';
 
 const run = (id, changes = {}) => calculate(id, {...defaults(id), ...fannoRayleighPreset, ...changes});
 const near = (actual, expected, tol = 1e-6) =>
@@ -66,12 +66,12 @@ test('User heat input and both friction conventions respect stage limits', () =>
  assert.throws(() => run('fanno', {ductLength: 20}), {code: 'length-limit'});
 });
 
-test('Problem 3 is the default for the new mode and can be opened from both example menus', () => {
+test('Both labs load the correct default and example for each stage order', () => {
  const source = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
  const byId = new Map(['examplesPanel', 'exampleSelect'].map(key => [key, {}]));
  const context = vm.createContext({
   $: key => byId.get(key), experimentDefaults: defaults, id: 'fanno', inputs: {},
-  fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample,
+  fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample, rayleighFannoPreset, rayleighFannoExample, stagedDuctDefaults,
   fannoExamples: [], reservoirExamples: [], rayleighBookExamples: {}, request: 0, timer: 0,
   sweepFinished: false, sweepPositioned: false,
   addDataExport() {}, clearTimeout() {}, stopSweep() {}, renderInputs() {}, solve() {},
@@ -92,7 +92,34 @@ test('Problem 3 is the default for the new mode and can be opened from both exam
   assert.equal(context.inputs.ductProblem, fannoRayleighMode);
   assert.equal(context.inputs.bookExample, fannoRayleighExample);
   near(calculate(id, context.inputs).result.heatAdded, 87.463111);
+
+  assert.match(byId.get('examplesPanel').innerHTML, /Rayleigh → Fanno · Known heat and friction/);
+  const reverse = context.defaults(id, {ductProblem: fannoRayleighMode, ductStageOrder: rayleighFannoOrder});
+  assert.equal(reverse.bookExample, rayleighFannoExample);
+  assert.equal(reverse.fannoRayleighOutlet, specifiedRayleighHeat);
+  assert.equal(reverse.q, 35);
+  byId.get('exampleSelect').onchange({target: {value: rayleighFannoExample}});
+  assert.equal(context.inputs.bookExample, rayleighFannoExample);
+  const {result} = calculate(id, context.inputs);
+  assert.equal(result.heatAdded, 35);
+  assert.equal(result.status, 'ok');
+  near(result.frictionLength, 4 * .005 * 3.3 / .305);
+  near(result.junction.M, 2.412738325438113);
+  near(result.s2.M, 1.667445471100574);
  }
+});
+
+test('Changing the order switches the default examples and keeps custom inputs', () => {
+ const forward = stagedDuctDefaults(fannoRayleighOrder);
+ const reverse = changeDuctStageOrder(forward, rayleighFannoOrder);
+ assert.equal(reverse.bookExample, rayleighFannoExample);
+ assert.equal(reverse.fannoRayleighOutlet, specifiedRayleighHeat);
+ assert.equal(reverse.q, 35);
+ assert.equal(changeDuctStageOrder(reverse, fannoRayleighOrder).bookExample, fannoRayleighExample);
+
+ const custom = {...reverse, frictionFactor:.006, q:40};
+ assert.deepEqual(changeDuctStageOrder(custom, fannoRayleighOrder),
+  {...custom, ductStageOrder:fannoRayleighOrder, bookExample:''});
 });
 
 test('Rayleigh first applies the heat at the inlet and reaches Mach 1 in the Fanno section', () => {
