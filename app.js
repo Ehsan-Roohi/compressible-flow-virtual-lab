@@ -36,7 +36,7 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261124-appendix-calculator';
+import {plotOptions} from './plot-options.js?v=20261124-duct-entropy';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-rayleigh-shortcut';
@@ -191,7 +191,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-duct-stage-order',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-duct-entropy',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);

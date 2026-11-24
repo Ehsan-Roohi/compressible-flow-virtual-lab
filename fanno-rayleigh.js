@@ -1,6 +1,7 @@
 import {conservation, fanno, fannoRatios, isentropic, rayleigh, rayleighRatios, state} from './physics.js';
 import {gasInfo} from './gas-properties.js';
 import {bisect, requireValue, positive} from './numerics.js';
+import {temperatureEntropyPlot} from './duct-entropy.js?v=20261124-duct-entropy';
 import {ductProfile, ductLongitudinalPlots} from './duct-contours.js?v=20261124-duct-stage-order';
 
 export const fannoRayleighMode = 'Fanno + Rayleigh duct';
@@ -98,30 +99,28 @@ export function solveFannoRayleigh(id, x) {
  ];
  const points = stages.flatMap(({samples}, i) =>
   (i === 0 ? samples : samples.slice(1)).map(({x, state}) => ({x: (i + x) / 2, state})));
- const entropyChange = state => (cp * Math.log(state.T / s1.T) - R * Math.log(state.p / s1.p)) / 1000;
- const chart = {title: 'Temperature–entropy diagram', xlabel: 'Entropy change from inlet Δs (kJ/(kg·K))', ylabel: 'Static temperature T (K)',
-  zeroBaseline: false,
-  series: stages.map(({name, samples, color}, i) => ({
-   name: `${name} · ${i + 1} → ${i + 2}`, color,
-   points: samples.map(({state}) => [entropyChange(state), state.T]),
+ const temperatureEntropy = temperatureEntropyPlot({
+  reference: s1, gas,
+  segments: stages.map(({name, samples, color}, i) => ({
+   name: `${name} · ${i + 1} → ${i + 2}`, color, states: samples.map(({state}) => state),
   })),
-  markers: stations.map(({state}, i) => ({name: String(i + 1), x: entropyChange(state), y: state.T})),
- };
+  stations: stations.map(({state}, i) => ({name: String(i + 1), state})),
+  note: 'The two curves meet at section 2. Entropy is referenced to section 1.',
+ });
  const result = {ductSystem: true, fannoRayleigh: true, status: second.flow.status, s1, junction, s2, stations,
   stageNames: stages.map(({name}) => name),
   points, longitudinal: points, shockAt: null, heatAdded: q / 1000, frictionLength: lambda,
   referenceTable: {title: 'Station properties', columns: stations.map(({name}) => name),
    rows: stationProperties.map(([label, unit, get]) => ({label: unit ? `${label} (${unit})` : label, values: stations.map(({state}) => get(state))}))},
  };
- result.plots = [{key: 'fanno-rayleigh-entropy', label: chart.title, chart,
-  note: 'The two curves meet at section 2. Entropy is referenced to section 1.'}, ...ductLongitudinalPlots('fanno-rayleigh', result)];
+ result.plots = [temperatureEntropy, ...ductLongitudinalPlots('fanno-rayleigh', result)];
  const rows = [
   {label: 'Heat transfer in Rayleigh section', value: q / 1000, unit: 'kJ/kg'},
   {label: 'Fanno friction parameter', value: lambda, unit: 'fᴅL/D'},
   {label: 'Total-pressure ratio', value: s2.p0 / s1.p0, unit: 'p₀₃/p₀₁'},
   ...stationProperties.flatMap(([label, unit, get]) => stations.map(({name, state}) => ({label: `${name} · ${label}`, value: get(state), unit, panel: 'station'}))),
  ];
- return {id, inputs: x, gas, model: fannoRayleighInfo.model, result, rows, chart,
+ return {id, inputs: x, gas, model: fannoRayleighInfo.model, result, rows, chart:temperatureEntropy.chart,
   scene: {kind: 'ductSystem', system: result, process: id},
   checks: {mass: Math.max(fannoFlow.checks.mass, rayleighFlow.checks.mass),
    energy: Math.max(fannoFlow.checks.energy, rayleighFlow.checks.energy), momentum: rayleighFlow.checks.momentum},
