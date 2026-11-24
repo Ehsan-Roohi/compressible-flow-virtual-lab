@@ -14,7 +14,7 @@ export const ductProperties={pressure:{label:'Static pressure',symbol:'p',units:
 const fmt=v=>Number(v.toPrecision(5)).toString();
 export const ductPalette=['#2536c7','#0879f5','#00c8dc','#16bf59','#efe51b','#ff9718','#ee2727'];
 function color(t){const a=Math.max(0,Math.min(1,t))*(ductPalette.length-1),i=Math.min(ductPalette.length-2,Math.floor(a)),f=a-i;const rgb=h=>h.match(/[a-f\d]{2}/gi).map(x=>parseInt(x,16)),p=rgb(ductPalette[i]),q=rgb(ductPalette[i+1]);return '#'+p.map((v,k)=>Math.round(v+(q[k]-v)*f).toString(16).padStart(2,'0')).join('');}
-export function ductStationText({x,y,state,index,anchor,background}){
+export function ductStationText({x,y,state,index,anchor,background,station=index==='₁'?'inlet':'outlet'}){
  const luminance=background?.match(/[0-9a-f]{2}/gi).reduce((sum,hex,i)=>{
   const v=parseInt(hex,16)/255;
   return sum+[.2126,.7152,.0722][i]*(v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
@@ -22,13 +22,13 @@ export function ductStationText({x,y,state,index,anchor,background}){
  const dark=(luminance??1)<.179;
  const fill=dark?'#fff':'#111';
  const line=(baseline,value)=>`<text x="${x}" y="${baseline}" text-anchor="${anchor}" font-size="16" fill="${fill}">${value}</text>`;
- return `<g data-duct-station="${index==='₁'?'inlet':'outlet'}">${line(y,`M${index} = ${fmt(state.M)}`)}${line(y+17,`p${index} = ${fmt(state.p/1000)} kPa`)}</g>`;
+ return `<g data-duct-station="${station}">${line(y,`M${index} = ${fmt(state.M)}`)}${line(y+17,`p${index} = ${fmt(state.p/1000)} kPa`)}</g>`;
 }
 export function ductContourDrawing(s,inputs,quantity='pressure'){
  if(!['rayleigh','fanno'].includes(s.process))return null;
  const r=s.system??s,points=r.longitudinal??s.longitudinal;if(!points?.length||!r.s2)return null;
  const key=quantity in ductProperties?quantity:'pressure',prop=ductProperties[key],values=points.map(z=>prop.get(z.state)),min=Math.min(...values),max=Math.max(...values);
- const isRayleigh=s.process==='rayleigh';
+ const combined=r.fannoRayleigh===true, isRayleigh=s.process==='rayleigh'&&!combined;
  const mode=inputs.ductProblem??'Single duct',rayNozzle=isRayleigh&&mode==='Heat + shock + converging nozzle';
  const cd=s.process==='fanno'&&mode.startsWith('CD nozzle'),entryNozzle=cd||mode==='Reservoir + nozzle + duct';
  const ref=r.stations?.[0]?.x<0?r.stations[0]:null,initial=!!r.initialReference;
@@ -48,9 +48,9 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  let body=`<defs><linearGradient id="ductContour" gradientUnits="userSpaceOnUse" x1="${left}" x2="${rayNozzle?left+(shockX-left)/shock:right}">${rayNozzle?points.filter(z=>z.x<=shock).map(z=>`<stop offset="${100*z.x}%" stop-color="${tint(z.state)}"/>`).join(''):stops}</linearGradient></defs><rect width="800" height="390" fill="#f8fbf8"/>`;
  const ductEnd=rayNozzle?nozzleStart:right;
  const showEntryAreaRatio=r.entryAreaRatio&&!rayReservoir;
- const compactFanno=!isRayleigh&&!hasEntry;
- const compactStations=isRayleigh||compactFanno;
- const top=isRayleigh?(showEntryAreaRatio||shock!=null?16:hasEntry?40:64):compactFanno?(shock==null?67:16):0;
+ const compactFanno=!combined&&!isRayleigh&&!hasEntry;
+ const compactStations=isRayleigh||compactFanno||combined;
+ const top=combined?35:isRayleigh?(showEntryAreaRatio||shock!=null?16:hasEntry?40:64):compactFanno?(shock==null?67:16):0;
  const height=compactStations?(rayNozzle?280:271)-top:390;
  body+=`<path d="M${left} 105H${ductEnd}V215H${left}Z" fill="url(#ductContour)" data-duct-contour="${key}"/>`+wall(`M${left} 105H${ductEnd}M${left} 215H${ductEnd}`);
  if(rayNozzle){
@@ -63,12 +63,15 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
   body+=`<defs><linearGradient id="exitContour" gradientUnits="userSpaceOnUse" x1="${nozzleStart}" x2="${right}">${exitStops}</linearGradient></defs><path d="M${nozzlePoints.map(z=>`${z.x} ${160-z.h}`).join('L')}L${[...nozzlePoints].reverse().map(z=>`${z.x} ${160+z.h}`).join('L')}Z" fill="url(#exitContour)"/>`;
   body+=wall('M'+nozzlePoints.map(z=>`${z.x} ${160-z.h}`).join('L')+'M'+nozzlePoints.map(z=>`${z.x} ${160+z.h}`).join('L'));
   body+=text((nozzleStart+right)/2,85,'Converging nozzle','middle');
+ }else if(combined){
+  body+=text(X(.25),57,'Fanno · Wall friction','middle')+text(X(.75),57,'Rayleigh · Heat transfer','middle');
+  body+=`<path d="M${X(.5)} 97V223" stroke="#40575d" stroke-dasharray="4 4"/>`;
  }else if(!isRayleigh)body+=text((left+right)/2,85,'Constant-area friction duct','middle');
  const temperatureChange=b.T0-a.T0;
- if(isRayleigh&&Math.abs(temperatureChange)>1e-9){
-  const heating=temperatureChange>0,cx=(left+(rayNozzle?shockX:right))/2;
+ if((isRayleigh||combined)&&Math.abs(temperatureChange)>1e-9){
+  const heating=temperatureChange>0,cx=combined?X(.75):(left+(rayNozzle?shockX:right))/2;
   const gamma=inputs.gamma??1.4;
-  const q=gamma*(inputs.R??287)*temperatureChange/((gamma-1)*1000);
+  const q=combined?r.heatAdded:gamma*(inputs.R??287)*temperatureChange/((gamma-1)*1000);
   const start=heating?72:116,end=heating?116:72,head=end+(heating?-8:8);
   const path=`M${cx} ${start}V${end}M${cx-6} ${head}L${cx} ${end}L${cx+6} ${head}`;
   body+=`<g data-heat-transfer="${heating?'into-duct':'out-of-duct'}"><title>${heating?'Heat added to the flow':'Heat removed from the flow'}</title><path d="${path}" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="${heating?'#a73320':'#236aba'}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${text(cx+15,94,`q = ${fmt(q)} kJ/kg`)}</g>`;
@@ -116,18 +119,27 @@ export function ductContourDrawing(s,inputs,quantity='pressure'){
  const outletLabel=initial?'Sonic outlet':rayNozzle?'Nozzle outlet':isRayleigh?'Outlet':'Duct exit';
  const inletX=left+7,outletX=right-7;
  body+=ductStationText({x:inletX,y:187,state:a,index:'₁',anchor:'start',background:tint(a)});
- body+=ductStationText({x:outletX,y:rayNozzle?234:187,state:b,index:'₂',anchor:'end',background:rayNozzle?null:tint(b)});
+ if(combined)body+=ductStationText({x:X(.5)+8,y:187,state:r.junction,index:'₂',anchor:'start',background:tint(r.junction),station:'junction'});
+ body+=ductStationText({x:outletX,y:rayNozzle?234:187,state:b,index:combined?'₃':'₂',anchor:'end',background:rayNozzle?null:tint(b)});
  body+=text(left,238,inletLabel)+text(right,rayNozzle?273:238,outletLabel,'end');
- if(!rayNozzle){
+ if(combined)body+=text(X(.5),238,'Junction','middle');
+ else if(!rayNozzle){
   const axisY=compactStations?246:322;
   body+=`<path d="M${left} ${axisY}H${right}" stroke="#91a3a1"/>`;
   for(const x of [0,.5,1])body+=`<path d="M${X(x)} ${axisY-4}V${axisY+4}" stroke="#91a3a1"/>`+text(X(x),compactStations?265:348,`x/L = ${x}`,x===0?'start':x===1?'end':'middle');
  }
- const description=rayNozzle?'Heat transfer in the straight duct; isentropic exit nozzle.':isRayleigh?'Uniform heat transfer: equal heat added/removed per metre of heated duct.':'Constant friction factor and hydraulic diameter.';
+ const diagramName=combined?'Fanno and Rayleigh sections':`${s.process} system`;
+ const description=combined?'Fanno flow from section 1 to 2, followed by Rayleigh flow from section 2 to 3.':rayNozzle?'Heat transfer in the straight duct; isentropic exit nozzle.':isRayleigh?'Uniform heat transfer: equal heat added/removed per metre of heated duct.':'Constant friction factor and hydraulic diameter.';
  if(!compactStations)body+=text(400,377,description,'middle',12);
- return {svg:`<svg xmlns="http://www.w3.org/2000/svg" ${isRayleigh?'data-rayleigh-contour="true" ':compactFanno?'data-fanno-contour="true" ':''}viewBox="0 ${top} 800 ${height}" role="img" aria-label="${s.process} system: ${hasEntry?(initial?'initial reference and open intake, ':rayReservoir?'open intake, ':ref?'upstream, ':'reservoir and inlet nozzle, '):'upstream flow, '}constant-area duct${rayNozzle?', shock in duct and converging exit nozzle':''}"><desc>${description}</desc><title>${s.process} longitudinal ${prop.label.toLowerCase()} contour</title>${body}</svg>`,label:'One-dimensional longitudinal '+prop.label.toLowerCase(),meta:'',field:{quantity:key,options:Object.keys(ductProperties),label:prop.label,units:prop.units,min,max,palette:ductPalette,note:s.process==='rayleigh'?'Uniform heat transfer per unit heated length · section-uniform 1D field':'Constant friction factor and hydraulic diameter · section-uniform 1D field'}};
+ return {svg:`<svg xmlns="http://www.w3.org/2000/svg" ${combined?'data-fanno-rayleigh="true" ':isRayleigh?'data-rayleigh-contour="true" ':compactFanno?'data-fanno-contour="true" ':''}viewBox="0 ${top} 800 ${height}" role="img" aria-label="${diagramName}: ${hasEntry?(initial?'initial reference and open intake, ':rayReservoir?'open intake, ':ref?'upstream, ':'reservoir and inlet nozzle, '):'upstream flow, '}constant-area duct${rayNozzle?', shock in duct and converging exit nozzle':''}"><desc>${description}</desc><title>${combined?diagramName:s.process} longitudinal ${prop.label.toLowerCase()} contour</title>${body}</svg>`,label:'One-dimensional longitudinal '+prop.label.toLowerCase(),meta:'',field:{quantity:key,options:Object.keys(ductProperties),label:prop.label,units:prop.units,min,max,palette:ductPalette,note:combined?'Schematic section lengths':s.process==='rayleigh'?'Uniform heat transfer per unit heated length · section-uniform 1D field':'Constant friction factor and hydraulic diameter · section-uniform 1D field'}};
 }
 export function ductLongitudinalPlots(id,r){const points=r.longitudinal;if(!points?.length)return [];
  const properties=[...Object.entries(ductProperties),['totalTemperature',{label:'Stagnation temperature',symbol:'T₀',units:'K',get:s=>s.T0}],['totalPressure',{label:'Stagnation pressure',symbol:'p₀',units:'kPa',get:s=>s.p0/1000}]];
- return properties.map(([key,p])=>({key:id+'-axial-'+key,label:p.label+' vs x/L',note:id==='rayleigh'?rayleighDistributionNote:fannoDistributionNote,chart:{title:p.label+' along the duct',xlabel:'Relative position x/L',ylabel:p.symbol+(p.units?' ('+p.units+')':''),zeroBaseline:false,markers:[{name:'Inlet',x:0,y:p.get(r.s1)},{name:'Outlet',x:1,y:p.get(r.s2),anchor:'end'}],series:[{name:p.label,points:points.map(z=>[z.x,p.get(z.state)])}]}}));
+ const combined=r.fannoRayleigh===true;
+ const stations=combined?r.stations:[{name:'Inlet',state:r.s1,x:0},{name:'Outlet',state:r.s2,x:1}];
+ return properties.map(([key,p])=>({key:id+'-axial-'+key,label:p.label+(combined?' by section':' vs x/L'),
+  note:combined?'The first half represents the Fanno section and the second half represents the Rayleigh section.':id==='rayleigh'?rayleighDistributionNote:fannoDistributionNote,
+  chart:{title:p.label+' along the duct',xlabel:combined?'Schematic duct coordinate':'Relative position x/L',ylabel:p.symbol+(p.units?' ('+p.units+')':''),zeroBaseline:false,
+   markers:stations.map(({name,state,x})=>({name:combined?name.split(' · ')[0]:name,x,y:p.get(state),...(x===1?{anchor:'end'}:{})})),
+   series:[{name:p.label,points:points.map(z=>[z.x,p.get(z.state)])}]}}));
 }
