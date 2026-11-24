@@ -238,7 +238,7 @@ body{font-family:Georgia,"Times New Roman",serif}
 .isentropic-group-title{margin:10px 10px 4px;font-size:13px;font-weight:650}
 
 .calculator-groups,.calculator-tables{display:grid;gap:8px;margin:8px var(--card-inset)}
-.calculator-groups{grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr))}
+.calculator-groups{grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr))}
 .calculator-tables{grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))}
 .calculator-groups>section,.region-table-scroll.calculator-state-scroll{min-width:0;border:1px solid #cbd8d3;border-radius:7px}
 .calculator-groups .isentropic-group-title{margin:0;padding:6px 8px;background:#edf2f5;border-radius:6px 6px 0 0}
@@ -247,16 +247,38 @@ body{font-family:Georgia,"Times New Roman",serif}
 .calculator-groups .isentropic-grid>div{padding:5px 8px}
 .region-table-scroll.calculator-state-scroll{margin:0;padding:0}
 .calculator-state-table caption{font-weight:650;padding:6px 7px;border-bottom:1px solid #dce3e9}
-.region-table.calculator-state-table{min-width:0}
+.region-table.calculator-state-table{min-width:0;table-layout:fixed}
+.calculator-state-table thead th:first-child{width:50%}
 .calculator-state-table thead th{white-space:normal}
-.calculator-state-table tbody th{min-width:0}
+.calculator-state-table tbody th{min-width:0;overflow-wrap:anywhere}
 .calculator-state-table tbody th,.calculator-state-table thead th:first-child{position:static}
 .calculator-state-table td{font-size:12px}
 
-body[data-lab="foundations"]:has(#value-calculatorMode > option[value="Isentropic Flow"]:checked) .chart-card{
-  width:100%;
-  max-width:760px;
+body[data-lab="foundations"]{
+  --calculator-input-width:240px;
+  --calculator-content-width:760px;
+}
+body[data-lab="foundations"] :is(.lab-header,.work-grid){
+  max-width:calc(var(--calculator-input-width) + var(--workspace-gap) + var(--calculator-content-width));
   margin-inline:auto;
+}
+body[data-lab="foundations"] .visual-column{
+  container-type:inline-size;
+  max-width:var(--calculator-content-width);
+  width:100%;
+  justify-self:center;
+}
+body[data-lab="foundations"] .visual-column > :is(.results,.chart-card){
+  min-width:0;
+}
+@media(min-width:801px){
+  body[data-lab="foundations"] .work-grid{
+    grid-template-columns:clamp(190px,24%,var(--calculator-input-width)) minmax(0,1fr);
+    grid-template-areas:"controls visual";
+  }
+}
+@container (width >= 28rem) and (width < 42rem){
+  .calculator-groups > section:nth-child(3):last-child{grid-column:1/-1}
 }
 
 @supports (appearance:base-select){
