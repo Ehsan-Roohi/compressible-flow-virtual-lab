@@ -86,14 +86,15 @@ function updateLayout() {
   restoreChapterControls();
   closeMenu();
   if (lab === 'foundations') {
-    if (results.nextElementSibling !== chartCard) chartCard.before(results);
+    if (calculatorTable.parentElement !== visual) chartCard.before(calculatorTable);
     if (calculatorSidebar.matches) {
-      if (calculatorTable.previousElementSibling !== examples) examples.after(calculatorTable);
-    } else if (calculatorTable.nextElementSibling !== chartCard) {
-      chartCard.before(calculatorTable);
+      if (results.previousElementSibling !== examples) examples.after(results);
+    } else if (results.nextElementSibling !== calculatorTable) {
+      calculatorTable.before(results);
     }
-  } else if (results.previousElementSibling !== examples) {
-    examples.after(results);
+  } else {
+    if (results.previousElementSibling !== examples) examples.after(results);
+    if (calculatorTable.nextElementSibling !== examples) examples.before(calculatorTable);
   }
   if (mobile) {
     if (lab === 'foundations') {

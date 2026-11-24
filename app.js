@@ -39,7 +39,7 @@ import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261124-duct-entropy';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
-import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-right-tables';
+import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-center-states';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
 import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
