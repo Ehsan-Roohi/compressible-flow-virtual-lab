@@ -237,25 +237,27 @@ body{font-family:Georgia,"Times New Roman",serif}
 
 .isentropic-group-title{margin:10px 10px 4px;font-size:13px;font-weight:650}
 
-.calculator-groups,.calculator-tables{display:grid;gap:8px;margin:8px var(--card-inset)}
-.calculator-groups{grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr))}
-.calculator-tables{grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))}
+.calculator-groups{display:grid;align-items:start;gap:8px;margin:8px var(--card-inset);grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr))}
 .calculator-groups>section,.region-table-scroll.calculator-state-scroll{min-width:0;border:1px solid #cbd8d3;border-radius:7px}
 .calculator-groups .isentropic-group-title{margin:0;padding:6px 8px;background:#edf2f5;border-radius:6px 6px 0 0}
 #isentropicPanel .calculator-groups .isentropic-grid{margin:0;grid-template-columns:minmax(0,1fr)}
-#isentropicPanel .calculator-groups>section:only-child .isentropic-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr))}
-.calculator-groups .isentropic-grid>div{padding:5px 8px}
-.region-table-scroll.calculator-state-scroll{margin:0;padding:0}
+#isentropicPanel .calculator-groups>section:only-child .isentropic-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))}
+.calculator-groups .isentropic-grid>div{display:flex;align-items:baseline;justify-content:space-between;gap:4px 8px;padding:5px 8px}
+.calculator-groups .isentropic-grid dd{margin:0;text-align:right;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.calculator-groups .isentropic-grid>div:last-child{border-bottom:0}
+.region-table-scroll.calculator-state-scroll{margin:8px var(--card-inset);padding:0}
 .calculator-state-table caption{font-weight:650;padding:6px 7px;border-bottom:1px solid #dce3e9}
 .region-table.calculator-state-table{min-width:0;table-layout:fixed}
 .calculator-state-table thead th:first-child{width:50%}
+.calculator-state-table thead th:first-child:nth-last-child(4){width:40%}
 .calculator-state-table thead th{white-space:normal}
 .calculator-state-table tbody th{min-width:0;overflow-wrap:anywhere}
 .calculator-state-table tbody th,.calculator-state-table thead th:first-child{position:static}
-.calculator-state-table td{font-size:12px}
+.calculator-state-table td{font-size:12px;white-space:normal;overflow-wrap:anywhere}
+#isentropicPanel .isentropic-note{margin:6px var(--card-inset)}
 
 body[data-lab="foundations"]{
-  --calculator-input-width:240px;
+  --calculator-input-width:264px;
   --calculator-content-width:760px;
 }
 body[data-lab="foundations"] :is(.lab-header,.work-grid){
@@ -271,9 +273,17 @@ body[data-lab="foundations"] .visual-column{
 body[data-lab="foundations"] .visual-column > :is(.results,.chart-card){
   min-width:0;
 }
+body[data-lab="foundations"] .controls form>.input-group{padding-block:5px}
+body[data-lab="foundations"] .controls :is(.number-wrap input,select){min-height:34px}
+body[data-lab="foundations"] .results{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
+}
+body[data-lab="foundations"] .results > :not(.result-actions,.compare-btn){grid-column:1/-1}
+body[data-lab="foundations"] .gas-result-summary{padding:4px var(--card-inset)}
+body[data-lab="foundations"] .compare-btn{width:auto;margin:5px var(--card-inset) 8px;padding:6px 9px}
 @media(min-width:801px){
   body[data-lab="foundations"] .work-grid{
-    grid-template-columns:clamp(190px,24%,var(--calculator-input-width)) minmax(0,1fr);
+    grid-template-columns:clamp(210px,26%,var(--calculator-input-width)) minmax(0,1fr);
     grid-template-areas:"controls visual";
   }
 }

@@ -562,6 +562,9 @@ function showCriticalMachDataAngles(){
   :'No published cases connected for this code. The panel method is used.';
 }
 function renderInputs(){
+ const calculatorMode=inputs.calculatorMode??calculatorModes.isentropic;
+ $('resultsTitle').textContent=id==='foundations'?
+  (calculatorMode===calculatorModes.isentropic?'Isentropic Flow Calculator':calculatorMode):'Computed state';
  restoreChapterControls();const samplingOpen=$('samplingSettings')?.open??false,tubeGeometryOpen=$('tubeGeometrySettings')?.open??false;if(id==='wall'&&inputs.customInteraction===multiRampMode&&inputs.inletTerminal==='None')inputs.inletTerminal='Compression only';if(id==='tube'){inputs.tubeDomain=finiteTubeMode;inputs.pistonDomain=closedPistonMode;
  if(['closed-piston-demo','sinusoidal-ten-cycles'].includes(inputs.bookExample))inputs.bookExample='';
  if(canonicalExample(inputs.bookExample)==='7-12')inputs.bookExample=movingNormalShockPreset.bookExample;
@@ -747,16 +750,18 @@ function renderIsentropicRelations(d){
  const mode=d.inputs.calculatorMode??calculatorModes.isentropic;
  const isentropic=mode===calculatorModes.isentropic;
  const sections=calculatorSections.map(({title,rows})=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??displayValue(r.value,r.unit,8)}${r.unit?` <small>${unitView.label(r.unit)}</small>`:''}</dd></div>`).join('')}</dl></section>`);
- const tables=calculatorComparisons.map(({title,outletLabel,rows})=>`
+ const [comparison]=calculatorComparisons;
+ const title=calculatorComparisons.length===1&&comparison.title?`Flow properties · ${comparison.title}`:'Flow properties';
+ const table=`
   <div class="region-table-scroll calculator-state-scroll">
    <table class="region-table calculator-state-table">
-    <caption>${title?`Flow properties · ${title}`:'Flow properties'}</caption>
-    <thead><tr><th scope="col">Property</th><th scope="col">Inlet</th><th scope="col">${outletLabel}</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><th scope="row">${r.label}${r.unit?` <span>${unitView.label(r.unit)}</span>`:''}</th>
-      <td>${displayValue(r.inlet,r.unit,7)}</td><td>${displayValue(r.outlet,r.unit,7)}</td></tr>`).join('')}</tbody>
+    <caption>${title}</caption>
+    <thead><tr><th scope="col">Property</th><th scope="col">Inlet</th>${calculatorComparisons.map(c=>`<th scope="col">${c.outletLabel}</th>`).join('')}</tr></thead>
+    <tbody>${comparison.rows.map((r,index)=>`<tr><th scope="row">${r.label}${r.unit?` <span>${unitView.label(r.unit)}</span>`:''}</th>
+      <td>${displayValue(r.inlet,r.unit,7)}</td>${calculatorComparisons.map(c=>`<td>${displayValue(c.rows[index].outlet,r.unit,7)}</td>`).join('')}</tr>`).join('')}</tbody>
    </table>
-  </div>`).join('');
- panel.innerHTML=`<div class="card-head"><h2>${isentropic?'Isentropic Flow Calculator':mode}</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div><div class="calculator-groups">${sections.join('')}</div><div class="calculator-tables">${tables}</div>`;
+  </div>`;
+ panel.innerHTML=`${sections.length?`<div class="calculator-groups">${sections.join('')}</div>`:''}${table}`;
  if(isentropic)panel.insertAdjacentHTML('beforeend','<p class="isentropic-note">Subscript 0 denotes the stagnation state. An asterisk denotes the sonic reference at the same stagnation state. A* is the corresponding critical area at the same mass flow rate.</p>');
  const detailLab=shockCalculatorLabs[mode];
  if(detailLab){
@@ -767,7 +772,6 @@ function renderIsentropicRelations(d){
   note.append('For flow visualization, open ',link,'.');
   panel.append(note);
  }
- addDataExport(panel,isentropic?'isentropic':'calculator',()=>({rows:d.rows}));
 }
 function renderBalanceDetails(){
  const panel=$('balancePanel');panel.hidden=current.id!=='balances';if(panel.hidden)return;
