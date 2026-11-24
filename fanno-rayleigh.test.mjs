@@ -143,7 +143,7 @@ test('Both form layouts and the heat arrow move with the chosen order', () => {
  for (const id of ['fanno', 'rayleigh']) {
   const forward = run(id);
   const reversed = run(id, {ductStageOrder: rayleighFannoOrder});
-  const headings = d => inputDefinitions(id, d.inputs).map(field => field.section).filter(Boolean);
+  const headings = d => inputDefinitions(id, {...d.inputs, fannoRayleighOutlet:specifiedRayleighHeat}).map(field => field.section).filter(Boolean);
   assert.deepEqual(headings(forward).slice(-2), ['Fanno section · 1 → 2', 'Rayleigh section · 2 → 3']);
   assert.deepEqual(headings(reversed).slice(-2), ['Rayleigh section · 1 → 2', 'Fanno section · 2 → 3']);
   assert.deepEqual(inputDefinitions(id, reversed.inputs).find(field => field.key === 'ductStageOrder').options,
