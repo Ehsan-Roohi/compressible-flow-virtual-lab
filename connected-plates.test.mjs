@@ -1,3 +1,4 @@
+import {createUnitView} from './unit-system.js';
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync}from'node:fs';import vm from'node:vm';
 import {calculate,defaults,inputDefinitions}from'./labs.js';import {connectedSurface,automaticSurface,constrainedSurface,segmentSurface,migrateAirfoilGeometry,airfoilGeometry}from'./airfoil.js';import{airfoilView}from'./airfoil-view.js';import{probeAirfoilField}from'./airfoil-field.js';import{sceneSVG}from'./graphics.js';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`${a} != ${b}`);
@@ -18,7 +19,7 @@ test('View fits elevated or descending chains and invalid panel data is rejected
 test('Chain editor has editable length fields and appends rather than rescaling panels',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),elements=new Map(),button={},input={dataset:{index:'1',property:'length'},value:'1.2',readOnly:false};
  const box={querySelector(s){if(s==='.segment-add')return button;if(!elements.has(s))elements.set(s,{});return elements.get(s);},querySelectorAll(s){return s==='input'?[input]:[];}};
- const context=vm.createContext({inputs:structuredClone(preset),$:()=>box,fmt:String,connectedSurface,automaticSurface,constrainedSurface,segmentSurface,migrateAirfoilGeometry,airfoilGeometry,request:0,schedule(){},renderInputs(){}});
+ const context=vm.createContext({unitView:createUnitView(),displayValue:value=>String(value),inputs:structuredClone(preset),$:()=>box,fmt:String,connectedSurface,automaticSurface,constrainedSurface,segmentSurface,migrateAirfoilGeometry,airfoilGeometry,request:0,schedule(){},renderInputs(){}});
  vm.runInContext(source.slice(source.indexOf('function segmentEditor('),source.indexOf('function changeAirfoilGeometry(')),context);
  const html=context.segmentEditor({key:'upperSegments'});assert.ok(!html.includes('readonly'));assert.match(html,/Length \(m\)/);assert.ok(!html.includes('Target L/c'));
  context.bindSegmentEditor({key:'upperSegments'});input.oninput();assert.equal(context.inputs.upperSegments[1].length,1.2);assert.match(elements.get('[data-closure-message]').textContent,/No automatic closure/);

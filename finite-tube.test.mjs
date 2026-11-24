@@ -1,3 +1,4 @@
+import {createUnitView} from './unit-system.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
@@ -206,7 +207,7 @@ test('Example 7–2 uses a moving piston and generates one shock in stationary a
 test('every browser example opens the closed model and the separate demo is gone',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8');
  const elements=new Map();
- const context=vm.createContext({id:'tube',experimentDefaults:defaults,inputs:{},plotSelection:{},sinusoidalExperiment:'Sinusoidal piston',finiteTubeMode,closedPistonMode:'Finite tube · closed far end',
+ const context=vm.createContext({unitView:createUnitView(),id:'tube',experimentDefaults:defaults,inputs:{},plotSelection:{},sinusoidalExperiment:'Sinusoidal piston',finiteTubeMode,closedPistonMode:'Finite tube · closed far end',
   valveExperiment:'Sudden valve closure',request:0,sweepFinished:false,sweepPositioned:false,timer:undefined,clearTimeout(){},
   $:key=>{if(!elements.has(key))elements.set(key,{});return elements.get(key);},
   stopAnimation(){},stopSweep(){},renderInputs(){},solve(){}});

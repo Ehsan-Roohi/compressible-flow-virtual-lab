@@ -1,3 +1,4 @@
+import {createUnitView} from './unit-system.js';
 import {readFileSync} from 'node:fs';import vm from 'node:vm';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {calculate,defaults,inputDefinitions} from './labs.js';import {airfoilGeometry,constrainedSurface,automaticSurface,segmentSurface,surfaceSegments,presetSegments} from './airfoil.js';import {airfoilFieldSampler} from './airfoil-field.js';import {sceneSVG} from './graphics.js';import {plotOptions} from './plot-options.js';
@@ -24,7 +25,7 @@ test('Bent geometry allows an off-center bend and rejects invalid height or posi
 test('Example dropdown loads the connected plate and Chapter 9 triangular airfoil from the book',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),start=source.indexOf('function renderExamples(){'),end=source.indexOf('\nfunction knownRayleighData',start),elements=new Map();
  const $=id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);};let solves=0;
- const context=vm.createContext({$,id:'airfoil',inputs:defaults('airfoil'),defaults,presetSegments,chapter6BookExamples,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0,timer:undefined,clearTimeout(){}});
+ const context=vm.createContext({unitView:createUnitView(),$,id:'airfoil',inputs:defaults('airfoil'),defaults,presetSegments,chapter6BookExamples,stopSweep(){},renderInputs(){},solve(){solves++;},sweepFinished:false,sweepPositioned:false,request:0,timer:undefined,clearTimeout(){}});
  context.addDataExport=()=>{};
  vm.runInContext(source.slice(source.indexOf('const chapter9TriangleGeometry='),source.indexOf('\nfunction chapter6WallDefaults')),context);
  vm.runInContext(source.slice(start,end),context);context.renderExamples();
@@ -63,7 +64,7 @@ test('Multiple-panel plate shares one zero-thickness path and exposes one segmen
 test('Switching to multiple panels and adding a panel preserves the plate geometry',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),elements=new Map(),button={};
  const box={querySelector(s){if(s==='.segment-add')return button;if(!elements.has(s))elements.set(s,{});return elements.get(s);},querySelectorAll(){return [];}};
- const context=vm.createContext({$:()=>box,inputs:structuredClone(preset),airfoilGeometry,constrainedSurface,automaticSurface,segmentSurface,surfaceSegments,fmt:String,renderInputs(){},schedule(){},request:0});
+ const context=vm.createContext({unitView:createUnitView(),$:()=>box,inputs:structuredClone(preset),airfoilGeometry,constrainedSurface,automaticSurface,segmentSurface,surfaceSegments,fmt:String,renderInputs(){},schedule(){},request:0});
  const functions=source.slice(source.indexOf('function segmentEditor('),source.indexOf('function arrangeWallInputs('));
  vm.runInContext(functions,context);const before=airfoilGeometry(preset);
  context.changeAirfoilGeometry('plateDefinition','Multiple panels');
