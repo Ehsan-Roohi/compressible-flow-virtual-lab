@@ -6,7 +6,8 @@ import {calculate, defaults, inputDefinitions} from './labs.js';
 import {sceneSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 import {fannoSystemMode} from './fanno-system.js';
-import {fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample, specifiedRayleighHeat} from './fanno-rayleigh.js';
+import {fannoRatios} from './physics.js';
+import {fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample, fannoRayleighOrder, rayleighFannoOrder, specifiedRayleighHeat} from './fanno-rayleigh.js';
 
 const run = (id, changes = {}) => calculate(id, {...defaults(id), ...fannoRayleighPreset, ...changes});
 const near = (actual, expected, tol = 1e-6) =>
@@ -82,6 +83,7 @@ test('Problem 3 is the default for the new mode and can be opened from both exam
   const preset = context.defaults(id, {ductProblem: fannoRayleighMode});
   assert.equal(preset.bookExample, fannoRayleighExample);
   assert.equal(preset.M1, 3);
+  assert.equal(preset.ductStageOrder, fannoRayleighOrder);
   context.id = id;
   context.inputs = {};
   context.renderExamples();
@@ -90,5 +92,68 @@ test('Problem 3 is the default for the new mode and can be opened from both exam
   assert.equal(context.inputs.ductProblem, fannoRayleighMode);
   assert.equal(context.inputs.bookExample, fannoRayleighExample);
   near(calculate(id, context.inputs).result.heatAdded, 87.463111);
+ }
+});
+
+test('Rayleigh first applies the heat at the inlet and reaches Mach 1 in the Fanno section', () => {
+ const reversed = {ductStageOrder: rayleighFannoOrder};
+ const fanno = run('fanno', reversed);
+ assert.deepEqual(fanno.result, run('rayleigh', reversed).result);
+ const {result, chart} = fanno;
+ assert.deepEqual(result.stageNames, ['Rayleigh', 'Fanno']);
+ near(result.junction.M, 1.724790101485795);
+ near(result.heatAdded, 102.29229809932018);
+ near(fannoRatios(result.junction.M).F, result.frictionLength, 1e-12);
+ assert.equal(result.s2.M, 1);
+ near(result.junction.T0, result.s2.T0);
+ assert.ok(Object.values(fanno.checks).every(error => error < 1e-11));
+ assert.deepEqual(chart.series.map(series => series.name), ['Rayleigh · 1 → 2', 'Fanno · 2 → 3']);
+ assert.deepEqual(chart.series[0].points.at(-1), chart.series[1].points[0]);
+ assert.equal(result.longitudinal.find(point => point.x === .5).state, result.junction);
+});
+
+test('Both form layouts and the heat arrow move with the chosen order', () => {
+ for (const id of ['fanno', 'rayleigh']) {
+  const forward = run(id);
+  const reversed = run(id, {ductStageOrder: rayleighFannoOrder});
+  const headings = d => inputDefinitions(id, d.inputs).map(field => field.section).filter(Boolean);
+  assert.deepEqual(headings(forward).slice(-2), ['Fanno section · 1 → 2', 'Rayleigh section · 2 → 3']);
+  assert.deepEqual(headings(reversed).slice(-2), ['Rayleigh section · 1 → 2', 'Fanno section · 2 → 3']);
+  assert.deepEqual(inputDefinitions(id, reversed.inputs).find(field => field.key === 'ductStageOrder').options,
+   [fannoRayleighOrder, rayleighFannoOrder]);
+  const picture = sceneSVG(reversed.scene, reversed.inputs).svg;
+  assert.match(picture, /data-duct-stage="Rayleigh".*data-duct-stage="Fanno"/);
+  assert.match(picture, /data-heat-transfer="into-duct".*M232\.5 72V116/);
+  const axial = plotOptions(reversed).find(option => option.key === 'fanno-rayleigh-axial-mach');
+  assert.match(axial.note, /first half represents the Rayleigh section/);
+ }
+});
+
+test('Reversing the sections allows prescribed heat and detects limits in the correct stage', () => {
+ const reversed = {ductStageOrder: rayleighFannoOrder};
+ const heated = {...reversed, fannoRayleighOutlet: specifiedRayleighHeat};
+ const d = run('rayleigh', {...heated, q: 35});
+ assert.equal(d.result.heatAdded, 35);
+ assert.ok(d.result.junction.M < d.result.s1.M && d.result.s2.M < d.result.junction.M && d.result.s2.M > 1);
+ assert.throws(() => run('fanno', {...heated, q: 120}), {code: 'length-limit'});
+ assert.throws(() => run('rayleigh', {...heated, q: 400}), {code: 'heat-limit'});
+ assert.throws(() => run('rayleigh', {...reversed, ductLength: 20}), {code: 'length-limit'});
+ const cooled = run('fanno', {...reversed, M1: 1.6});
+ assert.ok(cooled.result.heatAdded < 0);
+ assert.match(sceneSVG(cooled.scene, cooled.inputs).svg, /data-heat-transfer="out-of-duct"/);
+ assert.equal(run('rayleigh', {...reversed, ductLength: 0}).result.s2.M, 1);
+});
+
+test('Rayleigh first supports subsonic flow and both cooling branches from a sonic inlet', () => {
+ const reversed = {ductStageOrder: rayleighFannoOrder};
+ const sub = run('rayleigh', {...reversed, M1: .5});
+ assert.ok(sub.result.junction.M > .5 && sub.result.junction.M < 1);
+ assert.equal(sub.result.s2.M, 1);
+ for (const branch of ['Subsonic', 'Supersonic']) {
+  const d = run('fanno', {...reversed, M1: 1, rayleighCoolingBranch: branch});
+  assert.ok(d.result.heatAdded < 0);
+  assert.equal(d.result.s2.M, 1);
+  assert.equal(d.result.junction.M < 1, branch === 'Subsonic');
+  assert.ok(inputDefinitions('fanno', d.inputs).some(field => field.key === 'rayleighCoolingBranch'));
  }
 });

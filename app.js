@@ -13,7 +13,7 @@ import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
 import {fannoExamples} from './fanno-examples.js?v=20261120-example-titles';
-import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo} from './fanno-rayleigh.js?v=20261124-fanno-rayleigh';
+import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo,rayleighFannoOrder} from './fanno-rayleigh.js?v=20261124-duct-stage-order';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js?v=20261124-fanno-inverse-ratios';
 import {fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
@@ -45,8 +45,8 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-calculator-state-tables';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-fanno-rayleigh';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-duct-stage-order';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-duct-stage-order';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -191,7 +191,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-calculator-state-tables',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-duct-stage-order',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -616,6 +616,11 @@ if(id==='tube'){
 }
 arrangeWallInputs();arrangeCompactGeometry(id,$('wallSetupPanel'));arrangeFannoGeometry(fields,geometryOpen);if(id==='rayleigh'){const heatInput=$('value-q');if(heatInput)heatInput.closest('.input-group').title='Positive q means heat is added to the flow. Negative q means heat is removed. The limits depend on the known inputs.';const notes={supplyReferenceMach:'Mach number at the moving upstream reference. Entry preserves stagnation pressure and temperature.',reservoirT0:'The selected pressure and temperature types apply at the same upstream station.'};for(const [key,note] of Object.entries(notes)){const control=$('value-'+key);if(control){const hint=document.createElement('p');hint.className='control-hint';hint.textContent=note;control.closest('.input-group').append(hint);}}}$('inputs').onsubmit=e=>e.preventDefault();renderExamples();bindWaveGeometrySelector();for(let x of fields){if(x.type==='wall-segments'){bindWallSegments(x);continue;}if(x.type==='segments'){bindSegmentEditor(x);continue;}let n=$('value-'+x.key),r=$('range-'+x.key);
  if(x.type==='text')n.value=inputs[x.key];
+ if(inputs.ductProblem===fannoRayleighMode&&inputs.ductStageOrder===rayleighFannoOrder&&x.key==='M1'){
+  n.addEventListener('change',()=>{
+   if((inputs.M1===1)!==Boolean($('value-rayleighCoolingBranch')))renderInputs();
+  });
+ }
  if(x.modeField){
  n.onchange=()=>{
   const mode=x.modes[n.value];
@@ -658,9 +663,10 @@ if(id==='nozzle'&&['nozzleType','nozzleSolve','outletCondition'].includes(x.key)
  inputs.nozzleView=previousNozzleView;
  renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }
-if(x.key==='fannoRayleighOutlet'){
- inputs={...inputs,fannoRayleighOutlet:n.value,bookExample:''};
- renderInputs();$('value-fannoRayleighOutlet')?.focus({preventScroll:true});schedule();return;
+if(['ductStageOrder','fannoRayleighOutlet','rayleighCoolingBranch'].includes(x.key)){
+ request++;
+ inputs={...inputs,[x.key]:n.value,bookExample:''};
+ renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }
 if(inputs.ductProblem===fannoRayleighMode&&x.key==='frictionConvention'){
  const scale=n.value===inputs.frictionConvention?1:n.value==='Darcy'?4:.25;
@@ -1330,6 +1336,6 @@ function knownRayleighData(mode,group){
  return groups[group]??modes[mode];
 }
 
-function updateDuctNotes(){const valid=['rayleigh','fanno'].includes(current?.id)&&!!current?.result.longitudinal?.length;const image=$('ductImageNote'),chart=$('ductChartNote');image.hidden=!valid;image.textContent=valid?(current.result.fannoRayleigh?'Section 1 to 2 has wall friction. Section 2 to 3 has heat transfer.':current.result.fullSystem?'Isentropic nozzle; constant friction factor and hydraulic diameter in the duct. Normal shocks are shown at their computed position.':current.id==='rayleigh'?rayleighDistributionNote:fannoDistributionNote):'';const axial=valid&&/x\/L/.test(displayedChart?.xlabel??'');chart.hidden=!axial;chart.textContent=axial?image.textContent:'';$('plotNote').hidden=axial&&$('plotNote').textContent===image.textContent;}
+function updateDuctNotes(){const valid=['rayleigh','fanno'].includes(current?.id)&&!!current?.result.longitudinal?.length;const image=$('ductImageNote'),chart=$('ductChartNote');image.hidden=!valid;image.textContent=valid?(current.result.fannoRayleigh?`${current.result.stageNames[0]} flow from section 1 to 2, followed by ${current.result.stageNames[1]} flow from section 2 to 3.`:current.result.fullSystem?'Isentropic nozzle; constant friction factor and hydraulic diameter in the duct. Normal shocks are shown at their computed position.':current.id==='rayleigh'?rayleighDistributionNote:fannoDistributionNote):'';const axial=valid&&/x\/L/.test(displayedChart?.xlabel??'');chart.hidden=!axial;chart.textContent=axial?image.textContent:'';$('plotNote').hidden=axial&&$('plotNote').textContent===image.textContent;}
 
 
