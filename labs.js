@@ -1,3 +1,4 @@
+import {calculateAppendix,calculatorMachRange,calculatorModes} from './appendix-calculator.js?v=20261124-appendix-calculator';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
@@ -79,7 +80,7 @@ function shockStateSection({kind,title,location,before,after,gamma,R,extra=[]}){
  return {kind,title,location,rows,extra:[...extra,{label:'Entropy rise Δs',value:ds,unit:'J/(kg·K)'}]};
 }
 export const chapters=[
- [1,'Isentropic Flow Calculator','Static, stagnation and sonic reference properties',['foundations']],
+ [1,'Calculator','Isentropic flow, shocks, duct flow and expansion relations',['foundations']],
  [3,'Normal shock','Sound, compression & entropy',['normal']],
  [4,'Rayleigh flow','Heat transfer & thermal choking',['rayleigh']],
  [5,'Fanno flow','Friction & sonic length',['fanno']],
@@ -90,7 +91,10 @@ export const chapters=[
  [10,'Wedge & Cone Lab','Taylor–Maccoll similarity solution',['cone']]
 ];
 export const labs={
- foundations:{chapter:1,title:'Isentropic Flow Calculator',tag:'ISENTROPIC RELATIONS',description:'Inspect static, stagnation and sonic-reference ratios, area ratio, Mach angle and Prandtl–Meyer angle for a calorically perfect gas.',inputs:[M('M',2),T,P,g],model:'Calorically perfect ideal gas · local isentropic deceleration to rest',equation:'T₀/T = 1 + (γ − 1)M²/2',limitations:'It does not assert that an entire flow field is isentropic.'},
+ foundations:{chapter:1,title:'Calculator',tag:'GAS-DYNAMIC RELATIONS',description:'Select a book appendix and evaluate its relations for a specified inlet state.',inputs:[
+  {key:'calculatorMode',label:'Calculation type',value:calculatorModes.isentropic,options:Object.values(calculatorModes)},
+  M('M',2),T,P,g,input('calculatorTurn','Flow deflection angle',10,0,90,.1,'θ (°)'),
+ ],model:'Calorically perfect ideal gas · local isentropic deceleration to rest',equation:'T₀/T = 1 + (γ − 1)M²/2',limitations:'It does not assert that an entire flow field is isentropic.'},
  balances:{chapter:2,title:'Control-volume balance lab',tag:'MASS · MOMENTUM · ENERGY',description:'Change a proposed outlet state and inspect the mass, force and energy balances. Solve outlet speed from continuity or load a consistent example.',inputs:[
  {key:'balanceMode',label:'Experiment mode',value:'Check proposed outlet',options:['Check proposed outlet','Solve outlet speed']},
  {...M('M1',.3),section:'Inlet state'},T,{...P,value:200},input('A1','Inlet area',10,.1,100, .1,'cm²'),
@@ -329,6 +333,14 @@ function groupStationInputs(fields){
  });
 }
 export function inputDefinitions(id,x={}){
+ if(id==='foundations'){
+  const mode=x.calculatorMode??calculatorModes.isentropic,range=calculatorMachRange(mode);
+  const fields=labs.foundations.inputs.filter(f=>f.key!=='calculatorTurn'||mode===calculatorModes.oblique)
+   .filter(f=>f.key!=='gamma')
+   .map(f=>f.key==='M'?{...expandedInput(id,f),...range,sliderMin:range.min,sliderMax:range.max}:f);
+  return groupStationInputs(stateInputFields(id,x,[fields[0],
+   ...gasInputFields(x,id).map(f=>f.key==='gamma'?{...f,readOnly:false}:f),...fields.slice(1)]));
+ }
  if(id==='critical-mach'){
   const automatic=(x.criticalPressureSource??automaticPressure)===automaticPressure;
   return labs[id].inputs.filter(field=>field.key==='minimumIncompressibleCp'?!automatic:
@@ -366,6 +378,8 @@ export function calculate(id,x,publishedPressure){
  }
  const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,singlePistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
  x=normalizeStateInputs(id,id==='nozzle'?resolveNozzleCase(x):x);
+ if(id==='foundations'&&x.calculatorMode&&x.calculatorMode!==calculatorModes.isentropic)
+  return calculateAppendix(x,gasInfo(x));
  const closed=id==='tube'&&x.unsteadyExperiment===pistonExperiment&&x.pistonDomain===closedPistonMode;
  const closedValve=id==='tube'&&x.unsteadyExperiment===valveExperiment&&x.tubeDomain===finiteTubeMode;
  const single=id==='tube'&&x.unsteadyExperiment===singlePistonExperiment;

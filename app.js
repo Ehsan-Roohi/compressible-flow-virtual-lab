@@ -1,3 +1,4 @@
+import {calculatorMachRange} from './appendix-calculator.js?v=20261124-appendix-calculator';
 import {createUnitView} from './unit-system.js?v=20261124-us-units';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -34,7 +35,7 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261124-naca-pressure';
+import {plotOptions} from './plot-options.js?v=20261124-appendix-calculator';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
@@ -43,8 +44,8 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-expanded-airfoil-bank';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-naca-pressure';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-appendix-calculator';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-appendix-calculator';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -99,6 +100,7 @@ function defaults(id,selection={}){
   if(selection.bookExample==='9-7'&&selection.airfoilShape===chapter9Triangle.airfoilShape)return {...geometry,...chapter9Triangle};
   return {...geometry,...chapter6ResetExample(id,selection)?.inputs};
  }
+ if(id==='foundations'&&selection.calculatorMode)return {...inputs,calculatorMode:selection.calculatorMode};
  if(id==='rayleigh')return rayleighModeDefaults(inputs,selection);
  if(id==='fanno')return fannoModeDefaults(inputs,selection);
  if(id==='nozzle')return nozzleModeDefaults(inputs,selection);
@@ -186,7 +188,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-expanded-airfoil-bank',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-appendix-calculator',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -618,6 +620,16 @@ arrangeWallInputs();arrangeCompactGeometry(id,$('wallSetupPanel'));arrangeFannoG
 }
 const commitOutletMach=id==='rayleigh'&&x.key==='targetMach';
 n.oninput=()=>{
+if(id==='foundations'&&x.key==='calculatorMode'){
+ inputs.calculatorMode=n.value;
+ const {min,max}=calculatorMachRange(n.value);
+ if(!Number.isFinite(inputs.M)||inputs.M<min||inputs.M>max)inputs.M=2;
+ clearTimeout(timer);
+ renderInputs();
+ $('value-calculatorMode')?.focus({preventScroll:true});
+ solve();
+ return;
+}
 if(id==='tube'&&(x.key==='pistonType'||x.key==='unsteadyExperiment'&&(n.value==='Piston'||n.value==='Shock tube'&&pistonType))){
  stopAnimation();
  const experiment=x.key==='pistonType'?n.value:n.value==='Piston'?'Single-stage piston':'Shock tube';
@@ -693,6 +705,12 @@ function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.le
 
 function renderIsentropicRelations(d){
  const panel=$('isentropicPanel');panel.hidden=d.id!=='foundations';if(panel.hidden)return;
+ if(d.result.calculatorSections){
+  const sections=d.result.calculatorSections.map(({title,rows})=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${displayValue(r.value,r.unit,8)}${r.unit?` <small>${unitView.label(r.unit)}</small>`:''}</dd></div>`).join('')}</dl></section>`);
+  panel.innerHTML=`<div class="card-head"><h2>${d.inputs.calculatorMode}</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${sections.join('')}`;
+  addDataExport(panel,'calculator',()=>({rows:d.rows}));
+  return;
+ }
  const rows=d.rows.filter(r=>r.panel==='isentropic');
  const [mach,machAngle,prandtlMeyer]=rows.filter(r=>!/[₀*]/.test(r.label));
  const soundSpeed={label:'Speed of sound a',value:d.result.a,unit:'m/s'};
@@ -933,7 +951,7 @@ function renderWaveKey(result){
  if(key.textContent!==text)key.textContent=text;
 }
 
-function renderScene(){if(!current)return;if(current.result.tracking){if(current.inspectTrackingEvent)current.scene={kind:'wall',...current.result,inspectEvent:true};else if(current.result.finalStreamMatch)current.scene={kind:'shockFanReference',...current.result.finalStreamMatch};else current.scene={kind:'wall',...current.result};}updateDuctNotes();let view=current.result.finiteTube?finiteTubeFlowView(current.result,current.inputs??inputs,currentPlotTime()):sceneSVG(current.scene,current.inputs??inputs,sceneTime,fieldQuantity);$('animate').hidden=!['nozzle','tube'].includes(current.id)||!!current.result.twoStagePiston||!!current.result.valveClosure||!!current.result.acoustic;if(current.result.finiteTube&&!animation)$('animate').textContent='▶ Play';$('scene').classList.toggle('method-comparison',!!(current.result.comparison||current.result.bodyComparison));$('scene').innerHTML=view.svg;displayMeasurements($('scene'));renderWaveKey(current.result);$('scene').dataset.kind=current.scene.kind;if(fieldQuantity==='schlieren'&&view.field?.quantity!=='schlieren')fieldQuantity=view.field?.quantity??'pressure';bindFieldProbe();$('fieldLabel').textContent=view.label;$('sceneMeta').textContent=view.meta;$('sceneTitle').textContent=current.scene.kind==='nozzleJet'&&['matched','no-flow'].includes(current.scene.status)?current.result.regime:['jet','nozzleJet'].includes(current.scene.kind)?current.scene.title:current.result.simpleCorner?(current.result.cornerKind==='oblique'?'Compression ramp · oblique shock':'Expansion corner · Prandtl–Meyer fan'):current.scene.kind==='cone'?'Cone · axisymmetric flow':current.result.bodyLab?(current.result.bodyComparison?'Wedge vs cone':'Wedge · flow at incidence'):current.result.comparison?'Shock–Expansion vs MOC':current.id==='wall'&&current.result.tracking?'Wave propagation and reflections':current.id==='wall'&&current.result.interaction?'Wave interaction and slip line':current.id==='wall'&&current.result.moc?'Characteristic field':current.id==='airfoil'?'Surface pressure coefficient':current.scene.kind==='coneDetached'?'Detached shock':current.id==='balances'?'Control volume · endpoint states':current.id==='nozzle'?current.result.regime:['oblique','expansion'].includes(current.id)?(inputs.cornerView==='Analytical contours'?'Analytical contours':'Flow schematic'):'Analytical field';const tools=$('fieldControls');tools.hidden=!view.field||['foundations','normal'].includes(current.id)||(['rayleigh','fanno'].includes(current.id)&&!current.result.longitudinal?.length);$('sceneTitle').hidden=true;$('fieldLabel').parentElement.hidden=current.id!=='foundations';$('fieldLabel').textContent=current.id==='foundations'?`${labs[current.id].model}. ${labs[current.id].limitations}`:'';$('sceneMeta').textContent='';if(view.field){$('fieldControls').querySelector('.field-scale').style.display=view.field.showScale===false?'none':'';fieldQuantity=view.field.quantity;for(const o of $('fieldQuantity').options)o.hidden=!view.field.options.includes(o.value);$('fieldQuantity').value=fieldQuantity;$('fieldQuantity').querySelector('[value="cp"]').textContent=current.id==='airfoil'?'Pressure coefficient Cp':'Surface pressure coefficient Cp';$('fieldMin').textContent=`${measure(view.field.min,view.field.units,4)}`;$('fieldMax').textContent=`${measure(view.field.max,view.field.units,4)}`;$('fieldControls').querySelector('.field-ramp').style.background=view.field.palette?`linear-gradient(to right,${view.field.palette.join(',')})`:'';$('fieldScaleLabel').textContent=`${view.field.label} · ${view.field.note}`;}}
+function renderScene(){if(!current)return;if(current.result.tracking){if(current.inspectTrackingEvent)current.scene={kind:'wall',...current.result,inspectEvent:true};else if(current.result.finalStreamMatch)current.scene={kind:'shockFanReference',...current.result.finalStreamMatch};else current.scene={kind:'wall',...current.result};}updateDuctNotes();let view=current.result.finiteTube?finiteTubeFlowView(current.result,current.inputs??inputs,currentPlotTime()):sceneSVG(current.scene,current.inputs??inputs,sceneTime,fieldQuantity);$('animate').hidden=!['nozzle','tube'].includes(current.id)||!!current.result.twoStagePiston||!!current.result.valveClosure||!!current.result.acoustic;if(current.result.finiteTube&&!animation)$('animate').textContent='▶ Play';$('scene').classList.toggle('method-comparison',!!(current.result.comparison||current.result.bodyComparison));$('scene').innerHTML=view.svg;displayMeasurements($('scene'));renderWaveKey(current.result);$('scene').dataset.kind=current.scene.kind;if(fieldQuantity==='schlieren'&&view.field?.quantity!=='schlieren')fieldQuantity=view.field?.quantity??'pressure';bindFieldProbe();$('fieldLabel').textContent=view.label;$('sceneMeta').textContent=view.meta;$('sceneTitle').textContent=current.scene.kind==='nozzleJet'&&['matched','no-flow'].includes(current.scene.status)?current.result.regime:['jet','nozzleJet'].includes(current.scene.kind)?current.scene.title:current.result.simpleCorner?(current.result.cornerKind==='oblique'?'Compression ramp · oblique shock':'Expansion corner · Prandtl–Meyer fan'):current.scene.kind==='cone'?'Cone · axisymmetric flow':current.result.bodyLab?(current.result.bodyComparison?'Wedge vs cone':'Wedge · flow at incidence'):current.result.comparison?'Shock–Expansion vs MOC':current.id==='wall'&&current.result.tracking?'Wave propagation and reflections':current.id==='wall'&&current.result.interaction?'Wave interaction and slip line':current.id==='wall'&&current.result.moc?'Characteristic field':current.id==='airfoil'?'Surface pressure coefficient':current.scene.kind==='coneDetached'?'Detached shock':current.id==='balances'?'Control volume · endpoint states':current.id==='nozzle'?current.result.regime:['oblique','expansion'].includes(current.id)?(inputs.cornerView==='Analytical contours'?'Analytical contours':'Flow schematic'):'Analytical field';const tools=$('fieldControls');tools.hidden=!view.field||['foundations','normal'].includes(current.id)||(['rayleigh','fanno'].includes(current.id)&&!current.result.longitudinal?.length);$('sceneTitle').hidden=true;$('fieldLabel').parentElement.hidden=current.id!=='foundations';$('fieldLabel').textContent=current.id==='foundations'?(current.result.calculatorSections?`${current.model}.`:`${labs[current.id].model}. ${labs[current.id].limitations}`):'';$('sceneMeta').textContent='';if(view.field){$('fieldControls').querySelector('.field-scale').style.display=view.field.showScale===false?'none':'';fieldQuantity=view.field.quantity;for(const o of $('fieldQuantity').options)o.hidden=!view.field.options.includes(o.value);$('fieldQuantity').value=fieldQuantity;$('fieldQuantity').querySelector('[value="cp"]').textContent=current.id==='airfoil'?'Pressure coefficient Cp':'Surface pressure coefficient Cp';$('fieldMin').textContent=`${measure(view.field.min,view.field.units,4)}`;$('fieldMax').textContent=`${measure(view.field.max,view.field.units,4)}`;$('fieldControls').querySelector('.field-ramp').style.background=view.field.palette?`linear-gradient(to right,${view.field.palette.join(',')})`:'';$('fieldScaleLabel').textContent=`${view.field.label} · ${view.field.note}`;}}
 function bindFieldProbe(){
  const box=$('fieldProbe'),scene=$('scene'),svg=scene.querySelector('svg');box.hidden=true;scene.onpointermove=null;scene.onpointerdown=null;scene.onpointerleave=null;if(fieldQuantity==='schlieren')return;
  if((current?.scene.kind==='airfoil'||current?.scene.wallReflection||current?.scene.ramjet||current?.scene.tracking||current?.scene.moc?.fitted)&&svg){

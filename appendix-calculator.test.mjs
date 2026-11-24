@@ -1,0 +1,61 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {calculate, defaults, inputDefinitions} from './labs.js';
+import {calculatorModes} from './appendix-calculator.js';
+import {sceneSVG, chartSVG} from './graphics.js';
+import {plotOptions} from './plot-options.js';
+
+const run = (calculatorMode, patch={}) => calculate('foundations',{...defaults('foundations'),calculatorMode,...patch});
+const near = (actual,expected,tolerance=1e-6) => assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} != ${expected}`);
+
+test('all appendix calculators accept a Mach number, pressure, temperature and editable gamma',()=>{
+  for(const mode of Object.values(calculatorModes)){
+    const d=run(mode,{p1:137.9,T1:277.78,M:2});
+    const fields=inputDefinitions('foundations',d.inputs);
+    assert.ok(fields.some(f=>f.key==='calculatorMode'));
+    assert.ok(fields.some(f=>f.key==='gamma'&&!f.readOnly));
+    for(const key of ['M','p1','T1'])assert.ok(fields.some(f=>f.key===key),mode);
+    assert.equal(fields.some(f=>f.key==='calculatorTurn'),mode===calculatorModes.oblique);
+    const inlet=d.result.s1??d.result;
+    near(inlet.p,137900);
+    near(inlet.T,277.78);
+    const view=sceneSVG(d.scene,d.inputs);
+    assert.match(view.svg,/<svg/);
+    assert.ok(plotOptions(d).length>0);
+    assert.match(chartSVG(plotOptions(d)[0].chart).svg,/<svg/);
+  }
+});
+
+test('the appendix ratios retain the book conventions and derive correct dimensional states',()=>{
+  const iso=run(calculatorModes.isentropic);
+  near(iso.result.relations.areaRatio,1.6875);
+  assert.ok(!iso.rows.some(r=>/F\/F|P×A/.test(r.label)));
+  const normal=run(calculatorModes.normal,{M:2,p1:101,T1:300}).result;
+  near(normal.s2.M,.57735026919);
+  near(normal.s2.p,454500);
+  near(normal.s2.T,506.25);
+  for(const mode of [calculatorModes.rayleigh,calculatorModes.fanno]){
+    const d=run(mode,{M:.5,p1:101,T1:300});
+    near(d.result.sonic.M,1);
+    near(d.result.s1.T/d.result.sonic.T,d.result.ratios.T);
+    near(d.result.s1.p0/d.result.sonic.p0,d.result.ratios.p0);
+    const row=d.rows.find(r=>r.label.includes(mode===calculatorModes.rayleigh?'ρ*/ρ':'ρ/ρ*'));
+    near(row.value,mode===calculatorModes.rayleigh?4/9:1.870828693386971);
+  }
+  const pm=run(calculatorModes.expansion);
+  near(pm.result.relations.pmAngle,26.3797608);
+  near(pm.result.relations.machAngle,30);
+});
+
+test('oblique calculator resolves both branches and reports the attached-shock limit',()=>{
+  const attached=run(calculatorModes.oblique,{M:2,calculatorTurn:10});
+  const sections=attached.result.calculatorSections;
+  const beta=name=>sections.find(s=>s.title===name).rows.find(r=>r.label==='Shock angle β').value;
+  near(beta('Weak shock'),39.31393,1e-5);
+  near(beta('Strong shock'),83.70008,1e-5);
+  const detached=run(calculatorModes.oblique,{M:2,calculatorTurn:30});
+  assert.equal(detached.result.status,'detached');
+  assert.match(detached.notice,/exceeds the limit/);
+  assert.equal(detached.result.calculatorSections.length,2);
+  assert.throws(()=>run(calculatorModes.normal,{M:.5}),/Mach number between/);
+});

@@ -191,6 +191,7 @@ function basePlotOptions(d,time=.001){
 }
 
 export function plotOptions(d,time=.001){
+ if(d.result.calculatorPlots)return d.result.calculatorPlots;
  if(d.id==='critical-mach')return [{key:'critical-mach',label:d.chart.title,chart:d.chart,
   note:d.result.corrections
    ?'Each colored dot marks where that correction predicts local Mach 1 at the minimum-pressure point.'
