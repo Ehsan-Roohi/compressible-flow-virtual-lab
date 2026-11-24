@@ -1,4 +1,4 @@
-import {calculatorMachRange,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-compact-shock-calculators';
+import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-calculator-state-tables';
 import {createUnitView} from './unit-system.js?v=20261124-us-units';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -732,32 +732,32 @@ function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.le
 
 function renderIsentropicRelations(d){
  const panel=$('isentropicPanel');panel.hidden=d.id!=='foundations';if(panel.hidden)return;
- if(d.result.calculatorSections){
-  const sections=d.result.calculatorSections.map(({title,rows})=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${displayValue(r.value,r.unit,8)}${r.unit?` <small>${unitView.label(r.unit)}</small>`:''}</dd></div>`).join('')}</dl></section>`);
-  panel.innerHTML=`<div class="card-head"><h2>${d.inputs.calculatorMode}</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${sections.join('')}`;
-  const detailLab=shockCalculatorLabs[d.inputs.calculatorMode];
-  if(detailLab){
-   const note=document.createElement('p'),link=document.createElement('a');
-   note.className='isentropic-note';
-   link.href=detailLab.href;
-   link.textContent=detailLab.label+' ↗';
-   note.append('For flow visualization and plots, open ',link,'.');
-   panel.append(note);
-  }
-  addDataExport(panel,'calculator',()=>({rows:d.rows}));
-  return;
+ const {calculatorSections,calculatorComparisons}=d.result;
+ const mode=d.inputs.calculatorMode??calculatorModes.isentropic;
+ const isentropic=mode===calculatorModes.isentropic;
+ const sections=calculatorSections.map(({title,rows})=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??displayValue(r.value,r.unit,8)}${r.unit?` <small>${unitView.label(r.unit)}</small>`:''}</dd></div>`).join('')}</dl></section>`);
+ const tables=calculatorComparisons.map(({title,outletLabel,rows})=>`
+  <div class="region-table-scroll calculator-state-scroll">
+   <table class="region-table calculator-state-table">
+    <caption>${title?`Flow properties · ${title}`:'Flow properties'}</caption>
+    <thead><tr><th scope="col">Property</th><th scope="col">Inlet</th><th scope="col">${outletLabel}</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><th scope="row">${r.label}${r.unit?` <span>${unitView.label(r.unit)}</span>`:''}</th>
+      <td>${displayValue(r.inlet,r.unit,7)}</td><td>${displayValue(r.outlet,r.unit,7)}</td></tr>`).join('')}</tbody>
+   </table>
+  </div>`).join('');
+ const groups=isentropic?`<div class="isentropic-ratio-columns">${sections.slice(0,2).join('')}</div>${sections[2]}`:sections.join('');
+ panel.innerHTML=`<div class="card-head"><h2>${isentropic?'Isentropic Flow Calculator':mode}</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${groups}${tables}`;
+ if(isentropic)panel.insertAdjacentHTML('beforeend','<p class="isentropic-note">Subscript 0 denotes the stagnation state. An asterisk denotes the sonic reference at the same stagnation state. A* is the corresponding critical area at the same mass flow rate.</p>');
+ const detailLab=shockCalculatorLabs[mode];
+ if(detailLab){
+  const note=document.createElement('p'),link=document.createElement('a');
+  note.className='isentropic-note';
+  link.href=detailLab.href;
+  link.textContent=detailLab.label+' ↗';
+  note.append('For flow visualization and plots, open ',link,'.');
+  panel.append(note);
  }
- const rows=d.rows.filter(r=>r.panel==='isentropic');
- const [mach,machAngle,prandtlMeyer]=rows.filter(r=>!/[₀*]/.test(r.label));
- const soundSpeed={label:'Speed of sound a',value:d.result.a,unit:'m/s'};
- const groups=[
-  ['Flow properties',[mach,soundSpeed,machAngle,prandtlMeyer]],
-  ['Stagnation ratios',rows.filter(r=>r.label.endsWith('₀'))],
-  ['Sonic ratios',rows.filter(r=>r.label.endsWith('*'))]
- ];
- const [angles,...ratios]=groups.map(([title,items])=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${items.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??displayValue(r.value,r.unit,8)}${r.unit?` <small>${unitView.label(r.unit)}</small>`:''}</dd></div>`).join('')}</dl></section>`);
- panel.innerHTML=`<div class="card-head"><h2>Isentropic Flow Calculator</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${angles}<div class="isentropic-ratio-columns">${ratios.join('')}</div><p class="isentropic-note">Subscript 0: stagnation state. Asterisk *: sonic reference at the same stagnation state; A* is the corresponding critical area for the same mass flow. Angles are in degrees.</p>`;
- addDataExport(panel,'isentropic',()=>({rows:[...rows,{...soundSpeed,value:d.result.a}]}));
+ addDataExport(panel,isentropic?'isentropic':'calculator',()=>({rows:d.rows}));
 }
 function renderBalanceDetails(){
  const panel=$('balancePanel');panel.hidden=current.id!=='balances';if(panel.hidden)return;
@@ -987,7 +987,7 @@ function renderWaveKey(result){
  if(key.textContent!==text)key.textContent=text;
 }
 
-function renderScene(){if(!current)return;if(current.result.tracking){if(current.inspectTrackingEvent)current.scene={kind:'wall',...current.result,inspectEvent:true};else if(current.result.finalStreamMatch)current.scene={kind:'shockFanReference',...current.result.finalStreamMatch};else current.scene={kind:'wall',...current.result};}updateDuctNotes();let view=current.result.finiteTube?finiteTubeFlowView(current.result,current.inputs??inputs,currentPlotTime()):sceneSVG(current.scene,current.inputs??inputs,sceneTime,fieldQuantity);$('animate').hidden=!['nozzle','tube'].includes(current.id)||!!current.result.twoStagePiston||!!current.result.valveClosure||!!current.result.acoustic;if(current.result.finiteTube&&!animation)$('animate').textContent='▶ Play';$('scene').classList.toggle('method-comparison',!!(current.result.comparison||current.result.bodyComparison));$('scene').innerHTML=view.svg;displayMeasurements($('scene'));renderWaveKey(current.result);$('scene').dataset.kind=current.scene.kind;if(fieldQuantity==='schlieren'&&view.field?.quantity!=='schlieren')fieldQuantity=view.field?.quantity??'pressure';bindFieldProbe();$('fieldLabel').textContent=view.label;$('sceneMeta').textContent=view.meta;$('sceneTitle').textContent=current.scene.kind==='nozzleJet'&&['matched','no-flow'].includes(current.scene.status)?current.result.regime:['jet','nozzleJet'].includes(current.scene.kind)?current.scene.title:current.result.simpleCorner?(current.result.cornerKind==='oblique'?'Compression ramp · oblique shock':'Expansion corner · Prandtl–Meyer fan'):current.scene.kind==='cone'?'Cone · axisymmetric flow':current.result.bodyLab?(current.result.bodyComparison?'Wedge vs cone':'Wedge · flow at incidence'):current.result.comparison?'Shock–Expansion vs MOC':current.id==='wall'&&current.result.tracking?'Wave propagation and reflections':current.id==='wall'&&current.result.interaction?'Wave interaction and slip line':current.id==='wall'&&current.result.moc?'Characteristic field':current.id==='airfoil'?'Surface pressure coefficient':current.scene.kind==='coneDetached'?'Detached shock':current.id==='balances'?'Control volume · endpoint states':current.id==='nozzle'?current.result.regime:['oblique','expansion'].includes(current.id)?(inputs.cornerView==='Analytical contours'?'Analytical contours':'Flow schematic'):'Analytical field';const tools=$('fieldControls');tools.hidden=!view.field||['foundations','normal'].includes(current.id)||(['rayleigh','fanno'].includes(current.id)&&!current.result.longitudinal?.length);$('sceneTitle').hidden=true;$('fieldLabel').parentElement.hidden=current.id!=='foundations';$('fieldLabel').textContent=current.id==='foundations'?(current.result.calculatorSections?`${current.model}.`:`${labs[current.id].model}. ${labs[current.id].limitations}`):'';$('sceneMeta').textContent='';if(view.field){$('fieldControls').querySelector('.field-scale').style.display=view.field.showScale===false?'none':'';fieldQuantity=view.field.quantity;for(const o of $('fieldQuantity').options)o.hidden=!view.field.options.includes(o.value);$('fieldQuantity').value=fieldQuantity;$('fieldQuantity').querySelector('[value="cp"]').textContent=current.id==='airfoil'?'Pressure coefficient Cp':'Surface pressure coefficient Cp';$('fieldMin').textContent=`${measure(view.field.min,view.field.units,4)}`;$('fieldMax').textContent=`${measure(view.field.max,view.field.units,4)}`;$('fieldControls').querySelector('.field-ramp').style.background=view.field.palette?`linear-gradient(to right,${view.field.palette.join(',')})`:'';$('fieldScaleLabel').textContent=`${view.field.label} · ${view.field.note}`;}}
+function renderScene(){if(!current)return;if(current.result.tracking){if(current.inspectTrackingEvent)current.scene={kind:'wall',...current.result,inspectEvent:true};else if(current.result.finalStreamMatch)current.scene={kind:'shockFanReference',...current.result.finalStreamMatch};else current.scene={kind:'wall',...current.result};}updateDuctNotes();let view=current.result.finiteTube?finiteTubeFlowView(current.result,current.inputs??inputs,currentPlotTime()):sceneSVG(current.scene,current.inputs??inputs,sceneTime,fieldQuantity);$('animate').hidden=!['nozzle','tube'].includes(current.id)||!!current.result.twoStagePiston||!!current.result.valveClosure||!!current.result.acoustic;if(current.result.finiteTube&&!animation)$('animate').textContent='▶ Play';$('scene').classList.toggle('method-comparison',!!(current.result.comparison||current.result.bodyComparison));$('scene').innerHTML=view.svg;displayMeasurements($('scene'));renderWaveKey(current.result);$('scene').dataset.kind=current.scene.kind;if(fieldQuantity==='schlieren'&&view.field?.quantity!=='schlieren')fieldQuantity=view.field?.quantity??'pressure';bindFieldProbe();$('fieldLabel').textContent=view.label;$('sceneMeta').textContent=view.meta;$('sceneTitle').textContent=current.scene.kind==='nozzleJet'&&['matched','no-flow'].includes(current.scene.status)?current.result.regime:['jet','nozzleJet'].includes(current.scene.kind)?current.scene.title:current.result.simpleCorner?(current.result.cornerKind==='oblique'?'Compression ramp · oblique shock':'Expansion corner · Prandtl–Meyer fan'):current.scene.kind==='cone'?'Cone · axisymmetric flow':current.result.bodyLab?(current.result.bodyComparison?'Wedge vs cone':'Wedge · flow at incidence'):current.result.comparison?'Shock–Expansion vs MOC':current.id==='wall'&&current.result.tracking?'Wave propagation and reflections':current.id==='wall'&&current.result.interaction?'Wave interaction and slip line':current.id==='wall'&&current.result.moc?'Characteristic field':current.id==='airfoil'?'Surface pressure coefficient':current.scene.kind==='coneDetached'?'Detached shock':current.id==='balances'?'Control volume · endpoint states':current.id==='nozzle'?current.result.regime:['oblique','expansion'].includes(current.id)?(inputs.cornerView==='Analytical contours'?'Analytical contours':'Flow schematic'):'Analytical field';const tools=$('fieldControls');tools.hidden=!view.field||['foundations','normal'].includes(current.id)||(['rayleigh','fanno'].includes(current.id)&&!current.result.longitudinal?.length);$('sceneTitle').hidden=true;$('fieldLabel').parentElement.hidden=current.id!=='foundations';$('fieldLabel').textContent=current.id==='foundations'?(current.result.calculatorPlots?`${current.model}.`:`${labs[current.id].model}. ${labs[current.id].limitations}`):'';$('sceneMeta').textContent='';if(view.field){$('fieldControls').querySelector('.field-scale').style.display=view.field.showScale===false?'none':'';fieldQuantity=view.field.quantity;for(const o of $('fieldQuantity').options)o.hidden=!view.field.options.includes(o.value);$('fieldQuantity').value=fieldQuantity;$('fieldQuantity').querySelector('[value="cp"]').textContent=current.id==='airfoil'?'Pressure coefficient Cp':'Surface pressure coefficient Cp';$('fieldMin').textContent=`${measure(view.field.min,view.field.units,4)}`;$('fieldMax').textContent=`${measure(view.field.max,view.field.units,4)}`;$('fieldControls').querySelector('.field-ramp').style.background=view.field.palette?`linear-gradient(to right,${view.field.palette.join(',')})`:'';$('fieldScaleLabel').textContent=`${view.field.label} · ${view.field.note}`;}}
 function bindFieldProbe(){
  const box=$('fieldProbe'),scene=$('scene'),svg=scene.querySelector('svg');box.hidden=true;scene.onpointermove=null;scene.onpointerdown=null;scene.onpointerleave=null;if(fieldQuantity==='schlieren')return;
  if((current?.scene.kind==='airfoil'||current?.scene.wallReflection||current?.scene.ramjet||current?.scene.tracking||current?.scene.moc?.fitted)&&svg){

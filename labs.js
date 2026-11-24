@@ -1,4 +1,4 @@
-import {calculateAppendix,calculatorMachRange,calculatorModes} from './appendix-calculator.js?v=20261124-compact-shock-calculators';
+import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput} from './appendix-calculator.js?v=20261124-calculator-state-tables';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
@@ -455,10 +455,15 @@ export function calculate(id,x,publishedPressure){
  }
  // Chapter 6 uses horizontal incident flow; discard legacy saved incidence.
  if(['oblique','expansion','collision'].includes(id)){x={...x};delete x.alpha;}
- if(id==='foundations'){result=p.state(x.M,x.T1,x.p1*1000,g,R);result.relations=p.isentropicRelations(x.M,g);rows=[row('Stagnation temperature',result.T0,'K'),row('Stagnation pressure',result.p0/1000,'kPa'),row('Speed of sound',result.a,'m/s'),row('Velocity',result.u,'m/s'),row('Density',result.rho,'kg/m³')];const r=result.relations;rows.push(...[
- row('Mach number M',r.M),row('Mach angle μ',r.machAngle,'°'),row('Prandtl–Meyer angle ν',r.pmAngle,'°'),
- row('p/p₀',r.pP0),row('ρ/ρ₀',r.rhoRho0),row('T/T₀',r.TT0),row('p/p*',r.pPstar),row('ρ/ρ*',r.rhoRhostar),row('T/T*',r.TTstar),{...row('A/A*',r.areaRatio),display:r.areaUnbounded?'∞':null}
- ].map(v=>({...v,panel:'isentropic'})));chart={title:'Static-to-stagnation ratios',xlabel:'Mach number',ylabel:'Ratio',series:[{name:'T₀/T',points:p.linspace(0,4).map(m=>[m,p.isentropic(m,g).T0T])},{name:'p₀/p',points:p.linspace(0,4).map(m=>[m,p.isentropic(m,g).p0p])}]};scene={kind:'state',s1:result};}
+ if(id==='foundations'){
+  result=p.state(x.M,x.T1,x.p1*1000,g,R);
+  result.relations=p.isentropicRelations(x.M,g);
+  const {rows:calculatorRows,...output}=isentropicCalculatorOutput(result,g,R);
+  rows=calculatorRows;
+  Object.assign(result,output);
+  chart={title:'Static-to-stagnation ratios',xlabel:'Mach number',ylabel:'Ratio',series:[{name:'T₀/T',points:p.linspace(0,4).map(m=>[m,p.isentropic(m,g).T0T])},{name:'p₀/p',points:p.linspace(0,4).map(m=>[m,p.isentropic(m,g).p0p])}]};
+  scene={kind:'state',s1:result};
+ }
  else if(id==='balances'){
   result=controlVolume(x);const r=result;scene={kind:'balance',...r};
   rows=[row('Inlet mass flow',r.m1,'kg/s'),row('Outlet mass flow',r.m2,'kg/s'),row('Outlet Mach',r.b.M),row('Mass residual',r.terms.mass.residual,'kg/s'),row('Momentum residual',r.terms.momentum.residual,'N'),row('Energy residual',r.terms.energy.residual/1000,'kW'),row('Force on fluid required by momentum',r.forceRequired,'N'),row('Inlet stagnation temperature',r.a.T0,'K'),row('Outlet stagnation temperature',r.b.T0,'K')];
