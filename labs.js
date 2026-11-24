@@ -27,7 +27,7 @@ import {solveWaveChannel} from './wave-channel.js?v=20261109-wedge-cone';
 import {solveWaveWall,wallPlots,wallGeometry} from './wave-wall.js?v=20261120-single-wall';
 import {solveAirfoil,airfoilPlots} from './airfoil.js?v=20261121-airfoil-forces';
 import {compareCriticalMach,criticalMachMethods,solveCriticalMach} from './critical-mach.js?v=20261124-critical-mach-comparison';
-import {automaticPressure,manualPressure,resolveCriticalPressure} from './critical-mach-pressure.js?v=20261124-naca-pressure-sources';
+import {automaticPressure,manualPressure,resolveCriticalPressure} from './critical-mach-pressure.js?v=20261124-effective-pressure-angles';
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261119-cone-limit-help';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
@@ -173,7 +173,7 @@ export const labs={
   ],
   model:'Two-dimensional subsonic airfoil flow · constant specific heat ratio',
   equation:'Find where the corrected minimum surface Cp equals the sonic Cp from Eq. (9–115).',
-  limitations:'Automatic mode checks for low-speed measurements at the entered angle, then uses the Wing AeroStruct 2D vortex panel solution when needed. The panel solution assumes inviscid, attached flow. Manual mode needs the minimum incompressible Cp for the same airfoil and angle.'},
+  limitations:'Automatic mode matches low-speed measurements to the entered two-dimensional angle, using the effective angle when the wind-tunnel report provides it. Otherwise, the Wing AeroStruct 2D vortex panel solution uses the entered angle and assumes inviscid, attached flow. Manual mode needs the minimum incompressible Cp for the same airfoil and angle.'},
  linear:{chapter:9,title:'Linearized diamond airfoil',tag:'SMALL-DISTURBANCE THEORY',description:'Inspect surface pressure, lift and wave drag for a thin, symmetric double-wedge airfoil.',inputs:[input('M','Freestream Mach',3,1.1,8,.01,'M∞'),input('alpha','Angle of attack',4,-10,10,.1,'°'),input('thickness','Thickness-to-chord ratio',.08,0,.2,.005,'t/c')],model:'Linearized supersonic flow · small slopes and angle of attack',equation:'Cᴸ = 4α/√(M∞² − 1)   ·   Cᴰ = 4[α² + (t/c)²]/√(M∞² − 1)',limitations:'Angles in the equations are radians. This is an approximation, especially near Mach 1. Viscous drag and finite-span effects are absent.'},
  cone:{chapter:10,title:'Wedge & Cone Lab',tag:'AXISYMMETRIC SIMILARITY',description:'Compare two-dimensional wedge flow with axisymmetric cone flow; inspect shock angles and surface properties.',inputs:[{key:'bodyGeometry',label:'Geometry',value:'Cone',options:['Cone','Wedge','Compare both']},{key:'nearbyWall',label:'Nearby wall',value:'None',options:['None','Below wedge','Above wedge','Both walls']},input('wallDistance','Tip-to-wall distance',1,.001,100,.01,'m'),input('wedgeAlpha','Wedge angle of attack α',0,-20,20,.1,'°'),input('M','Freestream Mach',2,1.2,6,.0001,'M∞'),input('thetaCone','Cone half-angle',10,1,35,.1,'°'),T,P,g],model:'Steady, inviscid, axisymmetric sharp cone · zero angle of attack',equation:'dVᵣ/dθ = Vθ   ·   Vθ(θc) = 0',limitations:'Adaptive RK4 step doubling and a bracketed shock-angle search. Strong branches and detached cones are outside this release. Full book-example acceptance is pending.'}
 };

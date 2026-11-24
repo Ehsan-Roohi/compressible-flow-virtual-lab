@@ -1,5 +1,5 @@
-import {calculate} from './labs.js?v=20261124-naca-pressure-sources';
-import {readPublishedPressure} from './critical-mach-pressure.js?v=20261124-naca-pressure-sources';
+import {calculate} from './labs.js?v=20261124-effective-pressure-angles';
+import {readPublishedPressure} from './critical-mach-pressure.js?v=20261124-effective-pressure-angles';
 
 // Coalesce queued slider changes and discard superseded online lookups.
 let solveTimer, latestRequest;

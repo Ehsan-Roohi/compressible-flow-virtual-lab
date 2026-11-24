@@ -34,12 +34,16 @@ const sources = {
  '4412': [{
   // The digitized 12° file duplicates 8° in this source.
   format: 'pinkerton', angles: [0, 2, 4, 8], mach: .059, reynolds: 1.8e6,
+  // TR-613 Table IIe: geometric tunnel angles mapped to effective midspan angles.
+  effectiveAngles: {0: -.6, 2: 1.2, 4: 2.9, 8: 6.4},
   label: 'NACA TR-613 · Pinkerton (digitized)',
   url: 'https://ntrs.nasa.gov/citations/19930091689',
   dataUrl: 'https://ehsan-roohi.github.io/Aerospace-Structures/wing-panel-stress-analyzer/ml-airfoil/experiment-reference.json',
  }, {
   format: 'aspire', report: 'NACA TR-563', machTag: '0.05', reynolds: 3.1e6, reynoldsTag: '3.1e6',
   angles: ['m8.0', 'm6.0', 'm4.0', 'm2.0', '0.0', '2.0', '4.0'],
+  // The ASPIRE files use the geometric angles from TR-563 Table I. Table II gives the effective angles.
+  effectiveAngles: {'m8.0': -7.4, 'm6.0': -5.7, 'm4.0': -4, 'm2.0': -2.2, '0.0': -.5, '2.0': 1.2, '4.0': 2.9},
   label: 'NACA TR-563 · Pinkerton (ASPIRE)',
   url: 'https://ntrs.nasa.gov/citations/19930091638',
  }],
@@ -50,17 +54,19 @@ export function pressureAirfoilCode(code) {
 }
 
 const angleValue = angle => Number(String(angle).replace(/^m/, '-'));
+const comparisonAngle = (angle, effectiveAngles) => effectiveAngles?.[angle] ?? angleValue(angle);
 
 export function publishedPressureAngles(code) {
  return [...new Set((Object.hasOwn(sources, code) ? sources[code] : [])
-  .flatMap(source => source.angles.map(angleValue)))].sort((a, b) => a - b);
+  .flatMap(({angles, effectiveAngles}) => angles.map(angle => comparisonAngle(angle, effectiveAngles))))].sort((a, b) => a - b);
 }
 
 export function publishedPressureSources(code, alpha) {
  if (!Object.hasOwn(sources, code)) return [];
- return sources[code].flatMap(({angles, ...source}) => {
-  const angle = angles.find(candidate => angleValue(candidate) === alpha);
+ return sources[code].flatMap(({angles, effectiveAngles, ...source}) => {
+  const angle = angles.find(candidate => comparisonAngle(candidate, effectiveAngles) === alpha);
   if (angle === undefined) return [];
+  if (effectiveAngles) source.tunnelAlpha = angleValue(angle);
   if (source.format !== 'aspire') return [source];
 
   const section = `NACA ${code}`;
