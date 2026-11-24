@@ -1,7 +1,7 @@
 import {requireValue} from './numerics.js';
 import {nacaPanelContour, normalizeNacaSection} from './wing-naca-geometry.js';
 import {solveAirfoilPanelCoordinates} from './wing-airfoil-panel-2d.js';
-import {pressureAirfoilCode, publishedPressureSources} from './critical-mach-data.js?v=20261124-add-pressure-sources';
+import {pressureAirfoilCode, publishedPressureSources} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 
 export const automaticPressure = 'NACA airfoil · automatic';
 export const manualPressure = 'Enter Cp manually';

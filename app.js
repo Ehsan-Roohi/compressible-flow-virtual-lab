@@ -43,9 +43,9 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-add-pressure-sources';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-expanded-airfoil-bank';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-naca-pressure';
-import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-add-pressure-sources';
+import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
@@ -186,7 +186,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-add-pressure-sources',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-expanded-airfoil-bank',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -914,8 +914,9 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
  if(d.id==='critical-mach'&&d.result.pressureInput){
   const {kind,cp,x,side,alpha,measuredCp,source,panelsPerSide}=d.result.pressureInput;
   const angles=source.tunnelAlpha===undefined?'':`Effective angle ${fmt(alpha)}° · tunnel angle ${fmt(source.tunnelAlpha)}° · `;
+  const measuredPressure=source.digitized?`digitized ${source.surfaceCoverage==='upper'?'upper-surface ':''}Cp ≈`:'measured Cp =';
   const detail=kind==='published'
-   ?`${angles}M∞ ${source.approximateMach?'≈':'='} ${fmt(source.mach)} · Re = ${fmt(source.reynolds)} · ${source.digitized?'digitized Cp ≈':'measured Cp ='} ${fmt(measuredCp)}, corrected to the incompressible limit`
+   ?`${angles}M∞ ${source.approximateMach?'≈':'='} ${fmt(source.mach)} · ${source.effectiveReynolds?'Effective Re':'Re'} = ${fmt(source.reynolds)} · ${measuredPressure} ${fmt(measuredCp)}, corrected to the incompressible limit`
    :`${panelsPerSide} panels per surface · incompressible, inviscid flow`;
   $('results').insertAdjacentHTML('afterbegin',
    renderRow({label:'Minimum incompressible pressure coefficient',value:cp,unit:'Cp,0 min'})+

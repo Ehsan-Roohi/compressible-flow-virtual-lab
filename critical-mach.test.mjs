@@ -119,6 +119,9 @@ test('the new sources supply measured minima at the documented angles', async ()
  const id = 'critical-mach';
  const cases = [
   {code: '0012', alpha: 4, cp: -1.11383, x: .02333, side: 'upper', label: /Bristol/, download: /71156013$/},
+  {code: '0018', alpha: 8, cp: -2.29, x: .019, side: 'upper', label: /Waterloo/, download: /#page=93$/},
+  {code: '2412', alpha: -3.9, cp: -1.72, x: .02, side: 'lower', label: /digitized/, download: /#page=27$/},
+  {code: '2412', alpha: .2, cp: -.52, x: .15, side: 'upper', label: /digitized/, download: /#page=27$/},
   {code: '2412', alpha: 12.4, cp: -6.07, x: .008, side: 'upper', label: /digitized/, download: /#page=28$/},
   {code: '4415', alpha: 4, cp: -1.358, x: .124, side: 'upper', label: /Ohio State/, download: /n4415\.zip/},
   {code: '4415', alpha: -4, cp: -1.665, x: .014, side: 'lower', label: /Ohio State/, download: /n4415\.zip/},
@@ -141,7 +144,8 @@ test('the new sources supply measured minima at the documented angles', async ()
  assert.equal(calculate(id, inputs).result.pressureInput.alpha, 4);
  assert.equal(downloads, 0);
  assert.deepEqual(publishedPressureAngles('0012'), [0, 4, 5, 6, 7, 8, 9, 10]);
- assert.deepEqual(publishedPressureAngles('2412'), [4.3, 8.3, 12.4]);
+ assert.deepEqual(publishedPressureAngles('0018'), [0, 2, 4, 6, 8, 10]);
+ assert.deepEqual(publishedPressureAngles('2412'), [-3.9, .2, 4.3, 8.3, 12.4]);
  assert.deepEqual(publishedPressureAngles('4415'), [-8.1, -6, -4, -2.1, 0, 2.1, 4, 6.2, 8.1]);
 });
 
@@ -187,7 +191,7 @@ test('the alternate report for 4412 runs after an unavailable primary source', a
 
 test('NACA 4412 does not use a geometric tunnel angle as its 2D angle', async () => {
  const id = 'critical-mach', inputs = {...defaults(id), criticalAlpha: 4};
- assert.deepEqual(publishedPressureAngles('4412'), [-7.4, -5.7, -4, -2.2, -.6, -.5, 1.2, 2.9, 6.4]);
+ assert.deepEqual(publishedPressureAngles('4412'), [-11, -10.9, -10.8, -7.5, -7.4, -7.3, -7.2, -5.7, -5.6, -5.4, -4, -3.9, -3.7, -2.3, -2.2, -2, -.6, -.5, 1.2, 2.9, 6.3, 6.4, 9.9, 10, 13.8]);
  let requests = 0;
  const published = await readPublishedPressure(inputs, async () => { requests++; });
  assert.equal(requests, 0);
@@ -196,6 +200,23 @@ test('NACA 4412 does not use a geometric tunnel angle as its 2D angle', async ()
  assert.equal(result.pressureInput.kind, 'panel');
  assert.equal(result.pressureInput.alpha, 4);
  assert.ok(Math.abs(result.pressureInput.cp - (-1.37406)) < 1e-5);
+});
+
+test('Pinkerton table data retain the effective Reynolds number and geometric angle', async () => {
+ const inputs = {...defaults('critical-mach'), criticalAlpha: -10.8};
+ const match = await readPublishedPressure(inputs);
+ assert.equal(match.source.tunnelAlpha, -12);
+ assert.equal(match.alpha, -10.8);
+ assert.equal(match.source.effectiveReynolds, true);
+ assert.equal(match.source.reynolds, 3.4e6);
+ assert.equal(match.x, .0036);
+ assert.equal(match.measuredCp, -7.407);
+ assert.equal(match.side, 'lower');
+ assert.match(match.source.dataUrl, /#page=16$/);
+ const overlap = await readPublishedPressure({...inputs, criticalAlpha: -7.4}, async () => { throw Error('Offline'); });
+ assert.equal(overlap.alpha, -7.4);
+ assert.equal(overlap.source.reynolds, 1.8e6);
+ assert.equal(overlap.measuredCp, -4.018);
 });
 
 test('missing, unavailable and mismatched measurements fall back to the existing Wing AeroStruct panel solution', async () => {

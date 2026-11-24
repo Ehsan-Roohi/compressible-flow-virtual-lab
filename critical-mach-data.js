@@ -1,5 +1,16 @@
 const aspireRoot = 'https://raw.githubusercontent.com/hwlee924/Large-Airfoil-Model/5353a862ec8c453788efef4e8aa8040148efbe6c/ASPIRE/Airfoils';
 const figshareFile = 'https://api.figshare.com/v2/file/download/';
+const pinkertonReport = 'https://ntrs.nasa.gov/citations/19930091689';
+const pinkertonPdf = 'https://ntrs.nasa.gov/api/citations/19930091689/downloads/19930091689.pdf';
+
+// Cp and x/c are the minimum measured tap and its position in Table I. Use the effective
+// midspan angle from Table II for lookup and keep the geometric angle for the result credit.
+// Estimate Mach from the test Re (= effective Re / 2.64), tank pressure and room-temperature air.
+function pinkertonTable(table, page, mach, reynolds, minima) {
+ return {label: `NACA TR-613 · Pinkerton, Table I${table}`, url: pinkertonReport,
+  dataUrl: `${pinkertonPdf}#page=${page}`, mach, reynolds, approximateMach: true,
+  effectiveReynolds: true, minima};
+}
 
 const sources = {
  '0011': [{
@@ -35,6 +46,22 @@ const sources = {
   label: 'NASA TP-3151 · McAlister & Takahashi, 2D (ASPIRE)',
   url: 'https://ntrs.nasa.gov/citations/19920001763',
  }],
+ '0018': [{
+  label: 'Gerakopulos · University of Waterloo, Fig. 3.5(b) (digitized)',
+  url: 'https://uwspace.uwaterloo.ca/items/c2fe070d-59fc-4f8f-9461-f428aab01c24',
+  dataUrl: 'https://uwspace.uwaterloo.ca/bitstreams/834a9e7c-61e5-41c2-8633-343c5caca7fc/download#page=93',
+  // Upper-surface marker centers in Fig. 3.5(b), Re = 100,000, before the reported suction-peak collapse.
+  // Estimate Mach from Re, a 0.2 m chord and room-temperature air properties.
+  mach: .022, reynolds: 1e5, approximateMach: true, digitized: true, surfaceCoverage: 'upper',
+  minima: {
+   0: {x: .129, cp: -.67, side: 'both'},
+   2: {x: .089, cp: -.90},
+   4: {x: .045, cp: -1.34},
+   6: {x: .035, cp: -1.86},
+   8: {x: .019, cp: -2.29},
+   10: {x: .020, cp: -2.69},
+  },
+ }],
  '23012': [{
   // NACA TR-614, Fig. 3, plain main airfoil with the flap removed.
   format: 'aspire', machTag: '0.12', reynolds: 1.46e6, reynoldsTag: '1.46e6',
@@ -49,6 +76,8 @@ const sources = {
   // Experimental suction peaks from Fig. 7(a) and 7(b), with tripped transition.
   mach: .13, reynolds: 2.2e6, digitized: true,
   minima: {
+   '-3.9': {x: .02, cp: -1.72, side: 'lower'},
+   .2: {x: .15, cp: -.52},
    4.3: {x: .01, cp: -1.16},
    8.3: {x: .006, cp: -3.12},
    12.4: {x: .008, cp: -6.07, dataUrl: 'https://ntrs.nasa.gov/api/citations/19950002355/downloads/19950002355.pdf#page=28'},
@@ -61,11 +90,11 @@ const sources = {
  }],
  '4412': [{
   // The digitized 12° file duplicates 8° in this source.
-  format: 'pinkerton', angles: [0, 2, 4, 8], mach: .059, reynolds: 1.8e6,
+  format: 'pinkerton', angles: [0, 2, 4, 8], mach: .059, reynolds: 1.8e6, effectiveReynolds: true,
   // TR-613 Table IIe: geometric tunnel angles mapped to effective midspan angles.
   effectiveAngles: {0: -.6, 2: 1.2, 4: 2.9, 8: 6.4},
   label: 'NACA TR-613 · Pinkerton (digitized)',
-  url: 'https://ntrs.nasa.gov/citations/19930091689',
+  url: pinkertonReport,
   dataUrl: 'https://ehsan-roohi.github.io/Aerospace-Structures/wing-panel-stress-analyzer/ml-airfoil/experiment-reference.json',
  }, {
   format: 'aspire', report: 'NACA TR-563', machTag: '0.05', reynolds: 3.1e6, reynoldsTag: '3.1e6',
@@ -74,7 +103,32 @@ const sources = {
   effectiveAngles: {'m8.0': -7.4, 'm6.0': -5.7, 'm4.0': -4, 'm2.0': -2.2, '0.0': -.5, '2.0': 1.2, '4.0': 2.9},
   label: 'NACA TR-563 · Pinkerton (ASPIRE)',
   url: 'https://ntrs.nasa.gov/citations/19930091638',
- }],
+ }, pinkertonTable('e', 15, .059, 1.8e6, {
+  '-11': {x: .0036, cp: -5.360, side: 'lower', tunnelAlpha: -12},
+  '-7.4': {x: .0036, cp: -4.018, side: 'lower', tunnelAlpha: -8},
+  '-5.7': {x: .0092, cp: -2.606, side: 'lower', tunnelAlpha: -6},
+  '-4': {x: .0092, cp: -1.783, side: 'lower', tunnelAlpha: -4},
+  '-2.3': {x: .0166, cp: -1.024, side: 'lower', tunnelAlpha: -2},
+  10: {x: .0094, cp: -3.867, tunnelAlpha: 12},
+  13.8: {x: .0044, cp: -5.403, tunnelAlpha: 16},
+ }), pinkertonTable('f', 16, .056, 3.4e6, {
+  '-10.8': {x: .0036, cp: -7.407, side: 'lower', tunnelAlpha: -12},
+ }), pinkertonTable('g', 17, .055, 6.3e6, {
+  '-10.9': {x: .0036, cp: -7.400, side: 'lower', tunnelAlpha: -12},
+  9.9: {x: .0044, cp: -3.762, tunnelAlpha: 12},
+ }), pinkertonTable('c', 13, .059, 4.5e5, {
+  '-7.5': {x: .0036, cp: -2.239, side: 'lower', tunnelAlpha: -8},
+ }), pinkertonTable('b', 12, .063, 2.4e5, {
+  '-7.3': {x: .0036, cp: -1.797, side: 'lower', tunnelAlpha: -8},
+  '-5.6': {x: .0036, cp: -2.199, side: 'lower', tunnelAlpha: -6},
+  '-3.9': {x: .0092, cp: -1.621, side: 'lower', tunnelAlpha: -4},
+ }), pinkertonTable('a', 11, .052, 1e5, {
+  '-7.2': {x: .0036, cp: -1.787, side: 'lower', tunnelAlpha: -8},
+  '-5.4': {x: .0036, cp: -2.186, side: 'lower', tunnelAlpha: -6},
+  '-3.7': {x: .0092, cp: -1.822, side: 'lower', tunnelAlpha: -4},
+  '-2': {x: .0166, cp: -1.125, side: 'lower', tunnelAlpha: -2},
+  6.3: {x: .017, cp: -1.972, tunnelAlpha: 8},
+ })],
  '4415': [{
   label: 'NREL/TP-442-7815 · DOE/NREL, Ohio State 3×5 tunnel (NLR archive)',
   url: 'https://www.nlr.gov/wind/nwtc/airfoils-osu-data',
