@@ -2,6 +2,8 @@ import {
   deg, rad, state, normalShock, rayleighRatios, fannoRatios, obliqueShock,
   shockLimit, turnAngle, isentropicRelations, linspace,
 } from './physics.js';
+import {cone} from './cone.js';
+import {conicalRelations} from './reference-relations.js?v=20261119-cone-limit-help';
 
 export const calculatorModes = {
   isentropic: 'Isentropic Flow',
@@ -10,11 +12,13 @@ export const calculatorModes = {
   fanno: 'Fanno Flow',
   oblique: 'Oblique Shock (θ–β–M)',
   expansion: 'Prandtl–Meyer',
+  conical: 'Conical Flow',
 };
 
 export const shockCalculatorLabs = {
   [calculatorModes.normal]: {href:'#normal',label:'Normal Shock'},
   [calculatorModes.oblique]: {href:'#wall?example=6-2',label:'Supersonic Wave Lab · Compression Ramp'},
+  [calculatorModes.conical]: {href:'#cone',label:'Wedge & Cone Lab'},
 };
 
 const modesByMach = {
@@ -24,6 +28,7 @@ const modesByMach = {
   [calculatorModes.fanno]: {min:.000001,max:50},
   [calculatorModes.oblique]: {min:1.000001,max:50},
   [calculatorModes.expansion]: {min:1,max:50},
+  [calculatorModes.conical]: {min:1.01,max:10},
 };
 export const calculatorMachRange = mode => modesByMach[mode] ?? modesByMach[calculatorModes.isentropic];
 
@@ -117,11 +122,15 @@ function obliqueShockPlots(M,g,limit){
     angles[angles.length-1]=limit.beta;
     return {name,states:angles.map((beta,index)=>{
       const theta=index===0?0:index===angles.length-1?limit.theta:turnAngle(M,beta,g);
-      const jump=normalShock(Math.max(1,M*Math.sin(beta)),g);
-      return {theta:deg(theta),beta:deg(beta),...jump,M2:jump.M2/Math.sin(beta-theta)};
+      const M1n=Math.max(1,M*Math.sin(beta));
+      const jump=normalShock(M1n,g);
+      return {theta:deg(theta),beta:deg(beta),...jump,M1n,M2n:jump.M2,M2:jump.M2/Math.sin(beta-theta)};
     })};
   });
-  return [['beta','Oblique shock angle vs flow deflection','Shock angle β (°)'],...shockPlotProperties]
+  return [
+    ['beta','Oblique shock angle vs flow deflection','Shock angle β (°)'],...shockPlotProperties,
+    ['M1n','Upstream normal Mach number M₁ₙ','M₁ₙ'],['M2n','Downstream normal Mach number M₂ₙ','M₂ₙ'],
+  ]
     .map(([key,label,ylabel])=>({
       key:'appendix-oblique-'+key,label,chart:{title:label,xlabel:'Deflection angle θ (°)',ylabel,
         series:samples.map(({name,states})=>({name,points:states.map(s=>[s.theta,s[key]])}))},
@@ -137,7 +146,9 @@ function shockCalculator(inlet, g, R, theta){
     if(!Number.isFinite(theta)||theta<0||theta>90)throw Error('Deflection angle must be between 0° and 90°.');
     const limit=shockLimit(M,g);
     plots=obliqueShockPlots(M,g,limit);
-    sections.push(section('Attached-shock limit',[row('Maximum deflection θmax',deg(limit.theta),'°')]));
+    sections.push(section('Flow deflection',[
+      row('Flow deflection angle θ',theta,'°'),row('Maximum attached deflection θmax',deg(limit.theta),'°'),
+    ]));
     if(rad(theta)>limit.theta+1e-12){
       result.status='detached';
       return {result,sections,comparisons:[stateComparison(inlet,null,'Outlet')],plots,
@@ -155,7 +166,14 @@ function shockCalculator(inlet, g, R, theta){
       ...(jump.beta===undefined?[]:[row('Shock angle β',deg(jump.beta),'°')]),
       ...shockRows(jump),
     ]));
-    comparisons.push(stateComparison(inlet,downstream,'Outlet',title));
+    const comparison=stateComparison(inlet,downstream,'Outlet',title);
+    if(jump.beta!==undefined){
+      comparison.rows.splice(1,0,{
+        label:'Mach number normal to shock (M₁ₙ / M₂ₙ)',unit:'',
+        inlet:M*Math.sin(jump.beta),outlet:downstream.M*Math.sin(jump.beta-jump.theta),
+      });
+    }
+    comparisons.push(comparison);
     result.s2??=downstream;
   }
   return {result,sections,comparisons,plots};
@@ -168,7 +186,7 @@ function ductCalculator(mode,inlet,g,R){
   const ratios=[
     row('Static pressure ratio p/p*',r.p),row('Static temperature ratio T/T*',r.T),
     row('Stagnation pressure ratio p₀/p₀*',r.p0),
-    ...(isRayleigh?[row('Stagnation temperature ratio T₀/T₀*',r.T0),row('Inverse density ratio ρ*/ρ',1/r.rho)]
+    ...(isRayleigh?[row('Stagnation temperature ratio T₀/T₀*',r.T0),row('Inverse density ratio ρ*/ρ',1/r.rho),row('Speed ratio u/u*',r.u)]
       :[row('Density ratio ρ/ρ*',r.rho),row('Speed ratio u/u*',r.u),row('Friction parameter to sonic state fᴅL*/D',Math.max(0,r.F))]),
   ];
   const sections=[section('Ratios to the sonic reference',ratios)];
@@ -181,6 +199,7 @@ function ductCalculator(mode,inlet,g,R){
     ...(isRayleigh?[
       ['T0','Stagnation temperature ratio T₀/T₀*','T₀/T₀*'],
       ['inverseDensity','Inverse density ratio ρ*/ρ','ρ*/ρ'],
+      ['u','Speed ratio u/u*','u/u*'],
     ]:[
       ['rho','Density ratio ρ/ρ*','ρ/ρ*'],['u','Speed ratio u/u*','u/u*'],
       ['F','Friction parameter to sonic state fᴅL*/D','fᴅL*/D'],
@@ -205,6 +224,50 @@ function prandtlMeyerCalculator(inlet,g,R){
     comparisons:[stagnationComparison(inlet,g,R)],plots};
 }
 
+function conicalCalculator(inlet,g,R,halfAngle){
+  let solved;
+  try{
+    solved=cone({M:inlet.M,thetaCone:halfAngle,gamma:g});
+  }catch(error){
+    if(error.code!=='cone-unresolved')throw error;
+    return {result:{status:'unsupported',s1:inlet},
+      sections:[section('Cone geometry',[row('Cone half-angle θ꜀',halfAngle,'°')])],
+      comparisons:[stateComparison(inlet,null,'Behind shock'),stateComparison(inlet,null,'Cone surface')],plots:[],
+      notice:'No attached weak conical shock was found for this Mach number and cone half-angle.'};
+  }
+  const r=conicalRelations(solved,inlet.M,g);
+  const sections=[
+    section('Cone and shock angles',[row('Cone half-angle θ꜀',r.coneAngle,'°'),
+      row('Shock angle β',r.waveAngle,'°'),row('Flow deflection across shock δ',r.shockTurn,'°')]),
+    section('Immediately behind shock',[
+      ...shockRows({p:r.p2p1,rho:r.rho2rho1,T:r.T2T1,p0:r.p02p01}),
+      row('Mach number M₂',r.postShockMach),
+    ]),
+    section('Cone surface',[
+      row('Static pressure ratio p꜀/p₁',r.pcp1),row('Density ratio ρ꜀/ρ₁',r.rhocRho1),
+      row('Static temperature ratio T꜀/T₁',r.TcT1),row('Stagnation pressure ratio p₀꜀/p₀₁',r.p0cp01),
+      row('Surface Mach number M꜀',r.surfaceMach),
+    ]),
+  ];
+  const post=state(r.postShockMach,inlet.T*r.T2T1,inlet.p*r.p2p1,g,R);
+  const surface=state(r.surfaceMach,inlet.T*r.TcT1,inlet.p*r.pcp1,g,R);
+  const comparisons=[
+    stateComparison(inlet,post,'Behind shock','Immediately behind shock'),
+    stateComparison(inlet,surface,'Cone surface','Cone surface'),
+  ];
+  const profile=solved.history.slice().reverse();
+  const plots=[
+    ['M','Mach number M','M'],['p','Static pressure ratio p/p₁','p/p₁'],
+    ['T','Static temperature ratio T/T₁','T/T₁'],['rho','Density ratio ρ/ρ₁','ρ/ρ₁'],
+  ].map(([key,label,ylabel])=>({
+    key:'appendix-conical-'+key,label,
+    note:'The polar angle is measured from the cone axis, from the surface to the shock.',
+    chart:{title:label,xlabel:'Polar angle from cone axis (°)',ylabel,zeroBaseline:false,
+      series:[{name:label,points:profile.map(s=>[deg(s.theta),s[key]])}]},
+  }));
+  return {result:{status:'ok',s1:inlet,s2:post,surface,relations:r},sections,comparisons,plots};
+}
+
 export function calculateAppendix(x,gas){
   const mode=x.calculatorMode,range=calculatorMachRange(mode);
   const {gamma:g,R}=gas,{M,T1,p1}=x;
@@ -213,10 +276,12 @@ export function calculateAppendix(x,gas){
   const inlet=state(M,T1,p1*1000,g,R);
   const calculated=mode===calculatorModes.normal?shockCalculator(inlet,g,R):
     mode===calculatorModes.oblique?shockCalculator(inlet,g,R,x.calculatorTurn):
-    mode===calculatorModes.expansion?prandtlMeyerCalculator(inlet,g,R):ductCalculator(mode,inlet,g,R);
+    mode===calculatorModes.expansion?prandtlMeyerCalculator(inlet,g,R):
+    mode===calculatorModes.conical?conicalCalculator(inlet,g,R,x.calculatorConeAngle??20):
+    ductCalculator(mode,inlet,g,R);
   const {sections,comparisons,plots,result}=calculated;
   const {rows,...output}=calculatorOutput(sections,comparisons);
   return {id:'foundations',inputs:x,gas,rows,checks:{},shockDetails:[],scene:null,
-    notice:calculated.notice,chart:plots[0].chart,
+    notice:calculated.notice,chart:plots[0]?.chart,
     model:`${mode} · calorically perfect ideal gas`,result:{...result,...output,calculatorPlots:plots}};
 }

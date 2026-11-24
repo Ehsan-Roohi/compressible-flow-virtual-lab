@@ -16,6 +16,7 @@ test('all appendix calculators accept a Mach number, pressure, temperature and e
     assert.ok(fields.some(f=>f.key==='gamma'&&!f.readOnly));
     for(const key of ['M','p1','T1'])assert.ok(fields.some(f=>f.key===key),mode);
     assert.equal(fields.some(f=>f.key==='calculatorTurn'),mode===calculatorModes.oblique);
+    assert.equal(fields.some(f=>f.key==='calculatorConeAngle'),mode===calculatorModes.conical);
     const inlet=d.result.s1??d.result;
     near(inlet.p,137900);
     near(inlet.T,277.78);
@@ -61,6 +62,12 @@ test('oblique calculator resolves both branches and reports the attached-shock l
   const beta=name=>sections.find(s=>s.title===name).rows.find(r=>r.label==='Shock angle β').value;
   near(beta('Weak shock'),39.31393,1e-5);
   near(beta('Strong shock'),83.70008,1e-5);
+  for(const table of attached.result.calculatorComparisons){
+    const normalMach=table.rows[1], angle=beta(table.title)*Math.PI/180;
+    near(normalMach.inlet,2*Math.sin(angle));
+    const squared=normalMach.inlet**2;
+    near(normalMach.outlet,Math.sqrt((1+.2*squared)/(1.4*squared-.2)));
+  }
   const detached=run(calculatorModes.oblique,{M:2,calculatorTurn:30});
   assert.equal(detached.result.status,'detached');
   assert.match(detached.notice,/exceeds the limit/);
@@ -70,7 +77,7 @@ test('oblique calculator resolves both branches and reports the attached-shock l
   assert.equal(weak.name,'Weak shock');
   assert.equal(strong.name,'Strong shock');
   assert.deepEqual(weak.points.at(-1),strong.points.at(-1));
-  near(weak.points.at(-1)[0],detached.result.calculatorSections[0].rows[0].value);
+  near(weak.points.at(-1)[0],detached.result.calculatorSections[0].rows[1].value);
   assert.throws(()=>run(calculatorModes.normal,{M:.5}),/Mach number between/);
 });
 
@@ -80,9 +87,10 @@ test('all calculator modes report ratios separately from aligned inlet and outle
     const {calculatorSections,calculatorComparisons}=d.result;
     assert.ok(calculatorSections.flatMap(s=>s.rows).some(r=>r.label.includes('/')),mode);
     assert.ok(calculatorSections.flatMap(s=>s.rows).every(r=>!r.unit||r.unit==='°'),mode);
-    assert.equal(calculatorComparisons.length,mode===calculatorModes.oblique?2:1,mode);
+    const oblique=mode===calculatorModes.oblique;
+    assert.equal(calculatorComparisons.length,oblique||mode===calculatorModes.conical?2:1,mode);
     for(const comparison of calculatorComparisons){
-      assert.equal(comparison.rows.length,8,mode);
+      assert.equal(comparison.rows.length,oblique?9:8,mode);
       const values=Object.fromEntries(comparison.rows.map(r=>[r.label,r]));
       near(values['Mach number'].inlet,2);
       near(values['Static pressure'].inlet,101);
@@ -96,4 +104,30 @@ test('all calculator modes report ratios separately from aligned inlet and outle
       }
     }
   }
+});
+
+test('Rayleigh velocity ratio agrees with the dimensional inlet and sonic speeds',()=>{
+  const d=run(calculatorModes.rayleigh,{M:.5});
+  const expected=4/9;
+  near(d.result.s1.u/d.result.sonic.u,expected);
+  near(d.rows.find(r=>r.label.endsWith('u/u*')).value,expected);
+  const chart=plotOptions(d).find(o=>o.chart.ylabel==='u/u*').chart;
+  near(chart.series[0].points.find(([m])=>m===.5)[1],expected);
+});
+
+test('conical flow distinguishes the shock and wall states and reports unsupported inputs',()=>{
+  const d=run(calculatorModes.conical,{M:5,calculatorConeAngle:20});
+  const {relations:r,s1,s2,surface}=d.result;
+  near(r.coneAngle,20);
+  assert.ok(r.shockTurn<r.coneAngle&&r.coneAngle<r.waveAngle);
+  assert.ok(surface.M<s2.M&&surface.p>s2.p);
+  near(s2.p0/s1.p0,r.p02p01);
+  near(surface.p0/s1.p0,r.p0cp01);
+  near(r.p0cp01,r.p02p01);
+  const mach=plotOptions(d)[0].chart.series[0].points;
+  near(mach[0][1],r.surfaceMach);
+  near(mach.at(-1)[1],r.postShockMach);
+  const unresolved=run(calculatorModes.conical,{M:2,calculatorConeAngle:69});
+  assert.equal(unresolved.result.status,'unsupported');
+  assert.deepEqual(plotOptions(unresolved),[]);
 });
