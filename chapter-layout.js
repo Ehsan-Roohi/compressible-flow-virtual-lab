@@ -1,4 +1,5 @@
 const phone = matchMedia('(max-width: 800px)');
+const calculatorSidebar = matchMedia('(min-width: 1250px)');
 const byId = id => document.getElementById(id);
 const grid = document.querySelector('.work-grid');
 const controls = grid.querySelector('.controls');
@@ -8,6 +9,7 @@ const sceneCard = scene.closest('.scene-card');
 const chartCard = byId('chart').closest('.chart-card');
 const results = byId('resultsTitle').closest('.results');
 const examples = byId('examplesPanel');
+const calculatorTable = byId('calculatorTablePanel');
 const sweep = byId('nozzleSweep');
 const sweepDetails = byId('sweepDetails');
 const wallSetup = byId('wallSetupPanel');
@@ -85,6 +87,11 @@ function updateLayout() {
   closeMenu();
   if (lab === 'foundations') {
     if (results.nextElementSibling !== chartCard) chartCard.before(results);
+    if (calculatorSidebar.matches) {
+      if (calculatorTable.previousElementSibling !== examples) examples.after(calculatorTable);
+    } else if (calculatorTable.nextElementSibling !== chartCard) {
+      chartCard.before(calculatorTable);
+    }
   } else if (results.previousElementSibling !== examples) {
     examples.after(results);
   }
@@ -114,6 +121,9 @@ function updateLayout() {
 phone.addEventListener('change', () => {
   updateLayout();
   refreshChapterLayout();
+});
+calculatorSidebar.addEventListener('change', () => {
+  if (lab === 'foundations') updateLayout();
 });
 
 export function setChapterLayout(id) {

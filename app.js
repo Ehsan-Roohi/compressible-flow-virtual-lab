@@ -39,7 +39,7 @@ import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261124-duct-entropy';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
-import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-centered-calculator';
+import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-right-tables';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
 import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
@@ -726,7 +726,7 @@ function solve({stream=false}={}){
  if(!keepView){
   current=null;
   $('tubePlotResults').hidden=true;
-  for(const key of ['ductImageNote','ductChartNote','flowRelationsPanel','regionTablePanel','trackingEventPanel'])$(key).hidden=true;
+  for(const key of ['ductImageNote','ductChartNote','flowRelationsPanel','regionTablePanel','trackingEventPanel','calculatorTablePanel'])$(key).hidden=true;
   $('status').textContent='Solving…';$('status').className='status';$('comparison').hidden=true;
   for(const key of ['exportJson','exportCsv','pin','exportSvg'])$(key).disabled=true;
   $('isentropicPanel').hidden=true;$('results').innerHTML='<div class="result-row"><span class="result-label">Computing a new state…</span></div>';
@@ -745,7 +745,8 @@ function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.le
  }));}
 
 function renderIsentropicRelations(d){
- const panel=$('isentropicPanel');panel.hidden=d.id!=='foundations';if(panel.hidden)return;
+ const panel=$('isentropicPanel'),tablePanel=$('calculatorTablePanel');
+ panel.hidden=tablePanel.hidden=d.id!=='foundations';if(panel.hidden)return;
  const {calculatorSections,calculatorComparisons}=d.result;
  const mode=d.inputs.calculatorMode??calculatorModes.isentropic;
  const isentropic=mode===calculatorModes.isentropic;
@@ -761,7 +762,8 @@ function renderIsentropicRelations(d){
       <td>${displayValue(r.inlet,r.unit,7)}</td>${calculatorComparisons.map(c=>`<td>${displayValue(c.rows[index].outlet,r.unit,7)}</td>`).join('')}</tr>`).join('')}</tbody>
    </table>
   </div>`;
- panel.innerHTML=`${sections.length?`<div class="calculator-groups">${sections.join('')}</div>`:''}${table}`;
+ panel.innerHTML=sections.length?`<div class="calculator-groups">${sections.join('')}</div>`:'';
+ tablePanel.innerHTML=table;
  if(isentropic)panel.insertAdjacentHTML('beforeend','<p class="isentropic-note">Subscript 0 denotes the stagnation state. An asterisk denotes the sonic reference at the same stagnation state. A* is the corresponding critical area at the same mass flow rate.</p>');
  const detailLab=shockCalculatorLabs[mode];
  if(detailLab){
