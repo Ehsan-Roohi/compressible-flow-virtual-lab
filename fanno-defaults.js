@@ -1,6 +1,7 @@
 import {fannoExample} from './fanno-examples.js?v=20261120-fanno-plot-menu';
 import {fannoConditions,fannoSolveOptions,fannoSystemMode,fannoUnknowns,solveFannoSystem} from './fanno-system.js?v=20261119-fanno-system-relations';
 import {fannoRatios,isentropic} from './physics.js';
+import {fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 
 const [varyPressure,matchedExit,throatLimit,nozzleExitShock,ductExitShock,sonicExit]=fannoConditions;
 const [backPressure,reservoirPressure,frictionParameter,flowRegime]=fannoUnknowns;
@@ -21,7 +22,11 @@ function singleDuctDefaults(base,selection){
  const fd=4*frictionFactor;
  // The inverse inlet-Mach mode uses the duct length found in Example 2.
  const lambda=hasFriction?fd*ductLength/hydraulicDiameter:fannoRatios(M1,gamma).F-fannoRatios(targetMach,gamma).F;
- return {...frictionData(x,selection),fannoInput,lambda:precise(lambda),
+ const ratios=Object.values(fannoInletMachModes).includes(fannoInput)
+  ?{fannoTemperatureRatio:fannoRatios(targetMach,gamma).T/fannoRatios(M1,gamma).T,
+    fannoPressureRatio:fannoRatios(targetMach,gamma).p/fannoRatios(M1,gamma).p}
+  :{};
+ return {...frictionData(x,selection),...ratios,fannoInput,lambda:precise(lambda),
   ductLength:hasFriction?ductLength:precise(lambda*hydraulicDiameter/fd),
   inletSpeed:precise(M1*Math.sqrt(gamma*R*T1)),inletT0:T1*isentropic(M1,gamma).T0T,
   ductWidth:hydraulicDiameter,ductHeight:hydraulicDiameter};

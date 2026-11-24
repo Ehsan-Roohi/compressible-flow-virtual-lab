@@ -1,4 +1,4 @@
-import {calculate} from './labs.js?v=20261124-effective-pressure-angles';
+import {calculate} from './labs.js?v=20261124-fanno-inverse-ratios';
 import {readPublishedPressure} from './critical-mach-pressure.js?v=20261124-effective-pressure-angles';
 
 // Coalesce queued slider changes and discard superseded online lookups.

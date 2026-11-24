@@ -12,7 +12,8 @@ import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
 import {fannoExamples} from './fanno-examples.js?v=20261120-example-titles';
-import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js';
+import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js?v=20261124-fanno-inverse-ratios';
+import {fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
 import {rayleighDistributionNote,fannoDistributionNote} from './duct-contours.js?v=20261113-rainbow-physical';
 import {uniformDiagramText,backPressureHTML} from './diagram-typography.js?v=20261119-latin-back-pressure';
@@ -42,7 +43,7 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-effective-pressure-angles';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-fanno-inverse-ratios';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-naca-pressure';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-effective-pressure-angles';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -185,7 +186,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-effective-pressure-angles',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-fanno-inverse-ratios',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -496,7 +497,11 @@ function rayleighFormFields(fields,x){
 }
 const fannoDuctModes={
  'Inlet Mach or speed known':{'Friction parameter':'Friction length','Outlet Mach':'Outlet Mach'},
- 'Solve for inlet Mach':{'Outlet Mach + friction':'Outlet Mach + friction length'},
+ 'Solve for inlet Mach':{
+  'Outlet Mach + friction':fannoInletMachModes.friction,
+  'Outlet Mach + temperature ratio':fannoInletMachModes.temperature,
+  'Outlet Mach + pressure ratio':fannoInletMachModes.pressure,
+ },
 };
 const fannoSystemConditions={
  'Back pressure known':{'Back pressure':fannoConditions[0]},
@@ -882,7 +887,7 @@ const coneLimitHelp=new Map([
 ]);
 function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d.result.models.length===2;
  $('results').closest('.results').hidden=coefficientsOnly;arrangeCollisionOutput(d.result);const matchingView=!!d.result.tracking&&!!d.result.finalStreamMatch&&!d.inspectTrackingEvent;if($('engineLabel'))$('engineLabel').textContent=d.result.finiteTube?'FINITE-VOLUME EULER':d.result.bodyLab?(d.result.bodyComparison?'WEDGE vs CONE':'2D WEDGE'):d.result.comparison?'COMPARE BOTH':d.result.tracking?'SHOCK–EXPANSION':d.result.moc?.fitted?'MOC · FITTED SHOCKS':d.result.moc?'NUMERICAL MOC':'ANALYTICAL ENGINE';if(d.result.tracking)$('limitations').textContent='Attached, downstream-supersonic waves only. Expansion fans use finite fronts; check refinement. The field stops at a physical, accuracy or event-budget limit.';else if(d.result.interaction)$('limitations').textContent='The regular shock interaction and slip direction are solved. The view ends before the next wall reflection. General shock–fan interactions and Mach reflections are outside this model.';$('model').textContent=d.model;$('gasResultSummary').textContent=d.gas?`${d.gas.name} · cₚ = ${displayValue(d.gas.cp,'J/(kg·K)',6)}, cᵥ = ${measure(d.gas.cv,'J/(kg·K)',6)}`:'';$('status').textContent=['heat-limit','length-limit'].includes(d.result.status)?'Limit exceeded':d.result.status==='sonic-limit'?'Sonic limit':d.result.status==='detached'?'Detached shock':d.result.status==='unsupported'?'Model limit':d.result.status==='partial'?'Local solution':d.result.tracking&&d.result.tracking.hasFanApproximation?'Mixed solution':'Solved';$('status').className='status'+(['heat-limit','length-limit','detached','unsupported'].includes(d.result.status)?' error':'');if(d.result.external&&!d.result.external.outlet){$('status').textContent=d.result.external.status==='no-flow'?'No flow':'Model limit';$('status').className=d.result.external.status==='no-flow'?'status':'status error';}$('notice').hidden=matchingView||!d.notice;$('notice').textContent=d.result.tracking&&d.notice?'Event-driven solution: '+d.notice:d.notice??'';if(matchingView){$('status').textContent='Matched reference';$('status').className='status';$('model').textContent='Uniform final-stream matching · schematic reference';}renderIsentropicRelations(d);renderTrackingPanel(d);renderRegionTable(d);renderFlowRelations(d);renderAirfoilPanel(d,coefficientsOnly);const sidebar=resultSidebarRows(d);const slip=opposingShockSlipRows(d);
- const results=sidebar.filter(r=>(!slip.length||r.label!=='Signed slip-line angle φ')&&(d.result.ductSystem||!['rayleigh','fanno'].includes(d.id)||['Maximum heat to sonic state','Remaining heat to sonic state','Required duct length','Maximum duct length','Friction length','Available sonic friction length','Required friction parameter','Maximum friction parameter (sonic exit)','Static-pressure ratio','Heat transfer','Total-pressure ratio','Entropy change'].includes(r.label))&&(d.id!=='normal'||['Pressure ratio','Temperature ratio','Density ratio','Total-pressure recovery','Entropy increase'].includes(r.label))&&!['airfoil','foundations'].includes(d.id)&&!d.result.tracking&&!r.panel&&!(d.id==='collision'&&r.label!=='Signed slip-line angle φ')&&!(d.id==='cone'&&['Conical shock angle β','Recovered cone angle','Surface Mach','Surface pressure','Surface temperature'].includes(r.label)));
+ const results=sidebar.filter(r=>(!slip.length||r.label!=='Signed slip-line angle φ')&&(d.result.ductSystem||!['rayleigh','fanno'].includes(d.id)||['Maximum heat to sonic state','Remaining heat to sonic state','Required duct length','Maximum duct length','Friction length','Available sonic friction length','Required friction parameter','Maximum friction parameter (sonic exit)','Inlet Mach number','Static-temperature ratio','Static-pressure ratio','Heat transfer','Total-pressure ratio','Entropy change'].includes(r.label))&&(d.id!=='normal'||['Pressure ratio','Temperature ratio','Density ratio','Total-pressure recovery','Entropy increase'].includes(r.label))&&!['airfoil','foundations'].includes(d.id)&&!d.result.tracking&&!r.panel&&!(d.id==='collision'&&r.label!=='Signed slip-line angle φ')&&!(d.id==='cone'&&['Conical shock angle β','Recovered cone angle','Surface Mach','Surface pressure','Surface temperature'].includes(r.label)));
  if(slip.length)results.unshift(...slip);
  const renderRow=r=>`<div class="result-row"${d.id==='cone'&&coneLimitHelp.has(r.label)?` title="${coneLimitHelp.get(r.label)}"`:''}><span class="result-label">${r.label}</span><span class="result-value">${displayValue(r.value,r.unit)}<small>${backPressureHTML(unitView.label(r.unit))}</small></span></div>`;
  $('tubePlotResults').hidden=true;
