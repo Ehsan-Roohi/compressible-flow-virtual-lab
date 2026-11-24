@@ -21,7 +21,6 @@ This publication flattens the original source folders so GitHub Pages can serve 
 - `guide.html`: scientific scope, assumptions and reference status.
 - `*.test.mjs`, `reference.json`, `independent_reference.py`: automated checks and independent references.
 - Audit, validation and roadmap documents are included as Markdown files.
-- `Source_Project_v0.1.zip`: archived modular project and tests, with English documentation.
 
 ## Verification
 
