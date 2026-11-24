@@ -1,4 +1,4 @@
-import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-calculator-charts';
+import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-centered-calculator';
 import {createUnitView} from './unit-system.js?v=20261124-us-units';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -39,13 +39,13 @@ import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261124-duct-entropy';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
-import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-charts';
+import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-centered-calculator';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
 import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-reverse-duct-example';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-centered-calculator';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-duct-stage-order';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -191,7 +191,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-reverse-duct-example',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-centered-calculator',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -743,8 +743,7 @@ function renderIsentropicRelations(d){
       <td>${displayValue(r.inlet,r.unit,7)}</td><td>${displayValue(r.outlet,r.unit,7)}</td></tr>`).join('')}</tbody>
    </table>
   </div>`).join('');
- const groups=isentropic?`<div class="isentropic-ratio-columns">${sections.slice(0,2).join('')}</div>${sections[2]}`:sections.join('');
- panel.innerHTML=`<div class="card-head"><h2>${isentropic?'Isentropic Flow Calculator':mode}</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div>${groups}${tables}`;
+ panel.innerHTML=`<div class="card-head"><h2>${isentropic?'Isentropic Flow Calculator':mode}</h2><span class="status">γ = ${fmt(d.inputs.gamma)}</span></div><div class="calculator-groups">${sections.join('')}</div><div class="calculator-tables">${tables}</div>`;
  if(isentropic)panel.insertAdjacentHTML('beforeend','<p class="isentropic-note">Subscript 0 denotes the stagnation state. An asterisk denotes the sonic reference at the same stagnation state. A* is the corresponding critical area at the same mass flow rate.</p>');
  const detailLab=shockCalculatorLabs[mode];
  if(detailLab){

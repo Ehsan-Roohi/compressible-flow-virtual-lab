@@ -20,9 +20,14 @@ test('all appendix calculators accept a Mach number, pressure, temperature and e
     near(inlet.p,137900);
     near(inlet.T,277.78);
     assert.equal(d.scene,null,mode);
-    const svg=chartSVG(plotOptions(d)[0].chart).svg;
-    assert.match(svg,/<svg/);
-    assert.doesNotMatch(svg,/NaN|Infinity|undefined/);
+    const plots=plotOptions(d);
+    assert.ok(plots.length>1,mode);
+    assert.equal(new Set(plots.map(p=>p.key)).size,plots.length,mode);
+    for(const {chart} of plots){
+      const svg=chartSVG(chart).svg;
+      assert.match(svg,/<svg/);
+      assert.doesNotMatch(svg,/NaN|Infinity|undefined/);
+    }
     if(Object.hasOwn(shockCalculatorLabs,mode))assert.ok(shockCalculatorLabs[mode].href);
   }
 });

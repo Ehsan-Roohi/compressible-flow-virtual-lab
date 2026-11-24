@@ -1,6 +1,6 @@
 import {
   deg, rad, state, normalShock, rayleighRatios, fannoRatios, obliqueShock,
-  shockLimit, turnAngle, prandtlMeyer, isentropicRelations, linspace,
+  shockLimit, turnAngle, isentropicRelations, linspace,
 } from './physics.js';
 
 export const calculatorModes = {
@@ -91,46 +91,60 @@ function shockRows(s){
   ];
 }
 
-function machChart(title, ylabel, mode, m, series){
+const shockPlotProperties=[
+  ['p','Static pressure ratio p₂/p₁','p₂/p₁'],
+  ['rho','Density ratio ρ₂/ρ₁','ρ₂/ρ₁'],
+  ['T','Static temperature ratio T₂/T₁','T₂/T₁'],
+  ['p0','Stagnation pressure ratio p₀₂/p₀₁','p₀₂/p₀₁'],
+  ['M2','Downstream Mach number M₂','M₂'],
+];
+
+function machPlots(mode,m,evaluate,properties){
   const {min,max}=calculatorMachRange(mode);
   const lower=mode===calculatorModes.rayleigh||mode===calculatorModes.fanno ? .05 : min;
   const xs=Array.from(new Set([...linspace(Math.max(min,lower),
     Math.min(max,Math.max(4,m*1.15)),101),m,1])).filter(x=>x>=min&&x<=max).sort((a,b)=>a-b);
-  return {title,xlabel:'Inlet Mach number',ylabel,series:series.map(([name,evaluate])=>({name,points:xs.map(x=>[x,evaluate(x)])}))};
+  const samples=xs.map(x=>[x,evaluate(x)]);
+  return properties.map(([key,label,ylabel])=>({
+    key:`appendix-${mode}-${key}`,label,chart:{title:label,xlabel:'Inlet Mach number M',ylabel,
+      series:[{name:label,points:samples.map(([x,values])=>[x,values[key]])}]},
+  }));
 }
 
-function obliqueShockChart(M,g,limit){
-  const branch=(name,from)=>({name,points:[
-    [0,deg(from)],
-    ...linspace(from,limit.beta,101).slice(1,-1).map(beta=>[deg(turnAngle(M,beta,g)),deg(beta)]),
-    [deg(limit.theta),deg(limit.beta)],
-  ]});
-  return {
-    title:'Oblique shock angle vs flow deflection',xlabel:'Deflection angle θ (°)',ylabel:'Shock angle β (°)',
-    series:[branch('Weak shock',limit.mu),branch('Strong shock',Math.PI/2)],
-  };
+function obliqueShockPlots(M,g,limit){
+  const samples=[['Weak shock',limit.mu],['Strong shock',Math.PI/2]].map(([name,from])=>{
+    const angles=linspace(from,limit.beta,101);
+    angles[angles.length-1]=limit.beta;
+    return {name,states:angles.map((beta,index)=>{
+      const theta=index===0?0:index===angles.length-1?limit.theta:turnAngle(M,beta,g);
+      const jump=normalShock(Math.max(1,M*Math.sin(beta)),g);
+      return {theta:deg(theta),beta:deg(beta),...jump,M2:jump.M2/Math.sin(beta-theta)};
+    })};
+  });
+  return [['beta','Oblique shock angle vs flow deflection','Shock angle β (°)'],...shockPlotProperties]
+    .map(([key,label,ylabel])=>({
+      key:'appendix-oblique-'+key,label,chart:{title:label,xlabel:'Deflection angle θ (°)',ylabel,
+        series:samples.map(({name,states})=>({name,points:states.map(s=>[s.theta,s[key]])}))},
+    }));
 }
 
 function shockCalculator(inlet, g, R, theta){
   const sections=[],comparisons=[];
   const result={status:'ok',s1:inlet};
   const {M}=inlet;
-  let chart;
+  let plots;
   if(theta!==undefined){
     if(!Number.isFinite(theta)||theta<0||theta>90)throw Error('Deflection angle must be between 0° and 90°.');
     const limit=shockLimit(M,g);
-    chart=obliqueShockChart(M,g,limit);
+    plots=obliqueShockPlots(M,g,limit);
     sections.push(section('Attached-shock limit',[row('Maximum deflection θmax',deg(limit.theta),'°')]));
     if(rad(theta)>limit.theta+1e-12){
       result.status='detached';
-      return {result,sections,comparisons:[stateComparison(inlet,null,'Outlet')],chart,
+      return {result,sections,comparisons:[stateComparison(inlet,null,'Outlet')],plots,
         notice:'The specified deflection exceeds the limit for an attached oblique shock.'};
     }
   }else{
-    chart=machChart('Normal shock property ratios','Ratio',calculatorModes.normal,M,[
-      ['p₂/p₁',m=>normalShock(m,g).p],['ρ₂/ρ₁',m=>normalShock(m,g).rho],
-      ['T₂/T₁',m=>normalShock(m,g).T],['p₀₂/p₀₁',m=>normalShock(m,g).p0],
-    ]);
+    plots=machPlots(calculatorModes.normal,M,m=>normalShock(m,g),shockPlotProperties);
   }
   const solutions=theta===undefined
     ?[['',normalShock(inlet.M,g)]]
@@ -144,14 +158,13 @@ function shockCalculator(inlet, g, R, theta){
     comparisons.push(stateComparison(inlet,downstream,'Outlet',title));
     result.s2??=downstream;
   }
-  return {result,sections,comparisons,chart};
+  return {result,sections,comparisons,plots};
 }
 
 function ductCalculator(mode,inlet,g,R){
   const isRayleigh=mode===calculatorModes.rayleigh;
   const ratiosAt=isRayleigh?rayleighRatios:fannoRatios;
   const {M,T,p}=inlet,r=ratiosAt(M,g),sonic=state(1,T/r.T,p/r.p,g,R);
-  const model=isRayleigh?'Rayleigh':'Fanno';
   const ratios=[
     row('Static pressure ratio p/p*',r.p),row('Static temperature ratio T/T*',r.T),
     row('Stagnation pressure ratio p₀/p₀*',r.p0),
@@ -159,12 +172,22 @@ function ductCalculator(mode,inlet,g,R){
       :[row('Density ratio ρ/ρ*',r.rho),row('Speed ratio u/u*',r.u),row('Friction parameter to sonic state fᴅL*/D',Math.max(0,r.F))]),
   ];
   const sections=[section('Ratios to the sonic reference',ratios)];
-  const chart=machChart(`${model} ratios to the sonic state`,'Ratio',mode,M,[
-    ['T/T*',m=>ratiosAt(m,g).T],['p/p*',m=>ratiosAt(m,g).p],
-    ['p₀/p₀*',m=>ratiosAt(m,g).p0],...(isRayleigh?[['T₀/T₀*',m=>ratiosAt(m,g).T0]]:[]),
+  const plots=machPlots(mode,M,m=>{
+    const ratios=ratiosAt(m,g);
+    return {...ratios,inverseDensity:1/ratios.rho,F:Math.max(0,ratios.F??0)};
+  },[
+    ['p','Static pressure ratio p/p*','p/p*'],['T','Static temperature ratio T/T*','T/T*'],
+    ['p0','Stagnation pressure ratio p₀/p₀*','p₀/p₀*'],
+    ...(isRayleigh?[
+      ['T0','Stagnation temperature ratio T₀/T₀*','T₀/T₀*'],
+      ['inverseDensity','Inverse density ratio ρ*/ρ','ρ*/ρ'],
+    ]:[
+      ['rho','Density ratio ρ/ρ*','ρ/ρ*'],['u','Speed ratio u/u*','u/u*'],
+      ['F','Friction parameter to sonic state fᴅL*/D','fᴅL*/D'],
+    ]),
   ]);
   return {result:{status:'ok',s1:inlet,sonic,ratios:r},sections,
-    comparisons:[stateComparison(inlet,sonic,'Sonic reference')],chart};
+    comparisons:[stateComparison(inlet,sonic,'Sonic reference')],plots};
 }
 
 function prandtlMeyerCalculator(inlet,g,R){
@@ -173,11 +196,13 @@ function prandtlMeyerCalculator(inlet,g,R){
     section('Ratios to stagnation conditions',stagnationRatios(r)),
     section('Expansion angles',expansionAngles(r)),
   ];
-  const chart=machChart('Prandtl–Meyer and Mach angles','Angle (°)',calculatorModes.expansion,M,[
-    ['ν',m=>deg(prandtlMeyer(m,g))],['μ',m=>deg(Math.asin(1/m))],
+  const plots=machPlots(calculatorModes.expansion,M,m=>isentropicRelations(m,g),[
+    ['pmAngle','Prandtl–Meyer angle ν','ν (°)'],['machAngle','Mach angle μ','μ (°)'],
+    ['pP0','Static pressure ratio p/p₀','p/p₀'],['rhoRho0','Density ratio ρ/ρ₀','ρ/ρ₀'],
+    ['TT0','Static temperature ratio T/T₀','T/T₀'],
   ]);
   return {result:{status:'ok',s1:inlet,relations:r},sections,
-    comparisons:[stagnationComparison(inlet,g,R)],chart};
+    comparisons:[stagnationComparison(inlet,g,R)],plots};
 }
 
 export function calculateAppendix(x,gas){
@@ -189,9 +214,9 @@ export function calculateAppendix(x,gas){
   const calculated=mode===calculatorModes.normal?shockCalculator(inlet,g,R):
     mode===calculatorModes.oblique?shockCalculator(inlet,g,R,x.calculatorTurn):
     mode===calculatorModes.expansion?prandtlMeyerCalculator(inlet,g,R):ductCalculator(mode,inlet,g,R);
-  const {sections,comparisons,...view}=calculated;
+  const {sections,comparisons,plots,result}=calculated;
   const {rows,...output}=calculatorOutput(sections,comparisons);
-  const plots=[{key:'appendix-'+mode,label:view.chart.title,chart:view.chart}];
-  return {...view,id:'foundations',inputs:x,gas,rows,checks:{},shockDetails:[],scene:null,
-    model:`${mode} · calorically perfect ideal gas`,result:{...view.result,...output,calculatorPlots:plots}};
+  return {id:'foundations',inputs:x,gas,rows,checks:{},shockDetails:[],scene:null,
+    notice:calculated.notice,chart:plots[0].chart,
+    model:`${mode} · calorically perfect ideal gas`,result:{...result,...output,calculatorPlots:plots}};
 }

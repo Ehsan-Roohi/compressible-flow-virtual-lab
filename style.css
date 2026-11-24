@@ -237,13 +237,17 @@ body{font-family:Georgia,"Times New Roman",serif}
 
 .isentropic-group-title{margin:10px 10px 4px;font-size:13px;font-weight:650}
 
-.isentropic-ratio-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-inline:10px}
-.isentropic-ratio-columns .isentropic-group-title{margin-inline:0;letter-spacing:normal}
-#isentropicPanel .isentropic-ratio-columns .isentropic-grid{grid-template-columns:minmax(0,1fr);margin:0}
-.isentropic-ratio-columns .isentropic-grid>div{padding:5px 4px}
-#isentropicPanel>section>.isentropic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.region-table-scroll.calculator-state-scroll{margin:8px var(--card-inset);padding:0;border:1px solid #cbd8d3;border-radius:7px}
+.calculator-groups,.calculator-tables{display:grid;gap:8px;margin:8px var(--card-inset)}
+.calculator-groups{grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr))}
+.calculator-tables{grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))}
+.calculator-groups>section,.region-table-scroll.calculator-state-scroll{min-width:0;border:1px solid #cbd8d3;border-radius:7px}
+.calculator-groups .isentropic-group-title{margin:0;padding:6px 8px;background:#edf2f5;border-radius:6px 6px 0 0}
+#isentropicPanel .calculator-groups .isentropic-grid{margin:0;grid-template-columns:minmax(0,1fr)}
+#isentropicPanel .calculator-groups>section:only-child .isentropic-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr))}
+.calculator-groups .isentropic-grid>div{padding:5px 8px}
+.region-table-scroll.calculator-state-scroll{margin:0;padding:0}
 .calculator-state-table caption{font-weight:650;padding:6px 7px;border-bottom:1px solid #dce3e9}
+.region-table.calculator-state-table{min-width:0}
 .calculator-state-table thead th{white-space:normal}
 .calculator-state-table tbody th{min-width:0}
 .calculator-state-table tbody th,.calculator-state-table thead th:first-child{position:static}
@@ -330,6 +334,9 @@ body{font-family:Georgia,"Times New Roman",serif}
   }
   body[data-lab] .work-grid:not(:has(>.output-column>:not([hidden]))) {
     grid-template-areas: "visual" "controls";
+  }
+  body[data-lab="foundations"] .work-grid:not(:has(>.output-column>:not([hidden]))) {
+    grid-template-areas: "controls" "visual";
   }
   #chapterPrimary { margin: 8px var(--card-inset) 2px; }
   #chapterPrimary > .input-group {

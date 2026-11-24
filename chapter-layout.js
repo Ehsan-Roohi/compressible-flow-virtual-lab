@@ -6,6 +6,8 @@ const visual = grid.querySelector('.visual-column');
 const scene = byId('scene');
 const sceneCard = scene.closest('.scene-card');
 const chartCard = byId('chart').closest('.chart-card');
+const results = byId('resultsTitle').closest('.results');
+const examples = byId('examplesPanel');
 const sweep = byId('nozzleSweep');
 const sweepDetails = byId('sweepDetails');
 const wallSetup = byId('wallSetupPanel');
@@ -81,8 +83,17 @@ function updateLayout() {
   const active = document.activeElement;
   restoreChapterControls();
   closeMenu();
+  if (lab === 'foundations') {
+    if (results.nextElementSibling !== chartCard) chartCard.before(results);
+  } else if (results.previousElementSibling !== examples) {
+    examples.after(results);
+  }
   if (mobile) {
-    if (grid.firstElementChild !== visual) controls.before(visual);
+    if (lab === 'foundations') {
+      if (controls.nextElementSibling !== visual) controls.after(visual);
+    } else if (grid.firstElementChild !== visual) {
+      controls.before(visual);
+    }
     if (wallSetup.parentElement !== controls) controls.querySelector('.card-head').after(wallSetup);
   } else {
     if (controls.nextElementSibling !== visual) controls.after(visual);

@@ -1,4 +1,4 @@
-import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput} from './appendix-calculator.js?v=20261124-calculator-charts';
+import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput} from './appendix-calculator.js?v=20261124-centered-calculator';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
