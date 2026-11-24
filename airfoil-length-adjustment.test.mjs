@@ -1,3 +1,4 @@
+import {createUnitView} from './unit-system.js';
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
 import {automaticSurface,constrainedSurface,segmentSurface} from './airfoil.js';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`${a} != ${b}`);
@@ -11,7 +12,7 @@ test('All target lengths influence a positive closed plate without changing its 
 test('Every plate length field is editable and updates the separate calculated column',()=>{
  const source=readFileSync(new URL('./app.js',import.meta.url),'utf8'),elements=new Map(),cells=[0,1,2].map(i=>({dataset:{adjustedLength:String(i)}})),input={dataset:{index:'1',property:'length'},value:'1.2',readOnly:false};
  const box={querySelector(s){if(!elements.has(s))elements.set(s,{});return elements.get(s);},querySelectorAll(s){return s==='input'?[input]:s==='[data-adjusted-length]'?cells:[];}};
- const context=vm.createContext({inputs:{airfoilShape:'Bent flat plate',plateLengthMode:'Adjust all lengths',upperSegments:[{angle:10,length:.8},{angle:0,length:.7},{angle:-15,length:.6}]},$:()=>box,fmt:String,automaticSurface,constrainedSurface,segmentSurface,request:0,schedule(){},renderInputs(){}});
+ const context=vm.createContext({unitView:createUnitView(),displayValue:value=>String(value),inputs:{airfoilShape:'Bent flat plate',plateLengthMode:'Adjust all lengths',upperSegments:[{angle:10,length:.8},{angle:0,length:.7},{angle:-15,length:.6}]},$:()=>box,fmt:String,automaticSurface,constrainedSurface,segmentSurface,request:0,schedule(){},renderInputs(){}});
  vm.runInContext(source.slice(source.indexOf('function segmentEditor('),source.indexOf('function changeAirfoilGeometry(')),context);
  const html=context.segmentEditor({key:'upperSegments'});assert.ok(!html.includes('readonly'));assert.match(html,/Target L\/c/);assert.match(html,/Adjusted L\/c/);
  context.bindSegmentEditor({key:'upperSegments'});const before=Number(cells[1].textContent);input.oninput();assert.equal(context.inputs.upperSegments[1].length,1.2);assert.ok(Number(cells[1].textContent)>before);assert.match(elements.get('[data-closure-message]').textContent,/All target lengths are editable/);
