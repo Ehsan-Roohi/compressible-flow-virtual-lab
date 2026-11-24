@@ -7,6 +7,7 @@ import {sceneSVG} from './graphics.js';
 import {fannoRatios,normalShock,areaMach,machFromArea} from './physics.js';
 import {advancePressure} from './sweep.js';
 import {fannoRayleighMode} from './fanno-rayleigh.js';
+import {heatedFrictionMode} from './heated-friction-duct.js';
 const base={...defaults('fanno'),ductProblem:fannoSystemMode,lambda:.2,systemAreaRatio:2,reservoirP0:500,reservoirT0:400};
 const run=x=>solveFannoSystem({...base,...x});
 const near=(a,b,t=2e-7)=>assert.ok(Math.abs(a-b)<t*Math.max(1,Math.abs(a),Math.abs(b)),`${a} != ${b}`);
@@ -62,7 +63,7 @@ test('Long ducts show reachable choking regimes and reject unreachable shock pre
  }
 });
 test('The Fanno menu includes the two-stage case and still migrates old examples',()=>{
- const options=inputDefinitions('fanno',defaults('fanno')).find(z=>z.key==='ductProblem').options;assert.deepEqual(options,['Single duct',fannoSystemMode,fannoRayleighMode]);
+ const options=inputDefinitions('fanno',defaults('fanno')).find(z=>z.key==='ductProblem').options;assert.deepEqual(options,['Single duct',fannoSystemMode,fannoRayleighMode,heatedFrictionMode]);
  for(const old of ['Reservoir + nozzle + duct','CD nozzle minimum supply pressure','CD nozzle + exit shock: friction','CD nozzle + prescribed shock','Duct shock location']){
   const x=migrateFannoInputs({...base,ductProblem:old,backPressure:200,M1:2}),fields=inputDefinitions('fanno',x);assert.equal(x.ductProblem,fannoSystemMode);assert.equal(new Set(fields.map(f=>f.key)).size,fields.length);
   assert.ok(calculate('fanno',x).result.fullSystem);

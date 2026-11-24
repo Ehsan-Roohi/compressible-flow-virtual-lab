@@ -41,9 +41,9 @@ function segmentedPath(samples, upstream, downstream = upstream) {
 }
 
 export function ductTemperatureEntropyPlot({id, result: r, gas}) {
- const process = id === 'rayleigh' ? rayleighLine : fannoLine;
+ const process = r.heatedFriction ? {name:'Heat transfer + wall friction', color:'#166672'} : id === 'rayleigh' ? rayleighLine : fannoLine;
  const reference = r.reservoir ?? r.s1;
- if (!r.s2 || r.massFlow === 0) {
+ if ((!r.s2 && !r.heatedFriction) || r.massFlow === 0) {
   const name = r.s2 ? 'No flow' : 'Inlet';
   const note = r.s2 ? 'The gas is at rest throughout the system.' : 'The specified inputs yield no steady outlet. The inlet state is shown.';
   return temperatureEntropyPlot({reference, gas, note,
@@ -64,6 +64,7 @@ export function ductTemperatureEntropyPlot({id, result: r, gas}) {
   Math.abs(previous.state.T / state.T - 1) < 1e-11 && Math.abs(previous.state.p / state.p - 1) < 1e-11));
  const notes = [r.fullSystem ? 'Entropy is referenced to the reservoir.' : 'Entropy is referenced to the duct inlet.'];
  if (segments.some(segment => segment.dash)) notes.push('The dashed line connects the states immediately before and after the shock.');
+ if (r.heatedFriction && !r.s2) notes.push('The curve ends at the last computed station.');
  if (r.initialReference) notes.push('The initial upstream reference marks a separate operating state.');
  return temperatureEntropyPlot({reference, gas, segments, stations:labelled, note:notes.join(' '), fitLabels:labelled.length > 2});
 }

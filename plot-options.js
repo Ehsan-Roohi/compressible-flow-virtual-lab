@@ -7,7 +7,7 @@ import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261120-four-shock-polar';
 import {pressureTurningPlot} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {ramjetPlots} from './ramjet-inlet.js?v=20261114-region-markers';
-import {ductTemperatureEntropyPlot} from './duct-entropy.js?v=20261124-duct-entropy';
+import {ductTemperatureEntropyPlot} from './duct-entropy.js?v=20261124-heated-friction-duct';
 import {ductLongitudinalPlots} from './duct-contours.js?v=20261112-duct-contours';
 import {bodyPlots} from './wedge-cone.js?v=20261114-region-markers';
 import {comparisonPlots} from './channel-comparison.js?v=20261120-wall-methods';

@@ -3,13 +3,42 @@ import * as p from './physics.js?v=20261110-rayleigh-audit';
 import {gasInfo} from './gas-properties.js';
 import {fannoRayleighMode,fannoRayleighOrder,rayleighFannoOrder,fannoRayleighPreset,rayleighFannoPreset,sonicRayleighOutlet,specifiedRayleighHeat,solveFannoRayleigh,stagedRayleighCoolingChoice} from './fanno-rayleigh.js?v=20261124-duct-known-data';
 import {ductData,ductStageDefaults} from './duct-stage-data.js?v=20261124-duct-known-data';
+import {heatedFrictionMode,heatedFrictionDefaults,heatedFrictionPreset,ductHeatingModes,ductHeatInputs,ductFrictionInputs,solveHeatedFrictionDuct} from './heated-friction-duct.js?v=20261124-heated-friction-duct';
 const select=(key,label,value,options)=>({key,label,value,options});
 const n=(key,label,value,min=0,max=1e7,unit='')=>({key,label,value,min,max,step:'any',unit});
-export const systemDefaults={...fannoSystemDefaults,...ductStageDefaults,ductStageOrder:fannoRayleighOrder,rayleighCoolingBranch:fannoRayleighPreset.rayleighCoolingBranch,fannoRayleighOutlet:sonicRayleighOutlet,ductProblem:'Single duct',systemInletType:'Stagnation properties',referenceTemperatureType:'Stagnation temperature',referencePressureType:'Static pressure',inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',supplyReferenceMach:.4,reservoirP0:500,reservoirT0:400,backPressure:100,ductLength:1,hydraulicDiameter:.05,ductWidth:.05,ductHeight:.05,ductArea:.002,frictionFactor:.005,frictionConvention:'Fanning',frictionInput:'Dimensionless',ductSection:'Circular',temperatureInput:'Static temperature',velocityInput:'Mach number',inletSpeed:200,ductSolve:'Outlet state',systemAreaRatio:2,shockCase:'Duct exit',shockFraction:.5};
+export const systemDefaults={...fannoSystemDefaults,...ductStageDefaults,...heatedFrictionDefaults,ductStageOrder:fannoRayleighOrder,rayleighCoolingBranch:fannoRayleighPreset.rayleighCoolingBranch,fannoRayleighOutlet:sonicRayleighOutlet,ductProblem:'Single duct',systemInletType:'Stagnation properties',referenceTemperatureType:'Stagnation temperature',referencePressureType:'Static pressure',inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',supplyReferenceMach:.4,reservoirP0:500,reservoirT0:400,backPressure:100,ductLength:1,hydraulicDiameter:.05,ductWidth:.05,ductHeight:.05,ductArea:.002,frictionFactor:.005,frictionConvention:'Fanning',frictionInput:'Dimensionless',ductSection:'Circular',temperatureInput:'Static temperature',velocityInput:'Mach number',inletSpeed:200,ductSolve:'Outlet state',systemAreaRatio:2,shockCase:'Duct exit',shockFraction:.5};
 export function systemFields(id,x){
-const modes=id==='rayleigh'?['Single duct','Reservoir-fed duct','Heat + shock + converging nozzle',fannoRayleighMode]:['Single duct',fannoSystemMode,fannoRayleighMode];
+const modes=id==='rayleigh'?['Single duct','Reservoir-fed duct','Heat + shock + converging nozzle',fannoRayleighMode,heatedFrictionMode]:['Single duct',fannoSystemMode,fannoRayleighMode,heatedFrictionMode];
 if(id==='fanno'&&x.ductProblem===fannoSystemMode)return fannoSystemFields(x).map(field=>field.key==='ductProblem'?{...field,options:modes}:field);
 const out=[select('ductProblem','Problem type','Single duct',modes)];
+if(x.ductProblem===heatedFrictionMode){
+ const preset=heatedFrictionPreset;
+ const uniform=x.heatedDuctModel===ductHeatingModes.uniform;
+ const perLength=uniform&&x.heatedFluxInput===ductHeatInputs.perLength;
+ const geometry=x.heatedFrictionInput!==ductFrictionInputs.parameter;
+ return [...out,
+  n('M1','Inlet Mach number',preset.M1,.00001,50),
+  n('p1','Inlet pressure',preset.p1,.00001,1e9,'kPa'),
+  n('T1','Inlet temperature',preset.T1,1,1e5,'K'),
+  {...select('heatedDuctModel','Heating condition',preset.heatedDuctModel,Object.values(ductHeatingModes)),section:'Heat transfer'},
+  ...(uniform?[
+   select('heatedFluxInput','Known heat input',preset.heatedFluxInput,[ductHeatInputs.total,ductHeatInputs.perLength]),
+   perLength?n('heatedHeatRate','Heat per unit mass per length',preset.heatedHeatRate,-1e7,1e7,'kJ/(kg·m)'):
+    n('heatedTotalHeat','Total heat per unit mass',preset.heatedTotalHeat,-1e7,1e7,'kJ/kg'),
+  ]:[
+   select('heatedWallInput','Known wall temperature',preset.heatedWallInput,[ductHeatInputs.wallRatio,ductHeatInputs.wallTemperature]),
+   x.heatedWallInput===ductHeatInputs.wallTemperature?n('heatedWallTemperature','Wall temperature',preset.heatedWallTemperature,1,1e6,'K'):
+    n('heatedWallRatio','Wall / inlet stagnation temperature',preset.heatedWallRatio,.00001,1e5,'Tw/T₀₁'),
+  ]),
+  {...select('heatedFrictionInput','Friction data',preset.heatedFrictionInput,Object.values(ductFrictionInputs)),section:'Wall friction'},
+  ...(geometry||perLength?[n('ductLength','Duct length',preset.ductLength,1e-8,1e6,'m')]:[]),
+  ...(geometry?[
+   n('hydraulicDiameter','Hydraulic diameter',preset.hydraulicDiameter,.000001,1000,'m'),
+   select('frictionConvention','Friction convention',preset.frictionConvention,['Fanning','Darcy']),
+   n('frictionFactor','Friction factor',preset.frictionFactor,0,1),
+  ]:[n('heatedFrictionParameter','Friction parameter',preset.heatedFrictionParameter,0,1e7,'fᴅL/Dₕ')]),
+ ];
+}
 if(x.ductProblem===fannoRayleighMode){
  const reversed=x.ductStageOrder===rayleighFannoOrder;
  const independent=x.fannoRayleighOutlet===specifiedRayleighHeat;
@@ -64,7 +93,7 @@ function addSpillage(d,fluxRatio){
  d.result.referenceTable.note+=' For an ideal open intake, the estimated bypass fraction assumes uniform upstream mass flux across a nominal capture area equal to the duct mouth area.';
  return true;
 }
-export function solveDuctSystem(id,x){if(x.ductProblem===fannoRayleighMode)return solveFannoRayleigh(id,x);if(id==='fanno'&&x.ductProblem===fannoSystemMode)return solveFannoSystem(x);if(!x._directStateResolved){
+export function solveDuctSystem(id,x){if(x.ductProblem===heatedFrictionMode)return solveHeatedFrictionDuct(id,x);if(x.ductProblem===fannoRayleighMode)return solveFannoRayleigh(id,x);if(id==='fanno'&&x.ductProblem===fannoSystemMode)return solveFannoSystem(x);if(!x._directStateResolved){
 x={...x,_directStateResolved:true};const gas=gasInfo(x),g=gas.gamma;
 const initial=x.ductSolve==='Upstream reference + sonic outlet'||x.ductProblem==='Upstream adjustment to sonic outlet';
 if(initial){if(x.outletTemperatureType==='Static temperature')x.outletT0*=p.isentropic(1,g).T0T;x.outletTemperatureType='Stagnation temperature';}
