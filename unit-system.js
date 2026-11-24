@@ -29,6 +29,7 @@ const usUnits = {
   'kg/m²/s': ['lbm/(ft²·s)', foot ** 2 / pound],
   'J/kg': ['Btu/lbm', pound / btu],
   'kJ/kg': ['Btu/lbm', 1000 * pound / btu],
+  'kJ/(kg·m)': ['Btu/(lbm·ft)', 1000 * pound * foot / btu],
   'J/(kg·K)': ['Btu/(lbm·°R)', pound / (btu * rankine)],
   'kJ/(kg·K)': ['Btu/(lbm·°R)', 1000 * pound / (btu * rankine)],
   N: ['lbf', 1 / poundForce],

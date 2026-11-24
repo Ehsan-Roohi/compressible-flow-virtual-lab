@@ -8,6 +8,7 @@ import {plotOptions} from './plot-options.js';
 import {fannoSystemMode} from './fanno-system.js';
 import {fannoRatios} from './physics.js';
 import {fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample, fannoRayleighOrder, rayleighFannoOrder, rayleighFannoPreset, rayleighFannoExample, stagedDuctDefaults, changeDuctStageOrder, specifiedRayleighHeat} from './fanno-rayleigh.js';
+import {heatedFrictionMode,heatedFrictionPreset,heatedFrictionExample} from './heated-friction-duct.js';
 
 const run = (id, changes = {}) => calculate(id, {...defaults(id), ...fannoRayleighPreset, ...changes});
 const near = (actual, expected, tol = 1e-6) =>
@@ -72,6 +73,7 @@ test('Both labs load the correct default and example for each stage order', () =
  const context = vm.createContext({
   $: key => byId.get(key), experimentDefaults: defaults, id: 'fanno', inputs: {},
   fannoRayleighMode, fannoRayleighPreset, fannoRayleighExample, rayleighFannoPreset, rayleighFannoExample, stagedDuctDefaults,
+  heatedFrictionMode, heatedFrictionPreset, heatedFrictionExample,
   fannoExamples: [], reservoirExamples: [], rayleighBookExamples: {}, request: 0, timer: 0,
   sweepFinished: false, sweepPositioned: false,
   addDataExport() {}, clearTimeout() {}, stopSweep() {}, renderInputs() {}, solve() {},
@@ -106,6 +108,10 @@ test('Both labs load the correct default and example for each stage order', () =
   near(result.frictionLength, 4 * .005 * 3.3 / .305);
   near(result.junction.M, 2.412738325438113);
   near(result.s2.M, 1.667445471100574);
+  assert.equal(context.defaults(id, {ductProblem:heatedFrictionMode}).bookExample, heatedFrictionExample);
+  byId.get('exampleSelect').onchange({target: {value:heatedFrictionExample}});
+  assert.equal(context.inputs.ductProblem, heatedFrictionMode);
+  near(calculate(id, context.inputs).result.s2.M, .52921683144586);
  }
 });
 
