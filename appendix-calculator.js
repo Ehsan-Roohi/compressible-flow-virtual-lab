@@ -1,6 +1,6 @@
 import {
   deg, rad, state, normalShock, rayleighRatios, fannoRatios, obliqueShock,
-  shockLimit, prandtlMeyer, isentropicRelations, linspace,
+  shockLimit, turnAngle, prandtlMeyer, isentropicRelations, linspace,
 } from './physics.js';
 
 export const calculatorModes = {
@@ -99,18 +99,38 @@ function machChart(title, ylabel, mode, m, series){
   return {title,xlabel:'Inlet Mach number',ylabel,series:series.map(([name,evaluate])=>({name,points:xs.map(x=>[x,evaluate(x)])}))};
 }
 
+function obliqueShockChart(M,g,limit){
+  const branch=(name,from)=>({name,points:[
+    [0,deg(from)],
+    ...linspace(from,limit.beta,101).slice(1,-1).map(beta=>[deg(turnAngle(M,beta,g)),deg(beta)]),
+    [deg(limit.theta),deg(limit.beta)],
+  ]});
+  return {
+    title:'Oblique shock angle vs flow deflection',xlabel:'Deflection angle θ (°)',ylabel:'Shock angle β (°)',
+    series:[branch('Weak shock',limit.mu),branch('Strong shock',Math.PI/2)],
+  };
+}
+
 function shockCalculator(inlet, g, R, theta){
   const sections=[],comparisons=[];
   const result={status:'ok',s1:inlet};
+  const {M}=inlet;
+  let chart;
   if(theta!==undefined){
     if(!Number.isFinite(theta)||theta<0||theta>90)throw Error('Deflection angle must be between 0° and 90°.');
-    const limit=shockLimit(inlet.M,g);
+    const limit=shockLimit(M,g);
+    chart=obliqueShockChart(M,g,limit);
     sections.push(section('Attached-shock limit',[row('Maximum deflection θmax',deg(limit.theta),'°')]));
     if(rad(theta)>limit.theta+1e-12){
       result.status='detached';
-      return {result,sections,comparisons:[stateComparison(inlet,null,'Outlet')],
+      return {result,sections,comparisons:[stateComparison(inlet,null,'Outlet')],chart,
         notice:'The specified deflection exceeds the limit for an attached oblique shock.'};
     }
+  }else{
+    chart=machChart('Normal shock property ratios','Ratio',calculatorModes.normal,M,[
+      ['p₂/p₁',m=>normalShock(m,g).p],['ρ₂/ρ₁',m=>normalShock(m,g).rho],
+      ['T₂/T₁',m=>normalShock(m,g).T],['p₀₂/p₀₁',m=>normalShock(m,g).p0],
+    ]);
   }
   const solutions=theta===undefined
     ?[['',normalShock(inlet.M,g)]]
@@ -124,7 +144,7 @@ function shockCalculator(inlet, g, R, theta){
     comparisons.push(stateComparison(inlet,downstream,'Outlet',title));
     result.s2??=downstream;
   }
-  return {result,sections,comparisons};
+  return {result,sections,comparisons,chart};
 }
 
 function ductCalculator(mode,inlet,g,R){
@@ -143,9 +163,8 @@ function ductCalculator(mode,inlet,g,R){
     ['T/T*',m=>ratiosAt(m,g).T],['p/p*',m=>ratiosAt(m,g).p],
     ['p₀/p₀*',m=>ratiosAt(m,g).p0],...(isRayleigh?[['T₀/T₀*',m=>ratiosAt(m,g).T0]]:[]),
   ]);
-  const scene={kind:'state',s1:inlet,reference:{label:'SONIC REFERENCE',temperature:sonic.T,pressure:sonic.p}};
   return {result:{status:'ok',s1:inlet,sonic,ratios:r},sections,
-    comparisons:[stateComparison(inlet,sonic,'Sonic reference')],chart,scene};
+    comparisons:[stateComparison(inlet,sonic,'Sonic reference')],chart};
 }
 
 function prandtlMeyerCalculator(inlet,g,R){
@@ -158,7 +177,7 @@ function prandtlMeyerCalculator(inlet,g,R){
     ['ν',m=>deg(prandtlMeyer(m,g))],['μ',m=>deg(Math.asin(1/m))],
   ]);
   return {result:{status:'ok',s1:inlet,relations:r},sections,
-    comparisons:[stagnationComparison(inlet,g,R)],chart,scene:{kind:'state',s1:inlet}};
+    comparisons:[stagnationComparison(inlet,g,R)],chart};
 }
 
 export function calculateAppendix(x,gas){
@@ -172,7 +191,7 @@ export function calculateAppendix(x,gas){
     mode===calculatorModes.expansion?prandtlMeyerCalculator(inlet,g,R):ductCalculator(mode,inlet,g,R);
   const {sections,comparisons,...view}=calculated;
   const {rows,...output}=calculatorOutput(sections,comparisons);
-  const plots=view.chart?[{key:'appendix-'+mode,label:view.chart.title,chart:view.chart}]:[];
-  return {...view,id:'foundations',inputs:x,gas,rows,checks:{},shockDetails:[],
+  const plots=[{key:'appendix-'+mode,label:view.chart.title,chart:view.chart}];
+  return {...view,id:'foundations',inputs:x,gas,rows,checks:{},shockDetails:[],scene:null,
     model:`${mode} · calorically perfect ideal gas`,result:{...view.result,...output,calculatorPlots:plots}};
 }

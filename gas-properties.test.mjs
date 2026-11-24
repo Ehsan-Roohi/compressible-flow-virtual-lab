@@ -36,7 +36,7 @@ test('Named gases render in gas-selectable experiments; control-volume examples 
  for(const name of Object.keys(gasPresets)){
  for(const id of gasLabs){
  let x=selectGas(defaults(id),name);if(id==='balances')x={...x,...controlVolumePreset('nozzle',x)};
- const d=calculate(id,x);assert.equal(d.gas.name,name);assert.ok(!/NaN|Infinity|undefined/.test(sceneSVG(d.scene,x).svg),name+' '+id);assert.ok(!/NaN|Infinity|undefined/.test(chartSVG(d.chart).svg));
+ const d=calculate(id,x);assert.equal(d.gas.name,name);if(d.scene)assert.ok(!/NaN|Infinity|undefined/.test(sceneSVG(d.scene,x).svg),name+' '+id);assert.ok(!/NaN|Infinity|undefined/.test(chartSVG(d.chart).svg));
  }
  for(const kind of ['nozzle','shock'])assert.equal(controlVolume(controlVolumePreset(kind,gasPresets[name])).status,'balanced');
  }

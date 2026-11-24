@@ -14,7 +14,7 @@ const menu = byId('chapterMenu');
 const primary = byId('chapterPrimary');
 const shortcuts = byId('chapterShortcuts');
 const fields = {
-  foundations: ['M'], balances: ['M2'], normal: ['M1'], rayleigh: ['q'],
+  balances: ['M2'], normal: ['M1'], rayleigh: ['q'],
   fanno: ['lambda'], wall: ['M1'], collision: ['M1'],
   tube: ['shockRatio', 'driverRatio', 'inducedSpeed', 'unsteadyExperiment'],
   airfoil: ['M'], cone: ['M']
@@ -56,7 +56,7 @@ export function restoreChapterControls() {
 }
 
 function placePrimaryControl() {
-  if (source || !phone.matches) return;
+  if (source || !phone.matches || sceneCard.hidden) return;
   for (const key of fields[lab] ?? []) {
     const input = byId('value-' + key);
     const group = input?.closest('.input-group');
