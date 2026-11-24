@@ -7,10 +7,15 @@ import {heatedFrictionMode,heatedFrictionDefaults,heatedFrictionPreset,ductHeati
 const select=(key,label,value,options)=>({key,label,value,options});
 const n=(key,label,value,min=0,max=1e7,unit='')=>({key,label,value,min,max,step:'any',unit});
 export const systemDefaults={...fannoSystemDefaults,...ductStageDefaults,...heatedFrictionDefaults,ductStageOrder:fannoRayleighOrder,rayleighCoolingBranch:fannoRayleighPreset.rayleighCoolingBranch,fannoRayleighOutlet:sonicRayleighOutlet,ductProblem:'Single duct',systemInletType:'Stagnation properties',referenceTemperatureType:'Stagnation temperature',referencePressureType:'Static pressure',inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',supplyReferenceMach:.4,reservoirP0:500,reservoirT0:400,backPressure:100,ductLength:1,hydraulicDiameter:.05,ductWidth:.05,ductHeight:.05,ductArea:.002,frictionFactor:.005,frictionConvention:'Fanning',frictionInput:'Dimensionless',ductSection:'Circular',temperatureInput:'Static temperature',velocityInput:'Mach number',inletSpeed:200,ductSolve:'Outlet state',systemAreaRatio:2,shockCase:'Duct exit',shockFraction:.5};
+const ductProblemLabels={
+ [fannoRayleighMode]:'Two ducts · Fanno and Rayleigh',
+ [heatedFrictionMode]:'One duct · Simultaneous heat + friction',
+};
 export function systemFields(id,x){
 const modes=id==='rayleigh'?['Single duct','Reservoir-fed duct','Heat + shock + converging nozzle',fannoRayleighMode,heatedFrictionMode]:['Single duct',fannoSystemMode,fannoRayleighMode,heatedFrictionMode];
-if(id==='fanno'&&x.ductProblem===fannoSystemMode)return fannoSystemFields(x).map(field=>field.key==='ductProblem'?{...field,options:modes}:field);
-const out=[select('ductProblem','Problem type','Single duct',modes)];
+const problem={...select('ductProblem','Problem type','Single duct',modes),optionLabels:ductProblemLabels};
+if(id==='fanno'&&x.ductProblem===fannoSystemMode)return fannoSystemFields(x).map(field=>field.key==='ductProblem'?{...field,options:modes,optionLabels:ductProblemLabels}:field);
+const out=[problem];
 if(x.ductProblem===heatedFrictionMode){
  const preset=heatedFrictionPreset;
  const uniform=x.heatedDuctModel===ductHeatingModes.uniform;

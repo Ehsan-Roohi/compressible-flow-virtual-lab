@@ -8,6 +8,9 @@ import {createUnitView} from './unit-system.js';
 import {changeHeatedDuctInput, ductFrictionInputs, ductHeatInputs, ductHeatingModes,
  heatedFrictionMode, heatedFrictionPreset} from './heated-friction-duct.js';
 
+import {fannoRayleighMode} from './fanno-rayleigh.js';
+import {fannoSystemMode} from './fanno-system.js';
+
 const run = (id, input = {}) => calculate(id,{...defaults(id),...heatedFrictionPreset,...input});
 const near = (a,b,t=1e-9) => assert.ok(Math.abs(a-b) <= t * Math.max(1,Math.abs(b)),`${a} != ${b}`);
 const direct = {heatedFrictionInput:ductFrictionInputs.parameter, heatedDuctModel:ductHeatingModes.uniform};
@@ -86,4 +89,14 @@ test('Equivalent wall temperatures, friction formats, and heat inputs preserve t
  assert.ok(!fields.some(f=>f.key==='heatedTotalHeat'||f.key==='heatedWallRatio'));
  assert.equal(createUnitView('US').label('kJ/(kg·m)'),'Btu/(lbm·ft)');
  assert.match(sceneSVG(uniform.scene,uniform.inputs).svg,/data-heat-transfer="out-of-duct"/);
+});
+
+test('The problem menu distinguishes one duct from two while preserving saved values', () => {
+ for (const [id, mode] of [['rayleigh','Single duct'],['fanno','Single duct'],['fanno',fannoSystemMode]]) {
+  const choices = inputDefinitions(id,{...defaults(id),ductProblem:mode}).find(f=>f.key==='ductProblem');
+  assert.ok(choices.options.includes(fannoRayleighMode));
+  assert.ok(choices.options.includes(heatedFrictionMode));
+  assert.equal(choices.optionLabels[fannoRayleighMode],'Two ducts · Fanno and Rayleigh');
+  assert.equal(choices.optionLabels[heatedFrictionMode],'One duct · Simultaneous heat + friction');
+ }
 });
