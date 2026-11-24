@@ -1,4 +1,4 @@
-import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-conical-calculator';
+import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-shock-input-options';
 import {createUnitView} from './unit-system.js?v=20261124-us-units';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -641,6 +641,14 @@ if(id==='foundations'&&x.key==='calculatorMode'){
  clearTimeout(timer);
  renderInputs();
  $('value-calculatorMode')?.focus({preventScroll:true});
+ solve();
+ return;
+}
+if(id==='foundations'&&['calculatorObliqueGiven','calculatorConeGiven'].includes(x.key)){
+ inputs[x.key]=n.value;
+ clearTimeout(timer);
+ renderInputs();
+ $('value-'+x.key)?.focus({preventScroll:true});
  solve();
  return;
 }

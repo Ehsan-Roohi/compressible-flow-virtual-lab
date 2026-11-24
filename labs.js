@@ -1,4 +1,4 @@
-import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput} from './appendix-calculator.js?v=20261124-conical-calculator';
+import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput,obliqueInputs,conicalInputs} from './appendix-calculator.js?v=20261124-shock-input-options';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
@@ -93,8 +93,15 @@ export const chapters=[
 export const labs={
  foundations:{chapter:1,title:'Calculator',tag:'GAS-DYNAMIC RELATIONS',description:'Select a book appendix and evaluate its relations for a specified inlet state.',inputs:[
   {key:'calculatorMode',label:'Calculation type',value:calculatorModes.isentropic,options:Object.values(calculatorModes)},
-  M('M',2),T,P,g,input('calculatorTurn','Flow deflection angle',10,0,90,.1,'θ (°)'),
+  M('M',2),T,P,g,
+  {key:'calculatorObliqueGiven',label:'Known input',value:obliqueInputs.weak,options:Object.values(obliqueInputs)},
+  input('calculatorTurn','Flow deflection angle',10,0,90,.1,'θ (°)'),
+  input('calculatorObliqueBeta','Wave angle',40,0,90,.1,'β (°)'),
+  input('calculatorObliqueNormalMach','Upstream normal Mach number',1.3,1,50,.01,'M₁ₙ'),
+  {key:'calculatorConeGiven',label:'Known input',value:conicalInputs.cone,options:Object.values(conicalInputs)},
   input('calculatorConeAngle','Cone half-angle',20,.1,69.9,.1,'θ꜀ (°)'),
+  input('calculatorConeBeta','Wave angle',45,.1,89.9,.1,'β (°)'),
+  input('calculatorConeSurfaceMach','Surface Mach number',1.5,.001,10,.01,'M꜀'),
  ],model:'Calorically perfect ideal gas · local isentropic deceleration to rest',equation:'T₀/T = 1 + (γ − 1)M²/2',limitations:'It does not assert that an entire flow field is isentropic.'},
  balances:{chapter:2,title:'Control-volume balance lab',tag:'MASS · MOMENTUM · ENERGY',description:'Change a proposed outlet state and inspect the mass, force and energy balances. Solve outlet speed from continuity or load a consistent example.',inputs:[
  {key:'balanceMode',label:'Experiment mode',value:'Check proposed outlet',options:['Check proposed outlet','Solve outlet speed']},
@@ -336,8 +343,15 @@ function groupStationInputs(fields){
 export function inputDefinitions(id,x={}){
  if(id==='foundations'){
   const mode=x.calculatorMode??calculatorModes.isentropic,range=calculatorMachRange(mode);
-  const modeFields={calculatorTurn:calculatorModes.oblique,calculatorConeAngle:calculatorModes.conical};
-  const fields=labs.foundations.inputs.filter(f=>!modeFields[f.key]||mode===modeFields[f.key])
+  const obliqueField={
+   [obliqueInputs.wave]:'calculatorObliqueBeta',[obliqueInputs.normalMach]:'calculatorObliqueNormalMach',
+  }[x.calculatorObliqueGiven]??'calculatorTurn';
+  const coneField={
+   [conicalInputs.wave]:'calculatorConeBeta',[conicalInputs.surfaceMach]:'calculatorConeSurfaceMach',
+  }[x.calculatorConeGiven]??'calculatorConeAngle';
+  const visibleFields=mode===calculatorModes.oblique?['calculatorObliqueGiven',obliqueField]:
+   mode===calculatorModes.conical?['calculatorConeGiven',coneField]:[];
+  const fields=labs.foundations.inputs.filter(f=>f.key==='calculatorMode'||!f.key.startsWith('calculator')||visibleFields.includes(f.key))
    .filter(f=>f.key!=='gamma')
    .map(f=>f.key==='M'?{...expandedInput(id,f),...range,sliderMin:range.min,sliderMax:range.max}:f);
   return groupStationInputs(stateInputFields(id,x,[fields[0],
