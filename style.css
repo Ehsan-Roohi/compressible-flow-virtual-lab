@@ -262,7 +262,7 @@ body[data-lab="foundations"]{
 }
 body[data-lab="foundations"] :is(.lab-header,.work-grid){
   max-width:calc(var(--calculator-input-width) + var(--workspace-gap) + var(--calculator-content-width));
-  margin-inline:auto;
+  margin-inline:0;
 }
 body[data-lab="foundations"] .visual-column{
   container-type:inline-size;
