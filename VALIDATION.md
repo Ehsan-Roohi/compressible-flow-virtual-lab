@@ -27,15 +27,6 @@
 Conservation residuals are normalized by max(1,|upstream|,|downstream|). For Fanno flow, momentum flux is not tested as constant because wall shear transfers momentum. Entropy need not increase in the gas during Rayleigh cooling; the second law concerns the gas plus heat reservoir.
 
 
-## External source discrepancy retained as unresolved
-
-
-NASA's cone10 page: https://www.grc.nasa.gov/www/wind/valid/cone10/cone10.html gives M∞=2.35,theta_c=10°,quoted theoretical beta27.1843°,surface M2.1469,p/p∞1.4234,T/T∞1.1063. Those surface values imply T0_surface/T0∞≈1.01027659 for gamma1.4, inconsistent with the stated adiabatic perfect-gas model. The page's CFD comparison itself has p≈1.374 and T≈1.0951, differing from its theory column. No CFD was run for this project.
-
-
-Independent JS and SciPy calculations agree on beta≈26.73671771893°,surface M≈2.14683086316,p/p∞≈1.37393636704,T/T∞≈1.09508048628. This supports code-to-code verification but is not proof that every reference discrepancy has been resolved. The NASA theory column is intentionally NOT used as a passing golden fixture. Investigate published NACA1135 tables/charts and book Example10-1 before formal release acceptance.
-
-
 ## References and what they support
 
 
