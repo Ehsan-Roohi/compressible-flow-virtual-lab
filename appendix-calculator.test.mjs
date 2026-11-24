@@ -60,6 +60,31 @@ test('oblique calculator resolves both branches and reports the attached-shock l
   const detached=run(calculatorModes.oblique,{M:2,calculatorTurn:30});
   assert.equal(detached.result.status,'detached');
   assert.match(detached.notice,/exceeds the limit/);
-  assert.equal(detached.result.calculatorSections.length,2);
+  assert.equal(detached.result.calculatorSections.length,1);
+  assert.ok(detached.result.calculatorComparisons[0].rows.every(r=>r.outlet===null));
   assert.throws(()=>run(calculatorModes.normal,{M:.5}),/Mach number between/);
+});
+
+test('all calculator modes report ratios separately from aligned inlet and outlet or reference properties',()=>{
+  for(const mode of Object.values(calculatorModes)){
+    const d=run(mode,{M:2,p1:101,T1:300,calculatorTurn:10});
+    const {calculatorSections,calculatorComparisons}=d.result;
+    assert.ok(calculatorSections.flatMap(s=>s.rows).some(r=>r.label.includes('/')),mode);
+    assert.ok(calculatorSections.flatMap(s=>s.rows).every(r=>!r.unit||r.unit==='°'),mode);
+    assert.equal(calculatorComparisons.length,mode===calculatorModes.oblique?2:1,mode);
+    for(const comparison of calculatorComparisons){
+      assert.equal(comparison.rows.length,8,mode);
+      const values=Object.fromEntries(comparison.rows.map(r=>[r.label,r]));
+      near(values['Mach number'].inlet,2);
+      near(values['Static pressure'].inlet,101);
+      near(values['Static temperature'].inlet,300);
+      assert.ok(comparison.rows.every(r=>Number.isFinite(r.outlet)),mode);
+      if(comparison.outletLabel==='Sonic reference')near(values['Mach number'].outlet,1);
+      if(comparison.outletLabel==='Stagnation reference'){
+        near(values['Mach number'].outlet,0);
+        near(values['Static pressure'].outlet,values['Stagnation pressure'].inlet);
+        near(values['Static temperature'].outlet,values['Stagnation temperature'].inlet);
+      }
+    }
+  }
 });

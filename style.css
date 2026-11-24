@@ -242,6 +242,12 @@ body{font-family:Georgia,"Times New Roman",serif}
 #isentropicPanel .isentropic-ratio-columns .isentropic-grid{grid-template-columns:minmax(0,1fr);margin:0}
 .isentropic-ratio-columns .isentropic-grid>div{padding:5px 4px}
 #isentropicPanel>section>.isentropic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.calculator-state-scroll{padding-top:10px}
+.calculator-state-table caption{font-weight:650;padding-bottom:5px}
+.calculator-state-table thead th{white-space:normal}
+.calculator-state-table tbody th{min-width:0}
+.calculator-state-table tbody th,.calculator-state-table thead th:first-child{position:static}
+.calculator-state-table td{font-size:12px}
 
 @supports (appearance:base-select){
  select[data-rayleigh-mode],select[data-rayleigh-mode]::picker(select){appearance:base-select}
