@@ -253,6 +253,12 @@ body{font-family:Georgia,"Times New Roman",serif}
 .calculator-state-table tbody th,.calculator-state-table thead th:first-child{position:static}
 .calculator-state-table td{font-size:12px}
 
+body[data-lab="foundations"]:has(#value-calculatorMode > option[value="Isentropic Flow"]:checked) .chart-card{
+  width:100%;
+  max-width:760px;
+  margin-inline:auto;
+}
+
 @supports (appearance:base-select){
  select[data-rayleigh-mode],select[data-rayleigh-mode]::picker(select){appearance:base-select}
  select[data-rayleigh-mode]::picker(select){
