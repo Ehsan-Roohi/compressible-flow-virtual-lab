@@ -13,7 +13,7 @@ import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
 import {fannoExamples} from './fanno-examples.js?v=20261120-example-titles';
-import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo,rayleighFannoOrder} from './fanno-rayleigh.js?v=20261124-duct-stage-order';
+import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo,rayleighFannoOrder,rayleighFannoPreset,rayleighFannoExample,stagedDuctDefaults,changeDuctStageOrder} from './fanno-rayleigh.js?v=20261124-reverse-duct-example';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js?v=20261124-fanno-inverse-ratios';
 import {fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
@@ -45,7 +45,7 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-calculator-charts';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-reverse-duct-example';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-duct-stage-order';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -96,7 +96,7 @@ function rayleighModeDefaults(base,selection){
 function defaults(id,selection={}){
  const inputs=experimentDefaults(id);
  if(['rayleigh','fanno'].includes(id)&&selection.ductProblem===fannoRayleighMode)
-  return {...inputs,...fannoRayleighPreset,bookExample:fannoRayleighExample};
+  return {...inputs,...stagedDuctDefaults(selection.ductStageOrder)};
  if(id==='wall')return {...inputs,...chapter6WallDefaults(selection),channelSolver:channelSolverName(selection.channelSolver)};
  if(id==='airfoil'){
   const geometry={...inputs,airfoilShape:selection.airfoilShape??inputs.airfoilShape,bookAirfoilChord:1};
@@ -191,7 +191,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-duct-entropy',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-reverse-duct-example',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -663,7 +663,7 @@ if(id==='nozzle'&&['nozzleType','nozzleSolve','outletCondition'].includes(x.key)
 }
 if(['ductStageOrder','fannoRayleighOutlet','rayleighCoolingBranch'].includes(x.key)){
  request++;
- inputs={...inputs,[x.key]:n.value,bookExample:''};
+ inputs=x.key==='ductStageOrder' ? changeDuctStageOrder(inputs,n.value) : {...inputs,[x.key]:n.value,bookExample:''};
  renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }
 if(inputs.ductProblem===fannoRayleighMode&&x.key==='frictionConvention'){
@@ -1274,9 +1274,14 @@ function renderExamples(){
    return {value:name,label:title,note,apply:()=>{load(preset,name);if(name==='4–1')plotSelection.rayleigh=rayleighBookPlotKey;}};
   });
  }
- if(['rayleigh','fanno'].includes(id))entries.push({value:fannoRayleighExample,label:'Chapter 5 · Problem 3 · Fanno + Rayleigh',numbered:false,
-  note:'Air passes through the Fanno section and is then heated to Mach 1 in the Rayleigh section.',
-  apply:()=>load(fannoRayleighPreset,fannoRayleighExample)});
+ if(['rayleigh','fanno'].includes(id))entries.push(
+  {value:fannoRayleighExample,label:'Chapter 5 · Problem 3 · Fanno + Rayleigh',numbered:false,
+   note:'Air passes through the Fanno section and is then heated to Mach 1 in the Rayleigh section.',
+   apply:()=>load(fannoRayleighPreset,fannoRayleighExample)},
+  {value:rayleighFannoExample,label:'Rayleigh → Fanno · Known heat and friction',numbered:false,
+   note:'Add 35 kJ/kg in the Rayleigh section, then apply Fanno friction with a Fanning factor of 0.005, a length of 3.3 m and a hydraulic diameter of 0.305 m. Find the outlet Mach number.',
+   apply:()=>load(rayleighFannoPreset,rayleighFannoExample)},
+ );
  if(id==='wall'||id==='collision'||id==='airfoil'){
   const cases=chapter6BookExamples.filter(e=>e.lab===(id==='airfoil'?'airfoil':'wall'));
   entries=cases.map(e=>({...e,apply:()=>{
