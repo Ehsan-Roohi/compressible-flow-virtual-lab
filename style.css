@@ -312,9 +312,8 @@ body{font-family:Georgia,"Times New Roman",serif}
   body[data-lab] .lab-header:has(#modelDetails[hidden]) #description { display: none; }
   body[data-lab] .scene-card > .card-head { align-items: center; padding-block: 3px; }
 }
-#chapterPrimary[hidden], #rayleighBookAction[hidden], #chapterShortcuts[hidden] { display: none; }
-#rayleighBookAction { margin: 8px var(--card-inset); }
-#loadRayleighBook, #chapterShortcuts button {
+#chapterPrimary[hidden], #chapterShortcuts[hidden] { display: none; }
+#chapterShortcuts button {
   border: 1px solid #638b7c; border-radius: 4px; background: white;
   color: #225447; padding: 6px 10px; font: inherit;
 }
@@ -340,7 +339,6 @@ body{font-family:Georgia,"Times New Roman",serif}
   #chapterPrimary .range-labels { margin: 0; }
   #chapterShortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px var(--card-inset); }
   #chapterShortcuts button { padding: 5px 9px; font-size: 14px; }
-  #rayleighBookAction { margin-block: 6px; }
   .controls > #wallSetupPanel:not([hidden]) { margin: 0 var(--card-inset) 10px; }
   #inputTitle:focus-visible, #resultsTitle:focus-visible { outline: 2px solid var(--teal); }
 }

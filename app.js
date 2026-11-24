@@ -38,7 +38,7 @@ import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261124-appendix-calculator';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
-import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261119-compact-layout';
+import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-rayleigh-shortcut';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
 import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
@@ -1059,12 +1059,6 @@ function loadNozzleExample(selection){
  renderInputs();
  solve();
 }
-$('loadRayleighBook').onclick=()=>{
- const select=$('exampleSelect');
- if(id!=='rayleigh'||!select)return;
- select.value='4–1';
- select.onchange({target:select});
-};
 $('reset').onclick=()=>{if(id==='nozzle'){loadNozzleExample(inputs);return;}stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;inputs=defaults(id,inputs);renderInputs();solve();};
 $('pin').onclick=()=>{if(!current)return;pinned={id,inputs:{...inputs},rows:current.rows.map(x=>({...x}))};try{localStorage.setItem('gdvl-pinned',JSON.stringify(pinned));}catch{}renderCompare();};
 try{pinned=JSON.parse(localStorage.getItem('gdvl-pinned'));}catch{}

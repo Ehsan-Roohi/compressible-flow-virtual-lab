@@ -96,7 +96,6 @@ function updateLayout() {
   }
   sweepDetails.open = !(mobile && lab === 'nozzle');
   shortcuts.hidden = !mobile;
-  byId('rayleighBookAction').hidden = lab !== 'rayleigh';
   if (!mobile && lab === 'rayleigh') byId('regionTablePanel').after(chartCard);
   if (active?.isConnected && active !== document.body && !active.closest('[hidden]')) active.focus({preventScroll: true});
 }
