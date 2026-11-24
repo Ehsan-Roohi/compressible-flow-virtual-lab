@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
 import {calculate, defaults, inputDefinitions} from './labs.js';
 import {fanno, fannoRatios, rayleigh} from './physics.js';
 import {plotOptions} from './plot-options.js';
@@ -35,8 +37,8 @@ test('Shapiro §8.9 constant-wall benchmark is offered and reproduced by both la
  },0);
  near(impulse(r.s1)-impulse(r.s2),wallDrag,1e-7);
  for (const id of ['fanno','rayleigh']) {
-  const modes = inputDefinitions(id,defaults(id)).find(f=>f.key==='ductProblem').options;
-  assert.ok(modes.includes(heatedFrictionMode));
+  const problem = inputDefinitions(id,{...defaults(id),...heatedFrictionPreset}).find(f=>f.key==='ductProblem');
+  assert.equal(problem.selection,'Single duct');
  }
 });
 
@@ -91,12 +93,46 @@ test('Equivalent wall temperatures, friction formats, and heat inputs preserve t
  assert.match(sceneSVG(uniform.scene,uniform.inputs).svg,/data-heat-transfer="out-of-duct"/);
 });
 
-test('The problem menu distinguishes one duct from two while preserving saved values', () => {
+test('The problem menu puts the simultaneous model under Single duct and retains the two-duct entry', () => {
  for (const [id, mode] of [['rayleigh','Single duct'],['fanno','Single duct'],['fanno',fannoSystemMode]]) {
   const choices = inputDefinitions(id,{...defaults(id),ductProblem:mode}).find(f=>f.key==='ductProblem');
   assert.ok(choices.options.includes(fannoRayleighMode));
-  assert.ok(choices.options.includes(heatedFrictionMode));
+  assert.ok(!choices.options.includes(heatedFrictionMode));
   assert.equal(choices.optionLabels[fannoRayleighMode],'Two ducts · Fanno and Rayleigh');
-  assert.equal(choices.optionLabels[heatedFrictionMode],'One duct · Simultaneous heat + friction');
+ }
+});
+
+test('Top Single duct tabs switch models, retain edits, and stay hidden for two ducts', () => {
+ const source=readFileSync(new URL('./app.js',import.meta.url),'utf8');
+ const controls=new Map();
+ const element=key=>{
+  if(!controls.has(key))controls.set(key,{setAttribute(){},focus(){}});
+  return controls.get(key);
+ };
+ const context=vm.createContext({
+  heatedFrictionMode, $:element, id:'fanno', inputs:{ductProblem:'Single duct', M1:.8},
+  defaults:(id, selection)=>({...defaults(id),...(selection.ductProblem===heatedFrictionMode?heatedFrictionPreset:selection)}),
+  request:0, stopSweep(){}, renderInputs(){context.renderSingleDuctTabs();}, schedule(){},
+ });
+ vm.runInContext(source.slice(source.indexOf('const singleDuctTabInputs='),source.indexOf('function renderInputs(){')),context);
+ for (const id of ['fanno','rayleigh']) {
+  context.id=id;
+  context.inputs={ductProblem:'Single duct',M1:.8};
+  context.renderSingleDuctTabs();
+  assert.equal(element('labTabs').hidden,false);
+  assert.match(element('labTabs').innerHTML,id==='fanno'?/Fanno flow/:/Rayleigh flow/);
+  assert.match(element('labTabs').innerHTML,/aria-pressed="false">Simultaneous heat \+ friction/);
+  element('single-duct-tab-1').onclick();
+  assert.equal(context.inputs.ductProblem,heatedFrictionMode);
+  assert.match(element('labTabs').innerHTML,/aria-pressed="true">Simultaneous heat \+ friction/);
+  context.inputs.heatedWallRatio=3.2;
+  element('single-duct-tab-0').onclick();
+  assert.equal(context.inputs.ductProblem,'Single duct');
+  assert.equal(context.inputs.M1,.8);
+  element('single-duct-tab-1').onclick();
+  assert.equal(context.inputs.heatedWallRatio,3.2);
+  context.inputs.ductProblem=fannoRayleighMode;
+  context.renderSingleDuctTabs();
+  assert.equal(element('labTabs').hidden,true);
  }
 });
