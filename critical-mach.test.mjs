@@ -115,6 +115,36 @@ test('symmetric NACA 0012 uses the zero-angle zone without consuming the next an
  assert.equal(match.x, .2);
 });
 
+test('the new sources supply measured minima at the documented angles', async () => {
+ const id = 'critical-mach';
+ const cases = [
+  {code: '0012', alpha: 4, cp: -1.11383, x: .02333, side: 'upper', label: /Bristol/, download: /71156013$/},
+  {code: '2412', alpha: 12.4, cp: -6.07, x: .008, side: 'upper', label: /digitized/, download: /#page=28$/},
+  {code: '4415', alpha: 4, cp: -1.358, x: .124, side: 'upper', label: /Ohio State/, download: /n4415\.zip/},
+  {code: '4415', alpha: -4, cp: -1.665, x: .014, side: 'lower', label: /Ohio State/, download: /n4415\.zip/},
+ ];
+ let downloads = 0;
+ const read = async () => { downloads++; throw Error('Offline'); };
+ for (const {code, alpha, cp, x, side, label, download} of cases) {
+  const inputs = {...defaults(id), criticalNacaCode: code, criticalAlpha: alpha};
+  const measurement = await readPublishedPressure(inputs, read);
+  assert.equal(measurement.measuredCp, cp);
+  assert.equal(measurement.cp, cp * Math.sqrt(1 - measurement.source.mach ** 2));
+  assert.equal(measurement.x, x);
+  assert.equal(measurement.side, side);
+  assert.match(measurement.source.label, label);
+  assert.match(measurement.source.dataUrl, download);
+  assert.equal(calculate(id, inputs, measurement).result.pressureInput.kind, 'published');
+ }
+ const inputs = {...defaults(id), criticalNacaCode: '2412', criticalAlpha: 4};
+ assert.equal(await readPublishedPressure(inputs, read), null);
+ assert.equal(calculate(id, inputs).result.pressureInput.alpha, 4);
+ assert.equal(downloads, 0);
+ assert.deepEqual(publishedPressureAngles('0012'), [0, 4, 5, 6, 7, 8, 9, 10]);
+ assert.deepEqual(publishedPressureAngles('2412'), [4.3, 8.3, 12.4]);
+ assert.deepEqual(publishedPressureAngles('4415'), [-8.1, -6, -4, -2.1, 0, 2.1, 4, 6.2, 8.1]);
+});
+
 const aspireFixture = (mach, nearNose = 0) => {
  const branch = Array.from({length: 11}, (_, i) => [nearNose + (1 - nearNose) * i / 10, i === 2 ? -1.1 : 0]);
  const lower = branch.map(([x, cp], i) => [x, i === 3 ? -1.6 : cp]);

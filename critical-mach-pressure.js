@@ -1,7 +1,7 @@
 import {requireValue} from './numerics.js';
 import {nacaPanelContour, normalizeNacaSection} from './wing-naca-geometry.js';
 import {solveAirfoilPanelCoordinates} from './wing-airfoil-panel-2d.js';
-import {pressureAirfoilCode, publishedPressureSources} from './critical-mach-data.js?v=20261124-effective-pressure-angles';
+import {pressureAirfoilCode, publishedPressureSources} from './critical-mach-data.js?v=20261124-add-pressure-sources';
 
 export const automaticPressure = 'NACA airfoil · automatic';
 export const manualPressure = 'Enter Cp manually';
@@ -68,14 +68,15 @@ function minimumSample(samples) {
 export async function readPublishedPressure(inputs, read = fetchPublishedData) {
  if (inputs.criticalPressureSource !== automaticPressure) return null;
  const code = pressureAirfoilCode(inputs.criticalNacaCode), alpha = inputs.criticalAlpha;
- for (const source of publishedPressureSources(code, alpha)) {
+ for (const {minimum, ...source} of publishedPressureSources(code, alpha)) {
   try {
-   const data = measuredDistribution(await read(source.dataUrl), alpha, source);
-   const min = data?.samples.length >= 10 ? minimumSample(data.samples) : null;
+   const data = minimum ? null : measuredDistribution(await read(source.dataUrl), alpha, source);
+   const min = minimum ?? (data?.samples.length >= 10 ? minimumSample(data.samples) : null);
    if (!min || min.cp >= 0) continue;
    // Remove the small freestream compressibility correction from the measured baseline.
-   const cp = min.cp * Math.sqrt(1 - data.mach ** 2);
-   return {...min, cp, measuredCp: min.cp, kind: 'published', source: {...source, mach: data.mach}, code, alpha};
+   const mach = data?.mach ?? source.mach;
+   const cp = min.cp * Math.sqrt(1 - mach ** 2);
+   return {...min, cp, measuredCp: min.cp, kind: 'published', source: {...source, mach}, code, alpha};
   } catch {
    // Continue to the next matching experiment, then use the panel solve if necessary.
   }
