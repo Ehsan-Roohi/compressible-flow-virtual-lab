@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {calculate, defaults, inputDefinitions} from './labs.js';
 import {calculatorModes, shockCalculatorLabs} from './appendix-calculator.js';
-import {sceneSVG, chartSVG} from './graphics.js';
+import {chartSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 
 const run = (calculatorMode, patch={}) => calculate('foundations',{...defaults('foundations'),calculatorMode,...patch});
@@ -19,14 +19,11 @@ test('all appendix calculators accept a Mach number, pressure, temperature and e
     const inlet=d.result.s1??d.result;
     near(inlet.p,137900);
     near(inlet.T,277.78);
-    if(Object.hasOwn(shockCalculatorLabs,mode)){
-      assert.equal(d.scene,undefined);
-      assert.deepEqual(plotOptions(d),[]);
-      assert.ok(shockCalculatorLabs[mode].href);
-    }else{
-      assert.match(sceneSVG(d.scene,d.inputs).svg,/<svg/);
-      assert.match(chartSVG(plotOptions(d)[0].chart).svg,/<svg/);
-    }
+    assert.equal(d.scene,null,mode);
+    const svg=chartSVG(plotOptions(d)[0].chart).svg;
+    assert.match(svg,/<svg/);
+    assert.doesNotMatch(svg,/NaN|Infinity|undefined/);
+    if(Object.hasOwn(shockCalculatorLabs,mode))assert.ok(shockCalculatorLabs[mode].href);
   }
 });
 
@@ -38,6 +35,8 @@ test('the appendix ratios retain the book conventions and derive correct dimensi
   near(normal.s2.M,.57735026919);
   near(normal.s2.p,454500);
   near(normal.s2.T,506.25);
+  const normalPlot=plotOptions(run(calculatorModes.normal,{M:2}))[0].chart;
+  near(normalPlot.series[0].points.find(([m])=>m===2)[1],4.5);
   for(const mode of [calculatorModes.rayleigh,calculatorModes.fanno]){
     const d=run(mode,{M:.5,p1:101,T1:300});
     near(d.result.sonic.M,1);
@@ -62,6 +61,11 @@ test('oblique calculator resolves both branches and reports the attached-shock l
   assert.match(detached.notice,/exceeds the limit/);
   assert.equal(detached.result.calculatorSections.length,1);
   assert.ok(detached.result.calculatorComparisons[0].rows.every(r=>r.outlet===null));
+  const [weak,strong]=plotOptions(detached)[0].chart.series;
+  assert.equal(weak.name,'Weak shock');
+  assert.equal(strong.name,'Strong shock');
+  assert.deepEqual(weak.points.at(-1),strong.points.at(-1));
+  near(weak.points.at(-1)[0],detached.result.calculatorSections[0].rows[0].value);
   assert.throws(()=>run(calculatorModes.normal,{M:.5}),/Mach number between/);
 });
 

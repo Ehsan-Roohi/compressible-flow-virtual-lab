@@ -1,4 +1,4 @@
-import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput} from './appendix-calculator.js?v=20261124-calculator-state-tables';
+import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput} from './appendix-calculator.js?v=20261124-calculator-charts';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
@@ -462,7 +462,7 @@ export function calculate(id,x,publishedPressure){
   rows=calculatorRows;
   Object.assign(result,output);
   chart={title:'Static-to-stagnation ratios',xlabel:'Mach number',ylabel:'Ratio',series:[{name:'T₀/T',points:p.linspace(0,4).map(m=>[m,p.isentropic(m,g).T0T])},{name:'p₀/p',points:p.linspace(0,4).map(m=>[m,p.isentropic(m,g).p0p])}]};
-  scene={kind:'state',s1:result};
+  scene=null;
  }
  else if(id==='balances'){
   result=controlVolume(x);const r=result;scene={kind:'balance',...r};

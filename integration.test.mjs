@@ -11,7 +11,7 @@ test('every registered laboratory computes and renders finite SVG at default inp
   assert.ok(d.rows.length>0,id);
   assert.ok(!/NaN|Infinity|undefined/.test(chart.svg),id+' chart');
   assert.ok(chart.svg.includes('<title>'),id);
-  if(id==='critical-mach')assert.equal(d.scene,null);
+  if(['critical-mach','foundations'].includes(id))assert.equal(d.scene,null);
   else{
    const scene=sceneSVG(d.scene,x);
    assert.ok(!/NaN|Infinity|undefined/.test(scene.svg),id+' scene');

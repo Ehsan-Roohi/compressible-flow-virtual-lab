@@ -11,7 +11,8 @@ function upper(id,name){let x=selectGas(defaults(id),name);if(id==='nozzle')x.no
 test('Upper Mach bounds produce finite results, scenes and selectable plots for every named gas',()=>{
  for(const [id,cap] of Object.entries(caps))for(const name of Object.keys(gasPresets)){
   const {x,key}=upper(id,name),d=calculate(id,x);assert.equal(x[key],cap);assert.ok(d.rows.every(r=>r.value===null||Number.isFinite(r.value)),id+' '+name);
-  assert.ok(!/NaN|Infinity|undefined/.test(sceneSVG(d.scene,x).svg),id+' '+name);
+  if(id==='foundations')assert.equal(d.scene,null);
+  else assert.ok(!/NaN|Infinity|undefined/.test(sceneSVG(d.scene,x).svg),id+' '+name);
   for(const o of plotOptions(d))assert.ok(!/NaN|Infinity|undefined/.test(chartSVG(o.chart).svg),id+' '+name+' '+o.key);
  }
 });

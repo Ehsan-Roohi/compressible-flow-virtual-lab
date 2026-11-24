@@ -55,7 +55,9 @@ test('Changing Fanno modes discards incompatible inputs and keeps Example 5 acro
  assert.equal(next.lambda,.3);
  assert.equal(next.bookExample,'5–5');
  const result=calculate('fanno',next);
- assert.deepEqual(plotOptions(result),result.result.plots);
+ const options=plotOptions(result);
+ assert.deepEqual(options.slice(0,-1),result.result.plots);
+ assert.equal(options.at(-1).key,'duct-temperature-entropy');
  const inverse=preset(fannoModeSelection(next,'fannoUnknown',fannoUnknowns[1]));
  assert.equal(inverse.bookExample,'');
  near(calculate('fanno',inverse).result.supplyPressure/1000,1034.2);

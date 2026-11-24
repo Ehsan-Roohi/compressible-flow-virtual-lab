@@ -10,7 +10,7 @@ test('Shared typography is idempotent and completes property pairs without chang
 test('Normal shock uses equal-size Mach and pressure labels with explicit station symbols',()=>{const d=calculate('normal',{...defaults('normal'),M1:2,p1:138}),v=sceneSVG(d.scene,d.inputs);check(v.svg);for(const s of ['M₁ = 2','M₂ = 0.57735','p₁ = 138 kPa','p₂ = 621 kPa'])assert.ok(v.svg.includes(s),s);});
 test('All principal scene renderers and exported chart SVGs share numerical typography',()=>{
  for(const id of ['foundations','normal','rayleigh','fanno','wall','collision','tube','nozzle','airfoil','cone']){
-  const d=calculate(id,{...defaults(id),...(id==='cone'?{bodyGeometry:'Compare both'}:{})});check(sceneSVG(d.scene,d.inputs).svg);check(chartSVG(d.chart).svg);
+  const d=calculate(id,{...defaults(id),...(id==='cone'?{bodyGeometry:'Compare both'}:{})});if(d.scene)check(sceneSVG(d.scene,d.inputs).svg);check(chartSVG(d.chart).svg);
  }
  for(const x of [{ductProblem:'Reservoir-fed duct',ductSolve:'Sonic outlet'},{ductProblem:'Heat + shock + converging nozzle',systemInletType:'Static duct inlet',M1:1.6,T1:200,p1:56,backPressure:120}]){const d=calculate('rayleigh',{...defaults('rayleigh'),...x});check(sceneSVG(d.scene,d.inputs).svg);}
 });
