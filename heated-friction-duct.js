@@ -15,7 +15,7 @@ export const ductFrictionInputs = {geometry:'Length and friction factor', parame
 export const heatedFrictionInfo = {
  description:'Solve for heat transfer and wall friction acting together along a single constant-area duct.',
  model:'Steady 1D flow · constant-area duct · heat transfer and wall friction',
- limitations:'Shapiro §8.9. The wall-temperature model uses the Reynolds analogy and unit recovery factor. The fixed-inlet integration ends at the first sonic point or the specified outlet.',
+ limitations:'The wall-temperature model uses the Reynolds analogy and unit recovery factor. The fixed-inlet integration ends at the first sonic point or the specified outlet.',
 };
 
 // Shapiro §8.9. The diameter and inlet totals set the dimensional scales.

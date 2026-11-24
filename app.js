@@ -14,7 +14,7 @@ import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=2026
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
 import {fannoExamples} from './fanno-examples.js?v=20261120-example-titles';
 import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo,rayleighFannoPreset,rayleighFannoExample,stagedDuctDefaults,changeDuctStageOrder,changeDuctStageData,stagedRayleighCoolingChoice} from './fanno-rayleigh.js?v=20261124-duct-known-data';
-import {heatedFrictionMode,heatedFrictionExample,heatedFrictionPreset,heatedFrictionInfo,changeHeatedDuctInput} from './heated-friction-duct.js?v=20261124-heated-friction-duct';
+import {heatedFrictionMode,heatedFrictionExample,heatedFrictionPreset,heatedFrictionInfo,changeHeatedDuctInput} from './heated-friction-duct.js?v=20261124-heated-example-label';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js?v=20261124-fanno-inverse-ratios';
 import {fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
@@ -1333,7 +1333,7 @@ function renderExamples(){
   {value:rayleighFannoExample,label:'Rayleigh → Fanno · Known heat and friction',numbered:false,
    note:'Add 35 kJ/kg in the Rayleigh section, then apply Fanno friction with a Fanning factor of 0.005, a length of 3.3 m and a hydraulic diameter of 0.305 m. Find the outlet Mach number.',
    apply:()=>load(rayleighFannoPreset,rayleighFannoExample)},
-  {value:heatedFrictionExample,label:'Shapiro §8.9 · Heat transfer + wall friction',numbered:false,
+  {value:heatedFrictionExample,label:'Constant wall temperature',menuNumber:1,menuGroup:'Simultaneous heat + friction',
    note:'Air enters at Mach 0.5 with a wall-to-inlet stagnation temperature ratio of 4 and a Fanning factor of 0.005. The section at L/D ≈ 1.68 has T₀/T₀₁ = 1.05.',
    apply:()=>load(heatedFrictionPreset,heatedFrictionExample)},
  );
@@ -1363,9 +1363,12 @@ function renderExamples(){
  if(id==='balances')entries=[['nozzle','Balanced nozzle'],['shock','Normal shock']].map(([value,label])=>({value,label,apply:()=>{inputs={...defaults(id),...controlVolumePreset(value,{gamma:inputs.gamma,R:inputs.R}),fluid:inputs.fluid,bookExample:value};}}));
  if(id==='balances')entries.push({value:'perturb',label:'Increase outlet pressure 10%',apply:()=>{inputs.p2*=1.1;inputs.bookExample='perturb';}});
  box.hidden=!entries.length;box.onclick=null;box.innerHTML='';if(!entries.length)return;
- entries=entries.map((entry,index)=>entry.numbered===false?entry:{...entry,label:`Example ${index+1} · ${entry.label}`});
+ entries=entries.map((entry,index)=>entry.numbered===false?entry:{...entry,label:`Example ${entry.menuNumber??index+1} · ${entry.label}`});
  const selected=entries.find(e=>e.value===inputs.bookExample);
- box.innerHTML=`<div class="input-group"><div class="input-top"><label for="exampleSelect">Examples</label></div><select id="exampleSelect"><option value="" disabled ${selected?'':'selected'}>Select example…</option>${entries.map(e=>`<option value="${e.value}" ${selected===e?'selected':''}>${e.label}</option>`).join('')}</select>${selected?.note?`<p class="control-hint">${unitView.text(selected.note)}</p>`:''}</div>`;
+ const option=e=>`<option value="${e.value}" ${selected===e?'selected':''}>${e.label}</option>`;
+ const heatedExamples=entries.filter(e=>e.menuGroup);
+ const heatedOptions=heatedExamples.length?`<optgroup label="${heatedExamples[0].menuGroup}">${heatedExamples.map(option).join('')}</optgroup>`:'';
+ box.innerHTML=`<div class="input-group"><div class="input-top"><label for="exampleSelect">Examples</label></div><select id="exampleSelect"><option value="" disabled ${selected?'':'selected'}>Select example…</option>${entries.filter(e=>!e.menuGroup).map(option).join('')}${heatedOptions}</select>${selected?.note?`<p class="control-hint">${unitView.text(selected.note)}</p>`:''}</div>`;
  addDataExport(box,'examples',()=>{
   const examples=entries.map(({value,label,note})=>({value,label,note}));
   const active=examples.find(e=>e.value===inputs.bookExample);

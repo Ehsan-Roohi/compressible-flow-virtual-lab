@@ -108,6 +108,8 @@ test('Both labs load the correct default and example for each stage order', () =
   near(result.frictionLength, 4 * .005 * 3.3 / .305);
   near(result.junction.M, 2.412738325438113);
   near(result.s2.M, 1.667445471100574);
+  assert.match(byId.get('examplesPanel').innerHTML, /<optgroup label="Simultaneous heat \+ friction">.*Example 1 · Constant wall temperature<\/option><\/optgroup>/);
+  assert.doesNotMatch(byId.get('examplesPanel').innerHTML, /Shapiro|§8\.9/);
   assert.equal(context.defaults(id, {ductProblem:heatedFrictionMode}).bookExample, heatedFrictionExample);
   byId.get('exampleSelect').onchange({target: {value:heatedFrictionExample}});
   assert.equal(context.inputs.ductProblem, heatedFrictionMode);
