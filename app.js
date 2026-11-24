@@ -46,7 +46,7 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-duct-mode-labels';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-single-duct-tabs';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-heated-friction-duct';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -294,6 +294,7 @@ function openLab(){
  $('labTitle').textContent=l.chapter===6?'Supersonic Wave Lab':l.title;
  $('description').textContent=l.description;$('model').textContent=l.model;$('limitations').textContent=l.limitations;
  const hideTabs=l.chapter===6||chapter[3].length<2;
+ $('labTabs').setAttribute('aria-label','Experiments');
  $('labTabs').hidden=hideTabs;
  $('labTabs').innerHTML=hideTabs?'':chapter[3].map(k=>`<button type="button" data-lab="${k}" class="${id===k?'active':''}">${labs[k].title}</button>`).join('');
  $('labTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(location.hash==='#'+b.dataset.lab)openLab();else location.hash=b.dataset.lab;});renderNav();
@@ -564,6 +565,30 @@ function showCriticalMachDataAngles(){
  note.textContent=angles.length?`Published data at 2D angles of ${angles.map(angle=>angle+'°').join(', ')}.`
   :'No published cases connected for this code. The panel method is used.';
 }
+const singleDuctTabInputs=new Map();
+
+function renderSingleDuctTabs(){
+ const tabs=$('labTabs'), mode=inputs.ductProblem??'Single duct';
+ tabs.hidden=!['Single duct',heatedFrictionMode].includes(mode);
+ tabs.innerHTML='';
+ if(tabs.hidden)return;
+ tabs.setAttribute('aria-label','Single duct models');
+ const choices=[
+  {mode:'Single duct',label:id==='fanno'?'Fanno flow':'Rayleigh flow'},
+  {mode:heatedFrictionMode,label:'Simultaneous heat + friction'},
+ ];
+ tabs.innerHTML=choices.map(({mode:choice,label},i)=>`<button id="single-duct-tab-${i}" type="button" class="${choice===mode?'active':''}" aria-pressed="${choice===mode}">${label}</button>`).join('');
+ choices.forEach(({mode:choice},i)=>{
+  $('single-duct-tab-'+i).onclick=()=>{
+   if(choice===mode)return;
+   stopSweep();request++;
+   singleDuctTabInputs.set(id+':'+mode,{...inputs});
+   inputs={...(singleDuctTabInputs.get(id+':'+choice)??defaults(id,{ductProblem:choice}))};
+   renderInputs();$('single-duct-tab-'+i).focus({preventScroll:true});schedule();
+  };
+ });
+}
+
 function renderInputs(){
  const calculatorMode=inputs.calculatorMode??calculatorModes.isentropic;
  $('resultsTitle').textContent=id==='foundations'?
@@ -575,6 +600,7 @@ function renderInputs(){
  if(['rayleigh','fanno'].includes(id)){
   const info=inputs.ductProblem===heatedFrictionMode?heatedFrictionInfo:inputs.ductProblem===fannoRayleighMode?fannoRayleighInfo:labs[id];
   for(const key of ['description','model','limitations'])$(key).textContent=info[key];
+  renderSingleDuctTabs();
  }
  const definedFields=inputDefinitions(id,inputs);
  const shockTube=id==='tube'&&definedFields.some(field=>field.key==='tubeSolutionMethod');
