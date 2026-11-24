@@ -1,7 +1,7 @@
 import {requireValue} from './numerics.js';
 import {nacaPanelContour, normalizeNacaSection} from './wing-naca-geometry.js';
 import {solveAirfoilPanelCoordinates} from './wing-airfoil-panel-2d.js';
-import {pressureAirfoilCode, publishedPressureSources} from './critical-mach-data.js';
+import {pressureAirfoilCode, publishedPressureSources} from './critical-mach-data.js?v=20261124-effective-pressure-angles';
 
 export const automaticPressure = 'NACA airfoil · automatic';
 export const manualPressure = 'Enter Cp manually';
@@ -38,7 +38,7 @@ function measuredDistribution(text, alpha, source) {
  if (source.format === 'pinkerton') {
   const data = JSON.parse(text);
   if (data.source?.type !== 'experiment' || data.mach !== source.mach || data.reynolds !== source.reynolds) return null;
-  const match = data.cases?.find(row => row.alphaDeg === alpha);
+  const match = data.cases?.find(row => row.alphaDeg === (source.tunnelAlpha ?? alpha));
   const upper = pressureSamples(match?.branch1, 'upper'), lower = pressureSamples(match?.branch2, 'lower');
   return upper.length >= 10 && lower.length >= 10 ? {samples: [...upper, ...lower], mach: source.mach} : null;
  }

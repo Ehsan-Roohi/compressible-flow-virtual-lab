@@ -76,7 +76,7 @@ test('comparison shows the same three solutions on one chart with a shared sonic
 });
 
 test('automatic mode uses the minimum measured pressure of both surfaces at the exact angle', async () => {
- const id = 'critical-mach', inputs = {...defaults(id), criticalAlpha: 4, compressibilityCorrection: compareCriticalMach};
+ const id = 'critical-mach', inputs = {...defaults(id), criticalAlpha: 2.9, compressibilityCorrection: compareCriticalMach};
  const points = (min, at) => Array.from({length: 11}, (_, i) => [i / 10, i === at ? min : 0]);
  const fixture = JSON.stringify({source: {type: 'experiment'}, mach: .059, reynolds: 1.8e6, cases: [
   {alphaDeg: 2, branch1: points(-4, 3), branch2: points(-3, 4)},
@@ -91,6 +91,8 @@ test('automatic mode uses the minimum measured pressure of both surfaces at the 
  const match = await readPublishedPressure(inputs, read);
  assert.equal(match.side, 'lower');
  assert.equal(match.x, .2);
+ assert.equal(match.alpha, 2.9);
+ assert.equal(match.source.tunnelAlpha, 4);
  assert.equal(match.measuredCp, -1.25);
  assert.equal(match.cp, -1.25 * Math.sqrt(1 - .059 ** 2));
  const {result} = calculate(id, inputs, match);
@@ -98,7 +100,7 @@ test('automatic mode uses the minimum measured pressure of both surfaces at the 
  for (const method of result.corrections) {
   assert.equal(method.mach, solveCriticalMach(match.cp, inputs.gamma, method.method).mach);
  }
- assert.equal(await readPublishedPressure({...inputs, criticalAlpha: 4.1}, read), null);
+ assert.equal(await readPublishedPressure({...inputs, criticalAlpha: 3}, read), null);
  assert.equal(await readPublishedPressure({...inputs, criticalPressureSource: manualPressure}, read), null);
  assert.equal(requests, 1);
 });
@@ -138,7 +140,7 @@ test('ASPIRE reads both surfaces and uses the Mach in the CSV rather than the ro
 });
 
 test('the alternate report for 4412 runs after an unavailable primary source', async () => {
- const inputs = {...defaults('critical-mach'), criticalAlpha: 2};
+ const inputs = {...defaults('critical-mach'), criticalAlpha: 1.2};
  const requests = [];
  const match = await readPublishedPressure(inputs, async url => {
   requests.push(url);
@@ -148,11 +150,26 @@ test('the alternate report for 4412 runs after an unavailable primary source', a
  assert.equal(requests.length, 2);
  assert.match(requests[1], /TR-563\/NACA%204412_A2\.0_M0\.05_Re3\.1e6_A_NACA%20TR-563\.csv$/);
  assert.equal(match.source.mach, .051);
+ assert.equal(match.alpha, 1.2);
+ assert.equal(match.source.tunnelAlpha, 2);
  assert.match(match.source.label, /TR-563/);
 });
 
+test('NACA 4412 does not use a geometric tunnel angle as its 2D angle', async () => {
+ const id = 'critical-mach', inputs = {...defaults(id), criticalAlpha: 4};
+ assert.deepEqual(publishedPressureAngles('4412'), [-7.4, -5.7, -4, -2.2, -.6, -.5, 1.2, 2.9, 6.4]);
+ let requests = 0;
+ const published = await readPublishedPressure(inputs, async () => { requests++; });
+ assert.equal(requests, 0);
+ assert.equal(published, null);
+ const {result} = calculate(id, inputs, published);
+ assert.equal(result.pressureInput.kind, 'panel');
+ assert.equal(result.pressureInput.alpha, 4);
+ assert.ok(Math.abs(result.pressureInput.cp - (-1.37406)) < 1e-5);
+});
+
 test('missing, unavailable and mismatched measurements fall back to the existing Wing AeroStruct panel solution', async () => {
- const id = 'critical-mach', inputs = defaults(id);
+ const id = 'critical-mach', inputs = {...defaults(id), criticalAlpha: -.6};
  const unavailable = await readPublishedPressure(inputs, async () => { throw Error('Offline'); });
  assert.equal(unavailable, null);
  const {result} = calculate(id, inputs, unavailable);
