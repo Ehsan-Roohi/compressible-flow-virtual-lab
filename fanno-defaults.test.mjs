@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {calculate,defaults} from './labs.js';
+import {calculate,defaults,inputDefinitions} from './labs.js';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js';
 import {fannoConditions,fannoPressurePlan,fannoSolveOptions,fannoSystemMode,fannoUnknowns,migrateFannoInputs} from './fanno-system.js';
 import {fannoExample} from './fanno-examples.js';
@@ -62,4 +62,31 @@ test('Changing Fanno modes discards incompatible inputs and keeps Example 5 acro
  const single=preset(fannoModeSelection(inverse,'ductProblem','Single duct'));
  assert.equal(single.ductProblem,'Single duct');
  assert.equal(single.M1,.6);
+});
+
+test('Inverse pressure and temperature ratios recover the Fanno inlet on both branches and at a sonic outlet',()=>{
+ const modes=[
+  ['Outlet Mach + temperature ratio','fannoTemperatureRatio','T'],
+  ['Outlet Mach + pressure ratio','fannoPressureRatio','p'],
+ ];
+ for(const [fannoInput,key,property] of modes){
+  const start=preset({fannoInput});
+  assert.ok(Object.hasOwn(base,key),'Saved ratios must be discoverable when opening the lab.');
+  const result=calculate('fanno',start).result;
+  near(result.s1.M,2.5);
+  const fields=inputDefinitions('fanno',start).map(f=>f.key);
+  assert.ok(fields.includes('targetMach')&&fields.includes(key));
+  assert.ok(!fields.includes('M1')&&!fields.includes('lambda')&&!fields.includes('frictionFactor'));
+  for(const [inlet,outlet] of [[.3,.7],[2.5,1.5],[.4,1],[3,1],[.8,.8],[1,1]]){
+   const known=calculate('fanno',{...base,fannoInput:'Outlet Mach',M1:inlet,targetMach:outlet}).result;
+   const ratio=known.s2[property]/known.s1[property];
+   const inverse=calculate('fanno',{...start,targetMach:outlet,[key]:ratio,lambda:999,frictionInput:'Length and friction factor'});
+   near(inverse.result.s1.M,inlet);
+   near(inverse.result.s2.M,outlet);
+   near(inverse.result.s2[property]/inverse.result.s1[property],ratio);
+   assert.ok(inverse.inputs.lambda>=0);
+  }
+  assert.throws(()=>calculate('fanno',{...start,targetMach:.7,[key]:1.1}),/ratio.*incompatible/);
+  assert.throws(()=>calculate('fanno',{...start,[key]:0}),/ratio.*positive/);
+ }
 });
