@@ -45,6 +45,7 @@ import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-con
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-effective-pressure-angles';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-naca-pressure';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-effective-pressure-angles';
+const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
  bodyGeometry:'Cone',fluid:'Air',M:2,thetaCone:9,p1:7,T1:217,
  temperatureInput:'Static temperature',inletPressureType:'Static pressure',
@@ -100,7 +101,8 @@ function defaults(id,selection={}){
  if(id==='rayleigh')return rayleighModeDefaults(inputs,selection);
  if(id==='fanno')return fannoModeDefaults(inputs,selection);
  if(id==='nozzle')return nozzleModeDefaults(inputs,selection);
- if(id==='normal')return {...inputs,bookExample:''};
+ if(id==='normal')return {...inputs,...normalBookPreset};
+ if(id==='cone')return {...inputs,...coneBookPreset,bookExample:'10-1'};
  return id==='tube'?{...inputs,tubeDomain:finiteTubeMode,pistonDomain:closedPistonMode,pistonDelay:.001,...(pistonExamplePresets[selection.unsteadyExperiment]??movingNormalShockPreset)}:inputs;
 }
 const movingNormalShockPreset={
@@ -1196,7 +1198,7 @@ function renderExamples(){
   entries.push({value:'7–13',label:'Finite shock tube',note:'Air in both chambers. Driver: 4 m, 200 kPa, 20 °C. Driven: 6 m, 5 kPa, 25 °C. The sample is 3 m downstream of the diaphragm. Passage times use the initial analytical wave speeds. The simulation initially runs to 30 ms.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,tubeInput:'Chamber pressures',p4:200,p1:5,T4:293.15,T1:298.15,finiteDriverLength:4,finiteDrivenLength:6},'7–13');}});
  }
  if(id==='normal')entries=[
-  {value:'3-1',label:'Downstream shock state',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load({M1:2,p1:137.9,T1:277.78},'3-1')},
+  {value:normalBookPreset.bookExample,label:'Downstream shock state',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load(normalBookPreset,normalBookPreset.bookExample)},
   {value:'3-2',label:'Shock ratios and entropy',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
  if(id==='nozzle')entries=nozzleExamples.map(entry=>({...entry,apply:()=>selectNozzleInputs({bookExample:entry.value})}));
