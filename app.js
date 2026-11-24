@@ -13,7 +13,7 @@ import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
 import {fannoExamples} from './fanno-examples.js?v=20261120-example-titles';
-import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo,rayleighFannoOrder,rayleighFannoPreset,rayleighFannoExample,stagedDuctDefaults,changeDuctStageOrder} from './fanno-rayleigh.js?v=20261124-reverse-duct-example';
+import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo,rayleighFannoPreset,rayleighFannoExample,stagedDuctDefaults,changeDuctStageOrder,changeDuctStageData,stagedRayleighCoolingChoice} from './fanno-rayleigh.js?v=20261124-duct-known-data';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js?v=20261124-fanno-inverse-ratios';
 import {fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 import {fannoSystemMode,fannoSolves,fannoConditions,fannoPressurePlan,migrateFannoInputs} from './fanno-system.js?v=20261119-fanno-system-relations';
@@ -45,7 +45,7 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-shock-input-options';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261124-duct-known-data';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261124-duct-stage-order';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -191,7 +191,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261124-shock-input-options',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261124-duct-known-data',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -538,7 +538,7 @@ function fannoFormFields(fields,x){
   return [{...field,label:(labels[field.key]??field.label).replace(/ (?:type|specified as)$/i,''),
    ...(extendRange?{sliderMax:Math.min(field.max,Math.ceil(x[field.key])),step:'any'}:
     field.key==='frictionFactor'?{step:.00001}:{}),
-   optionLabels:field.key==='frictionInput'?fannoFrictionLabels:undefined}];
+   optionLabels:field.key==='frictionInput'?fannoFrictionLabels:field.optionLabels}];
  });
 }
 function changeFannoMode(key,value,fieldKey){
@@ -617,9 +617,9 @@ if(id==='tube'){
 }
 arrangeWallInputs();arrangeCompactGeometry(id,$('wallSetupPanel'));arrangeFannoGeometry(fields,geometryOpen);if(id==='rayleigh'){const heatInput=$('value-q');if(heatInput)heatInput.closest('.input-group').title='Positive q means heat is added to the flow. Negative q means heat is removed. The limits depend on the known inputs.';const notes={supplyReferenceMach:'Mach number at the moving upstream reference. Entry preserves stagnation pressure and temperature.',reservoirT0:'The selected pressure and temperature types apply at the same upstream station.'};for(const [key,note] of Object.entries(notes)){const control=$('value-'+key);if(control){const hint=document.createElement('p');hint.className='control-hint';hint.textContent=note;control.closest('.input-group').append(hint);}}}$('inputs').onsubmit=e=>e.preventDefault();renderExamples();bindWaveGeometrySelector();for(let x of fields){if(x.type==='wall-segments'){bindWallSegments(x);continue;}if(x.type==='segments'){bindSegmentEditor(x);continue;}let n=$('value-'+x.key),r=$('range-'+x.key);
  if(x.type==='text')n.value=inputs[x.key];
- if(inputs.ductProblem===fannoRayleighMode&&inputs.ductStageOrder===rayleighFannoOrder&&x.key==='M1'){
+ if(inputs.ductProblem===fannoRayleighMode&&['M1','gamma','ductLength','hydraulicDiameter','frictionFactor','fannoStageValue'].includes(x.key)){
   n.addEventListener('change',()=>{
-   if((inputs.M1===1)!==Boolean($('value-rayleighCoolingBranch')))renderInputs();
+   if(stagedRayleighCoolingChoice(inputs)!==Boolean($('value-rayleighCoolingBranch')))renderInputs();
   });
  }
  if(x.modeField){
@@ -672,7 +672,12 @@ if(id==='nozzle'&&['nozzleType','nozzleSolve','outletCondition'].includes(x.key)
  inputs.nozzleView=previousNozzleView;
  renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }
-if(['ductStageOrder','fannoRayleighOutlet','rayleighCoolingBranch'].includes(x.key)){
+if(['fannoStageData','rayleighStageData'].includes(x.key)){
+ request++;
+ inputs=changeDuctStageData(inputs,x.key,n.value,current?.id===id&&current.result.fannoRayleigh?current.result:null);
+ renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
+}
+if(['ductStageOrder','fannoRayleighOutlet','rayleighCoolingBranch','rayleighStaticTemperatureRoot'].includes(x.key)){
  request++;
  inputs=x.key==='ductStageOrder' ? changeDuctStageOrder(inputs,n.value) : {...inputs,[x.key]:n.value,bookExample:''};
  renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;

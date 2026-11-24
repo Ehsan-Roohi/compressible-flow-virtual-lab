@@ -1,32 +1,52 @@
 import {fannoSystemMode,fannoSystemFields,fannoSystemDefaults,solveFannoSystem} from './fanno-system.js?v=20261119-fanno-system-relations';
 import * as p from './physics.js?v=20261110-rayleigh-audit';
 import {gasInfo} from './gas-properties.js';
-import {fannoRayleighMode,fannoRayleighOrder,rayleighFannoOrder,fannoRayleighPreset,rayleighFannoPreset,sonicRayleighOutlet,specifiedRayleighHeat,solveFannoRayleigh} from './fanno-rayleigh.js?v=20261124-reverse-duct-example';
+import {fannoRayleighMode,fannoRayleighOrder,rayleighFannoOrder,fannoRayleighPreset,rayleighFannoPreset,sonicRayleighOutlet,specifiedRayleighHeat,solveFannoRayleigh,stagedRayleighCoolingChoice} from './fanno-rayleigh.js?v=20261124-duct-known-data';
+import {ductData,ductStageDefaults} from './duct-stage-data.js?v=20261124-duct-known-data';
 const select=(key,label,value,options)=>({key,label,value,options});
 const n=(key,label,value,min=0,max=1e7,unit='')=>({key,label,value,min,max,step:'any',unit});
-export const systemDefaults={...fannoSystemDefaults,ductStageOrder:fannoRayleighOrder,rayleighCoolingBranch:fannoRayleighPreset.rayleighCoolingBranch,fannoRayleighOutlet:sonicRayleighOutlet,ductProblem:'Single duct',systemInletType:'Stagnation properties',referenceTemperatureType:'Stagnation temperature',referencePressureType:'Static pressure',inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',supplyReferenceMach:.4,reservoirP0:500,reservoirT0:400,backPressure:100,ductLength:1,hydraulicDiameter:.05,ductWidth:.05,ductHeight:.05,ductArea:.002,frictionFactor:.005,frictionConvention:'Fanning',frictionInput:'Dimensionless',ductSection:'Circular',temperatureInput:'Static temperature',velocityInput:'Mach number',inletSpeed:200,ductSolve:'Outlet state',systemAreaRatio:2,shockCase:'Duct exit',shockFraction:.5};
+export const systemDefaults={...fannoSystemDefaults,...ductStageDefaults,ductStageOrder:fannoRayleighOrder,rayleighCoolingBranch:fannoRayleighPreset.rayleighCoolingBranch,fannoRayleighOutlet:sonicRayleighOutlet,ductProblem:'Single duct',systemInletType:'Stagnation properties',referenceTemperatureType:'Stagnation temperature',referencePressureType:'Static pressure',inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',supplyReferenceMach:.4,reservoirP0:500,reservoirT0:400,backPressure:100,ductLength:1,hydraulicDiameter:.05,ductWidth:.05,ductHeight:.05,ductArea:.002,frictionFactor:.005,frictionConvention:'Fanning',frictionInput:'Dimensionless',ductSection:'Circular',temperatureInput:'Static temperature',velocityInput:'Mach number',inletSpeed:200,ductSolve:'Outlet state',systemAreaRatio:2,shockCase:'Duct exit',shockFraction:.5};
 export function systemFields(id,x){
 const modes=id==='rayleigh'?['Single duct','Reservoir-fed duct','Heat + shock + converging nozzle',fannoRayleighMode]:['Single duct',fannoSystemMode,fannoRayleighMode];
 if(id==='fanno'&&x.ductProblem===fannoSystemMode)return fannoSystemFields(x).map(field=>field.key==='ductProblem'?{...field,options:modes}:field);
 const out=[select('ductProblem','Problem type','Single duct',modes)];
 if(x.ductProblem===fannoRayleighMode){
  const reversed=x.ductStageOrder===rayleighFannoOrder;
+ const independent=x.fannoRayleighOutlet===specifiedRayleighHeat;
  const preset=reversed?rayleighFannoPreset:fannoRayleighPreset;
+ const common=[ductData.mach,ductData.pressure,ductData.temperature];
+ const fannoKnownOptions=[ductData.geometry,ductData.friction,...(independent?common:[])];
+ const fannoKnown=fannoKnownOptions.includes(x.fannoStageData)?x.fannoStageData:ductData.geometry;
+ const rayleighKnown=x.rayleighStageData??ductData.heat;
+ const knownValue=(key,known)=>n(key,known,1,.000000000001,1e9,{
+  [ductData.pressure]:'pₒᵤₜ/pᵢₙ', [ductData.temperature]:'Tₒᵤₜ/Tᵢₙ', [ductData.stagnationTemperature]:'T₀,ₒᵤₜ/T₀,ᵢₙ',
+ }[known]??'');
  const fannoFields=[
-  {...n('ductLength','Fanno section length',fannoRayleighPreset.ductLength,0,1e6,'m'),section:`Fanno section · ${reversed?'2 → 3':'1 → 2'}`},
-  n('hydraulicDiameter','Hydraulic diameter',fannoRayleighPreset.hydraulicDiameter,.000001,1000,'m'),
-  select('frictionConvention','Friction convention','Fanning',['Fanning','Darcy']),
-  n('frictionFactor','Friction factor',fannoRayleighPreset.frictionFactor,0,1),
+  {...select('fannoStageData','Fanno known data',fannoKnown,fannoKnownOptions),selection:fannoKnown,
+   section:`Fanno section · ${reversed?'2 → 3':'1 → 2'}`},
+  ...(fannoKnown===ductData.geometry?[
+   n('ductLength','Fanno section length',preset.ductLength,0,1e6,'m'),
+   n('hydraulicDiameter','Hydraulic diameter',preset.hydraulicDiameter,.000001,1000,'m'),
+   select('frictionConvention','Friction convention','Fanning',['Fanning','Darcy']),
+   n('frictionFactor','Friction factor',preset.frictionFactor,0,1),
+  ]:fannoKnown===ductData.friction?[n('fannoStageValue','Fanno friction parameter',.2164,0,1e12,'fᴅL/Dₕ')]:
+   [knownValue('fannoStageValue',fannoKnown)]),
  ];
  const rayleighFields=[
-  {...select('fannoRayleighOutlet','Duct exit condition',preset.fannoRayleighOutlet,[sonicRayleighOutlet,specifiedRayleighHeat]),section:`Rayleigh section · ${reversed?'1 → 2':'2 → 3'}`},
-  ...(reversed&&x.M1===1?[select('rayleighCoolingBranch','Rayleigh outlet branch for sonic inlet',fannoRayleighPreset.rayleighCoolingBranch,['Subsonic','Supersonic'])]:[]),
-  ...(x.fannoRayleighOutlet===specifiedRayleighHeat?[n('q','Heat transfer per unit mass',preset.q,-1e7,1e7,'kJ/kg')]:[]),
+  ...(independent?[{...select('rayleighStageData','Rayleigh known data',ductData.heat,[ductData.heat,...common,ductData.stagnationTemperature]),
+   section:`Rayleigh section · ${reversed?'1 → 2':'2 → 3'}`},
+   rayleighKnown===ductData.heat?n('q','Heat transfer per unit mass',preset.q,-1e7,1e7,'kJ/kg'):knownValue('rayleighStageValue',rayleighKnown),
+   ...(rayleighKnown===ductData.temperature?[select('rayleighStaticTemperatureRoot','If two Mach solutions exist',
+    ductStageDefaults.rayleighStaticTemperatureRoot,['Lower Mach','Higher Mach'])]:[]),
+  ]:[]),
+  ...(stagedRayleighCoolingChoice(x)?[select('rayleighCoolingBranch','Rayleigh outlet branch for sonic inlet',preset.rayleighCoolingBranch,['Subsonic','Supersonic'])]:[]),
  ];
  return [...out,select('ductStageOrder','Stage order',fannoRayleighOrder,[fannoRayleighOrder,rayleighFannoOrder]),
-  n('M1','Inlet Mach number',fannoRayleighPreset.M1,.00001,50),
-  n('p1','Inlet pressure',fannoRayleighPreset.p1,.00001,1e9,'kPa'),
-  n('T1','Inlet temperature',fannoRayleighPreset.T1,1,1e5,'K'),
+  {...select('fannoRayleighOutlet','Solve using',preset.fannoRayleighOutlet,[sonicRayleighOutlet,specifiedRayleighHeat]),
+   optionLabels:{[specifiedRayleighHeat]:'Known data for each section'}},
+  n('M1','Inlet Mach number',preset.M1,.00001,50),
+  n('p1','Inlet pressure',preset.p1,.00001,1e9,'kPa'),
+  n('T1','Inlet temperature',preset.T1,1,1e5,'K'),
   ...(reversed?[...rayleighFields,...fannoFields]:[...fannoFields,...rayleighFields]),
  ];
 }

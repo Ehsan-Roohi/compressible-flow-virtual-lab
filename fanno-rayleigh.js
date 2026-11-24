@@ -1,6 +1,7 @@
-import {conservation, fanno, fannoRatios, isentropic, rayleigh, rayleighRatios, state} from './physics.js';
+import {fanno, fannoRatios, isentropic, state} from './physics.js';
 import {gasInfo} from './gas-properties.js';
 import {bisect, requireValue, positive} from './numerics.js';
+import {ductData, ductStageDefaults, ductStageValue, fannoStageFriction, rayleighStageAtMach, rayleighStageFromData} from './duct-stage-data.js?v=20261124-duct-known-data';
 import {temperatureEntropyPlot} from './duct-entropy.js?v=20261124-duct-entropy';
 import {ductProfile, ductLongitudinalPlots} from './duct-contours.js?v=20261124-duct-stage-order';
 
@@ -8,6 +9,7 @@ export const fannoRayleighMode = 'Fanno + Rayleigh duct';
 export const fannoRayleighOrder = 'Fanno → Rayleigh';
 export const rayleighFannoOrder = 'Rayleigh → Fanno';
 export const sonicRayleighOutlet = 'Sonic outlet';
+// Keep the saved value used by the original known-heat and known-friction mode.
 export const specifiedRayleighHeat = 'Specified heat transfer';
 export const fannoRayleighExample = '5–P3';
 export const rayleighFannoExample = 'rayleigh-fanno-known-friction';
@@ -19,6 +21,7 @@ export const fannoRayleighInfo = {
 
 // Chapter 5, Problem 3, Fig. 5–20. The prescribed pressure and temperature are stagnation values.
 export const fannoRayleighPreset = Object.freeze({
+ ...ductStageDefaults,
  ductProblem: fannoRayleighMode, fluid: 'Air', gamma: 1.4, R: 287,
  M1: 3, T1: 333.3, p1: 1034.2, inletPressureType: 'Stagnation pressure', temperatureInput: 'Stagnation temperature',
  ductLength: 3.3, hydraulicDiameter: .305, frictionFactor: .005, frictionConvention: 'Fanning',
@@ -46,6 +49,35 @@ export function changeDuctStageOrder(inputs, order) {
   : {...inputs, ductStageOrder: order, bookExample: ''};
 }
 
+export function changeDuctStageData(inputs, key, known, result) {
+ const rayleigh = key === 'rayleighStageData';
+ const value = ductStageValue(result, rayleigh ? 'Rayleigh' : 'Fanno', known);
+ const updated = {...inputs, [key]:known, bookExample:''};
+ if (known === ductData.heat) {
+  if (value !== undefined) updated.q = value;
+ } else if (known !== ductData.geometry) {
+  updated[rayleigh ? 'rayleighStageValue' : 'fannoStageValue'] = value ?? (known === ductData.friction ? .2164 : 1);
+  if (rayleigh && known === ductData.temperature) {
+   const previousMach = ductStageValue(result, 'Rayleigh', ductData.mach);
+   updated.rayleighStaticTemperatureRoot = previousMach > 1 / Math.sqrt(inputs.gamma) ? 'Higher Mach' : 'Lower Mach';
+  }
+ }
+ return updated;
+}
+
+export function stagedRayleighCoolingChoice(x) {
+ const first = x.ductStageOrder === rayleighFannoOrder;
+ const independent = x.fannoRayleighOutlet === specifiedRayleighHeat;
+ if (!independent) return first && x.M1 === 1;
+ if (![ductData.heat, ductData.stagnationTemperature].includes(x.rayleighStageData ?? ductData.heat)) return false;
+ if (first) return x.M1 === 1;
+ try {
+  return Math.abs(fannoStageFriction(x, x.M1, x.gamma??1.4) - fannoRatios(x.M1, x.gamma??1.4).F) <= 1e-12;
+ } catch {
+  return false;
+ }
+}
+
 const stationProperties = [
  ['Mach number', '', state => state.M],
  ['Static pressure', 'kPa', state => state.p / 1000],
@@ -67,12 +99,8 @@ function machBeforeSonicFanno(lambda, gamma, branch) {
 }
 
 export function solveFannoRayleigh(id, x) {
- const gas = gasInfo(x), {gamma, R, cp} = gas;
+ const gas = gasInfo(x), {gamma, R} = gas;
  positive(x.M1, 'Inlet Mach');
- positive(x.hydraulicDiameter, 'Hydraulic diameter');
- requireValue(Number.isFinite(x.ductLength) && x.ductLength >= 0, 'Require a nonnegative Fanno section length.');
- requireValue(Number.isFinite(x.frictionFactor) && x.frictionFactor >= 0, 'Require a nonnegative friction factor.');
- const lambda = (x.frictionConvention === 'Fanning' ? 4 : 1) * x.frictionFactor * x.ductLength / x.hydraulicDiameter;
  const iso = isentropic(x.M1, gamma);
  const inletT = x.temperatureInput === 'Stagnation temperature' ? x.T1 / iso.T0T : x.T1;
  const inletP = x.p1 * 1000 / (x.inletPressureType === 'Stagnation pressure' ? iso.p0p : 1);
@@ -84,29 +112,28 @@ export function solveFannoRayleigh(id, x) {
   return flow;
  };
  const rayleighFirst = x.ductStageOrder === rayleighFannoOrder;
- const coolingBranch = x.rayleighCoolingBranch === 'Supersonic' ? 'supersonic' : 'subsonic';
- let fannoFlow = rayleighFirst ? null : friction(s1, lambda);
- const thermalInlet = fannoFlow?.s2 ?? s1;
- const branch = rayleighFirst && s1.M === 1 ? coolingBranch : 'auto';
- const initialRatios = rayleighRatios(thermalInlet.M, gamma);
- let rayleighFlow, q, profileLambda = lambda;
- if (rayleighFirst && lambda > 0 && x.fannoRayleighOutlet !== specifiedRayleighHeat) {
-  const junctionBranch = s1.M === 1 ? coolingBranch : s1.M < 1 ? 'subsonic' : 'supersonic';
-  const mach = machBeforeSonicFanno(lambda, gamma, junctionBranch);
-  const ratios = rayleighRatios(mach, gamma);
-  const outlet = state(mach, s1.T * ratios.T / initialRatios.T, s1.p * ratios.p / initialRatios.p, gamma, R);
-  q = cp * (outlet.T0 - s1.T0);
-  rayleighFlow = {s1, s2: outlet, branch, checks: conservation(s1, outlet, gamma, R, q)};
-  // The inverse root makes these lengths equal to numerical precision. Use
-  // its computed sonic capacity to land exactly at Mach 1 in the forward solve.
-  profileLambda = fannoRatios(mach, gamma).F;
+ const independent = x.fannoRayleighOutlet === specifiedRayleighHeat;
+ const fannoKnown = independent || x.fannoStageData === ductData.friction ? x.fannoStageData : ductData.geometry;
+ let lambda, profileLambda, fannoFlow, rayleighFlow;
+ if (!rayleighFirst) {
+  lambda = profileLambda = fannoStageFriction(x, s1.M, gamma, fannoKnown);
+  fannoFlow = friction(s1, lambda);
+  rayleighFlow = independent ? rayleighStageFromData(fannoFlow.s2, x, gas) : rayleighStageAtMach(fannoFlow.s2, 1, gas);
+ } else if (independent) {
+  rayleighFlow = rayleighStageFromData(s1, x, gas);
+  lambda = profileLambda = fannoStageFriction(x, rayleighFlow.s2.M, gamma, fannoKnown);
+  fannoFlow = friction(rayleighFlow.s2, lambda);
  } else {
-  q = x.fannoRayleighOutlet === specifiedRayleighHeat
-   ? x.q * 1000 : Math.max(0, cp * thermalInlet.T0 * (1 / initialRatios.T0 - 1));
-  rayleighFlow = rayleigh({...params(thermalInlet), q, branch});
-  requireValue(rayleighFlow.s2, 'Thermal choking occurs before the end of the Rayleigh section.', rayleighFlow.status);
+  lambda = fannoStageFriction(x, s1.M, gamma, fannoKnown);
+  const coolingBranch = x.rayleighCoolingBranch === 'Supersonic' ? 'supersonic' : 'subsonic';
+  const branch = s1.M === 1 ? coolingBranch : s1.M < 1 ? 'subsonic' : 'supersonic';
+  const mach = lambda === 0 ? 1 : machBeforeSonicFanno(lambda, gamma, branch);
+  rayleighFlow = rayleighStageAtMach(s1, mach, gas);
+  // Use the inverse root's computed sonic capacity so roundoff cannot leave a nonsonic outlet.
+  profileLambda = fannoRatios(mach, gamma).F;
+  fannoFlow = friction(rayleighFlow.s2, profileLambda);
  }
- if (rayleighFirst) fannoFlow = friction(rayleighFlow.s2, profileLambda);
+ const {q} = rayleighFlow;
  const fannoStage = {name: 'Fanno', color: '#166672', flow: fannoFlow, samples: ductProfile('fanno', fannoFlow, {gamma, R, lambda: profileLambda})};
  const rayleighStage = {name: 'Rayleigh', color: '#a64a2a', flow: rayleighFlow,
   samples: ductProfile('rayleigh', {...rayleighFlow, heatAdded: q / 1000}, {gamma, R})};
