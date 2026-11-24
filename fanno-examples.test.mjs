@@ -39,7 +39,8 @@ test('Example 5 keeps the standard plots for each selected shock location',()=>{
  for(const i of [2,3,4]){
   const d=solve(5,{bookExample:'5–5',fannoCondition:fannoConditions[i]});
   const options=plotOptions(d);
-  assert.deepEqual(options,d.result.plots);
+  assert.deepEqual(options.slice(0,-1),d.result.plots);
+  assert.equal(options.at(-1).key,'duct-temperature-entropy');
   const pressure=options.find(o=>o.key==='fanno-full-Static pressure');
   assert.equal(pressure.chart.series.length,1);
   if(i===4){

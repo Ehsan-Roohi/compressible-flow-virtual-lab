@@ -1,7 +1,7 @@
 import {fannoSystemMode,fannoSystemFields,fannoSystemDefaults,solveFannoSystem} from './fanno-system.js?v=20261119-fanno-system-relations';
 import * as p from './physics.js?v=20261110-rayleigh-audit';
 import {gasInfo} from './gas-properties.js';
-import {fannoRayleighMode,fannoRayleighOrder,rayleighFannoOrder,fannoRayleighPreset,sonicRayleighOutlet,specifiedRayleighHeat,solveFannoRayleigh} from './fanno-rayleigh.js?v=20261124-duct-stage-order';
+import {fannoRayleighMode,fannoRayleighOrder,rayleighFannoOrder,fannoRayleighPreset,sonicRayleighOutlet,specifiedRayleighHeat,solveFannoRayleigh} from './fanno-rayleigh.js?v=20261124-duct-entropy';
 const select=(key,label,value,options)=>({key,label,value,options});
 const n=(key,label,value,min=0,max=1e7,unit='')=>({key,label,value,min,max,step:'any',unit});
 export const systemDefaults={...fannoSystemDefaults,ductStageOrder:fannoRayleighOrder,rayleighCoolingBranch:fannoRayleighPreset.rayleighCoolingBranch,fannoRayleighOutlet:sonicRayleighOutlet,ductProblem:'Single duct',systemInletType:'Stagnation properties',referenceTemperatureType:'Stagnation temperature',referencePressureType:'Static pressure',inletPressureType:'Static pressure',reservoirPressureType:'Stagnation pressure',supplyReferenceMach:.4,reservoirP0:500,reservoirT0:400,backPressure:100,ductLength:1,hydraulicDiameter:.05,ductWidth:.05,ductHeight:.05,ductArea:.002,frictionFactor:.005,frictionConvention:'Fanning',frictionInput:'Dimensionless',ductSection:'Circular',temperatureInput:'Static temperature',velocityInput:'Mach number',inletSpeed:200,ductSolve:'Outlet state',systemAreaRatio:2,shockCase:'Duct exit',shockFraction:.5};
