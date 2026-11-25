@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boundary reflections · Compressible Flow Virtual Lab</title>
+<style>
+:root{color-scheme:light;--ink:#14353a;--teal:#087970;--paper:#f4f7f5;--line:#dce6e1}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,"Times New Roman",serif;line-height:1.5}main{max-width:1320px;margin:auto;padding:22px}header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}h1{font-size:1.9rem;margin:0}h2{font-size:1.15rem;margin:0 0 12px}a{color:var(--teal)}.card{background:white;border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 3px 9px #14353a0a}.layout{display:grid;grid-template-columns:minmax(220px,270px) minmax(0,1fr);gap:15px}.controls label{display:block;font-weight:bold;margin:14px 0 5px}select,button{font:inherit;color:inherit;border:1px solid var(--line);border-radius:6px;padding:9px;background:#f8faf9}select{width:100%}button{cursor:pointer}button.primary{background:var(--teal);color:white;border-color:var(--teal)}input[type=range]{accent-color:var(--teal);width:100%}.controls p,.note{font-size:.9rem;color:#4b6969}.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}.plot{width:100%;height:auto;display:block;border-radius:6px}.grid{display:grid;gap:15px}.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.9rem;margin-top:8px}.swatch{display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:5px}.tube{display:flex;align-items:center;gap:10px;margin:0 0 12px}.tube-line{height:32px;flex:1;border-block:2px solid #24474e;background:#f1f8f6}.end{font-family:system-ui,sans-serif;font-size:12px;min-width:56px;text-align:center}.end.closed{border-right:4px solid #24474e}.end.right.closed{border-left:4px solid #24474e;border-right:0}.scale{height:8px;flex:1;background:linear-gradient(90deg,#2166ac,#f9fafb,#b2182b);border-radius:4px}.scale-row{display:flex;align-items:center;gap:10px;font-size:.85rem;margin-top:9px}.current{font-variant-numeric:tabular-nums;font-family:system-ui,sans-serif}.callout{border-left:3px solid #d5a16a;padding:5px 12px;background:#fffaf3;margin:15px 0;font-size:.95rem}
+@media(max-width:740px){main{padding:12px}.layout{grid-template-columns:1fr}h1{font-size:1.5rem}}
+</style>
+</head>
+<body><main>
+<header><div><div style="font-size:.8rem;letter-spacing:.1em;color:var(--teal)">COMPRESSIBLE FLOW VIRTUAL LAB · UNSTEADY WAVES</div><h1>Boundary reflections</h1></div><a href="./index.html#tube">← Back to unsteady waves</a></header>
+<p>Compare small-amplitude pressure waves in an ideal one-dimensional tube with independently selectable end conditions.</p>
+<div class="callout"><strong>Linear acoustics:</strong> this numerical demonstration models weak pressure disturbances about a uniform equilibrium. It does not calculate finite-amplitude shock interactions or flow outside the tube.</div>
+<div class="layout">
+<section class="card controls" aria-label="Input parameters"><h2>Input Parameters</h2>
+<label for="left">Left boundary</label><select id="left"><option value="closed">Closed end</option><option value="open">Open end</option></select>
+<label for="right">Right boundary</label><select id="right"><option value="open">Open end</option><option value="closed">Closed end</option></select>
+<label for="pulse">Incident disturbance</label><select id="pulse"><option value="compression">Compression pulse</option><option value="expansion">Expansion pulse</option></select>
+<label for="direction">Initial direction</label><select id="direction"><option value="right">Toward the right</option><option value="left">Toward the left</option></select>
+<label for="quantity">Contour variable</label><select id="quantity"><option value="pressure">Pressure perturbation</option><option value="velocity">Velocity perturbation</option></select>
+<label for="time">Time · <span class="current" id="timeValue"></span></label><input type="range" id="time" min="0" max="1" value="0" step=".001">
+<div class="actions"><button class="primary" id="play" type="button">▶ Play</button><button id="reset" type="button">Reset time</button></div>
+<p>Closed end: zero velocity perturbation. Open end: zero pressure perturbation (equilibrium ambient pressure).</p>
+<p>All axes and perturbations are normalized; no physical pressure or tube dimensions are required.</p>
+</section>
+<div class="grid">
+<section class="card"><h2>Space–time contour</h2><div class="tube" aria-label="Tube boundary schematic"><span class="end" id="leftLabel"></span><span class="tube-line"></span><span class="end right" id="rightLabel"></span></div><canvas class="plot" id="contour" width="960" height="430" aria-label="Normalized space-time contour"></canvas><div class="scale-row"><span>−2</span><span class="scale"></span><span>+2</span></div><p class="note">The horizontal marker selects the time shown in the profile below. Blue and red indicate opposite signs of the selected perturbation, not absolute pressure or velocity.</p></section>
+<section class="card"><h2>Instantaneous profiles</h2><canvas class="plot" id="profile" width="960" height="320" aria-label="Normalized pressure and velocity profiles"></canvas><div class="legend"><span><span class="swatch" style="background:#087970"></span>Pressure perturbation</span><span><span class="swatch" style="background:#d57561"></span>Velocity perturbation</span></div></section>
+</div></div></main><script type="module" src="./acoustic-boundaries.js?v=20261125-acoustic-boundaries"></script></body></html>

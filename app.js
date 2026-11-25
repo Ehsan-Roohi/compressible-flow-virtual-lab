@@ -307,6 +307,8 @@ function openLab(){
  $('labTabs').hidden=hideTabs;
  $('labTabs').innerHTML=hideTabs?'':chapter[3].map(k=>`<button type="button" data-lab="${k}" class="${id===k?'active':''}">${labs[k].title}</button>`).join('');
  $('labTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(location.hash==='#'+b.dataset.lab)openLab();else location.hash=b.dataset.lab;});renderNav();
+ if(id==='tube'){const tabs=$('labTabs');tabs.hidden=false;const link=document.createElement('a');link.href='./acoustic-boundaries.html';link.className='icon-btn';link.textContent='Boundary reflections · Linear acoustics ↗';tabs.append(link);}
+
  if(id==='nozzle'){
   const code=example==='8-1'||example==='8-2'?example+'a':example;
   if(code==='8-1b'||nozzleExamples.some(entry=>entry.value===code)){loadNozzleExample({bookExample:code});return;}
