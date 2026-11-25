@@ -494,3 +494,6 @@ body[data-lab="nozzle"] #flowRelationsPanel td { font-size: 12px; }
   font-weight: 400;
 }
 .nozzle-characteristics-toggle input { margin: 0; accent-color: var(--teal); }
+
+.scene[data-kind="nozzleMocComparison"] { aspect-ratio: auto; }
+.scene[data-kind="nozzleMocComparison"] > svg { height: auto; }

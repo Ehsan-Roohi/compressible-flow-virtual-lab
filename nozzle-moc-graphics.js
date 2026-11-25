@@ -11,26 +11,28 @@ const properties={
  'sound-speed-ratio':{label:'Sound speed ratio a/a₀',unit:'',value:(p,g)=>1/Math.sqrt(isentropic(p.M,g).T0T)},
 };
 
-function forEachTriangle(mesh,wall,visit){
+function forEachTriangle(mesh,wall,visit,fan){
  const inlet={x:0,y:0,M:1,theta:0};
  const first=mesh[0],throat=wall[0];
  const sonicCorner={...throat,M:1,theta:0};
- visit(inlet,sonicCorner,{...first[0],M:1,theta:0});
+ visit(inlet,sonicCorner,{...first[0],M:1,theta:0},fan?.[0]);
  for(let j=0;j<first.length-1;j++){
   const a=first[j],b=first[j+1];
   // The ideal sharp corner is a singular point. Use the mean fan-cell state there for display.
-  visit({...throat,M:(a.M+b.M)/2,theta:(a.theta+b.theta)/2},a,b);
+  visit({...throat,M:(a.M+b.M)/2,theta:(a.theta+b.theta)/2},a,b,fan?.[j+1]);
  }
  for(let i=1;i<mesh.length;i++){
   const a=mesh[i-1],b=mesh[i];
-  visit(a[0],a[1],b[0]);
+  const regional=!!fan;
+  visit(a[0],a[1],b[0],regional?a[0]:null);
   for(let j=0;j<b.length-1;j++){
-   visit(a[j+1],a[j+2],b[j]);
-   visit(a[j+2],b[j+1],b[j]);
+   const state=regional?a[j+1]:null;
+   visit(a[j+1],a[j+2],b[j],state);
+   visit(a[j+2],b[j+1],b[j],state);
   }
  }
  const [axis,edge]=mesh.at(-1);
- visit(axis,edge,{...axis,x:edge.x});
+ visit(axis,edge,{...axis,x:edge.x},fan?axis:null);
 }
 
 function rasterField(triangles,W,H){
@@ -60,18 +62,19 @@ function rasterField(triangles,W,H){
  return `<image width="${W}" height="${H}" href="${canvas.toDataURL('image/png')}"/>`;
 }
 
-function contourField(mesh,wall,gamma,quantity,project,W,H){
+function contourField({mesh,wall,fan},gamma,quantity,project,W,H){
  const {label,unit,value}=properties[quantity];
- let min=Infinity,max=-Infinity;
- const each=visit=>forEachTriangle(mesh,wall,(...vertices)=>{
-  for(const side of [1,-1])visit(vertices,side);
- });
- each((vertices,side)=>{for(const p of vertices){
-  const v=value(p,gamma,side);
-  min=Math.min(min,v);max=Math.max(max,v);
- }});
+ const inlet={...wall[0],theta:0},exit=wall.at(-1);
+ const limit=deg(wall[0].theta);
+ const range=quantity==='flow-angle'?[-limit,limit]:[value(inlet,gamma),value(exit,gamma)];
+ const min=Math.min(...range),max=Math.max(...range);
  const normal=v=>max-min<1e-12?.5:(v-min)/(max-min);
- const triangles=visit=>each((vertices,side)=>visit(...vertices.map(p=>[...project(p,side),normal(value(p,gamma,side))])));
+ const triangles=visit=>forEachTriangle(mesh,wall,(a,b,c,state)=>{
+  for(const side of [1,-1]){
+   const constant=state?normal(value(state,gamma,side)):null;
+   visit(...[a,b,c].map(p=>[...project(p,side),constant??normal(value(p,gamma,side))]));
+  }
+ },fan);
  let drawing=rasterField(triangles,W,H);
  if(!drawing){
   const paths=new Map();
@@ -84,20 +87,22 @@ function contourField(mesh,wall,gamma,quantity,project,W,H){
   drawing=[...paths].map(([color,d])=>`<path d="${d}" fill="${color}"/>`).join('');
  }
  return {drawing,field:{quantity,options:Object.keys(properties),label,min,max,units:unit,
-  note:'Interpolated characteristic field',palette:contourRamp}};
+  note:fan?'Piecewise-constant region states':'Interpolated characteristic field',palette:contourRamp}};
 }
 
-export function nozzleMocDrawing({mesh,wall,exitMach},gamma=1.4,quantity='mach',showCharacteristics=true){
+export function nozzleMocDrawing(design,gamma=1.4,quantity='mach',showCharacteristics=true,viewport){
+ const {mesh,wall,exitMach}=design;
  if(!Object.hasOwn(properties,quantity))quantity='mach';
  const W=640, H=300, last=wall.at(-1);
- const scale=Math.min(526/last.x,104/last.y);
- const x0=(W-last.x*scale)/2, cy=150;
+ const scale=viewport?.scale??Math.min(526/last.x,104/last.y);
+ const x0=viewport?.x0??(W-last.x*scale)/2, cy=150;
+ const clipId=viewport?.clipId??'nozzle-moc-domain';
  const project=({x,y},side=1)=>[x0+x*scale,cy-side*y*scale];
  const point=(p,side=1)=>project(p,side).map(v=>v.toFixed(2)).join(',');
  const outline=side=>wall.map(p=>point(p,side)).join(' ');
  const path=(points,side)=>'M'+points.map(p=>point(p,side)).join('L');
  const stride=Math.ceil(mesh.length/22);
- const {drawing,field}=contourField(mesh,wall,gamma,quantity,project,W,H);
+ const {drawing,field}=contourField(design,gamma,quantity,project,W,H);
  let minus='',plus='';
  for(const side of [1,-1]){
   let reflected='',incident='';
@@ -117,8 +122,8 @@ export function nozzleMocDrawing({mesh,wall,exitMach},gamma=1.4,quantity='mach',
  return {svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Computed minimum-length nozzle contour and characteristic net">
   <title>Minimum-length nozzle and characteristic net</title>
   <rect width="${W}" height="${H}" fill="#fcfefd"/>
-  <defs><clipPath id="nozzle-moc-domain"><polygon points="${outline(1)} ${wall.slice().reverse().map(p=>point(p,-1)).join(' ')}"/></clipPath></defs>
-  <g data-nozzle-moc-field="${quantity}" clip-path="url(#nozzle-moc-domain)">${drawing}</g>
+  <defs><clipPath id="${clipId}"><polygon points="${outline(1)} ${wall.slice().reverse().map(p=>point(p,-1)).join(' ')}"/></clipPath></defs>
+  <g data-nozzle-moc-field="${quantity}" clip-path="url(#${clipId})">${drawing}</g>
   ${showCharacteristics?`<g data-nozzle-moc-characteristics="true" fill="none" stroke-width=".85">
    <path d="${minus}" stroke="#ffffff" stroke-opacity=".8"/>
    <path d="${plus}" stroke="#17383b" stroke-opacity=".7"/>
@@ -128,6 +133,7 @@ export function nozzleMocDrawing({mesh,wall,exitMach},gamma=1.4,quantity='mach',
   <g fill="none" stroke="#17383b" stroke-width="2.5" stroke-linejoin="round">
    <polyline points="${outline(1)}"/><polyline points="${outline(-1)}"/>
   </g>
+  ${viewport?`<text x="320" y="20" font-size="17" text-anchor="middle" fill="#17383b" font-weight="bold">${design.method}</text>`:''}
   <g font-size="15" fill="#17383b" text-anchor="middle">
    <text x="${x0-(close?8:0)}" y="${cy-scale-13}" text-anchor="${close?'end':'middle'}">Sonic throat</text>
    <text x="${x1+(close?8:0)}" y="${cy-last.y*scale-13}" text-anchor="${close?'start':'middle'}">Exit · M = ${exitMach}</text>
@@ -138,4 +144,22 @@ export function nozzleMocDrawing({mesh,wall,exitMach},gamma=1.4,quantity='mach',
    <path d="M341 273h29" stroke="#17383b"/><text x="378" y="277">C+ characteristics</text>
   </g>`:''}
  </svg>`,label:field.label,field,meta:'Planar flow · equal axial and transverse scale'};
+}
+
+export function compareNozzleMocDrawing({designs},gamma,quantity,showCharacteristics){
+ const exits=designs.map(design=>design.wall.at(-1));
+ const maxX=Math.max(...exits.map(exit=>exit.x)),maxY=Math.max(...exits.map(exit=>exit.y));
+ const scale=Math.min(526/maxX,104/maxY),x0=(640-maxX*scale)/2;
+ const views=designs.map((design,i)=>nozzleMocDrawing(design,gamma,quantity,showCharacteristics,
+  {scale,x0,clipId:`nozzle-moc-domain-${i}`}));
+ const panels=views.map(({svg},i)=>`<g transform="translate(0 ${300*i})" data-nozzle-moc-method="${designs[i].method}">
+  ${svg.replace(/^<svg[^>]*>|<\/svg>$/g,'')}
+ </g>`).join('');
+ const first=views[0];
+ return {svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 600" role="img" aria-label="Comparison of the two nozzle characteristic nets">
+  <title>Nozzle characteristic nets on a common scale</title>
+  ${panels}
+  <path d="M18 300H622" stroke="#cedcd8"/>
+ </svg>`,label:first.label,meta:'Shared geometry and color scale',
+ field:{...first.field,note:'Common color scale for both methods'}};
 }

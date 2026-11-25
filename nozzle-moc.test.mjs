@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {calculate, defaults, inputDefinitions} from './labs.js';
 import {gasPresets, selectGas} from './gas-properties.js';
-import {designMinimumLengthNozzle, nozzleMocExamples} from './nozzle-moc.js';
+import {designMinimumLengthNozzle, nozzleMocExamples, nozzleMocMethods} from './nozzle-moc.js';
 import {plotOptions} from './plot-options.js';
 import {sceneSVG} from './graphics.js';
 import {isentropic} from './physics.js';
@@ -103,4 +103,57 @@ test('the nozzle design uses named gas gamma or an editable custom value',()=>{
  assert.deepEqual(calculate(id,custom).gas,{name:'Custom gas',gamma:1.3});
  assert.notEqual(calculate(id,custom).result.wallAngle,calculate(id,base).result.wallAngle);
  assert.ok(!inputDefinitions(id,custom).some(field=>field.key==='R'));
+});
+
+test('region marching uses adjacent constant states to locate characteristics and wall segments',()=>{
+ const inputs={...defaults('nozzle-design'),nozzleMocMethod:nozzleMocMethods.region,mocFanRays:4};
+ const {result}=calculate('nozzle-design',inputs);
+ // John and Keith, Problem 14.22: four equal turns, sonic first region.
+ near(result.fan[1].M,1.1659,5e-5);
+ near(result.mesh[0][0].M,1.2727,5e-5);
+ const incident=Math.atan2(-1,result.axis[1].x)*180/Math.PI;
+ near(incident,-73.0120,5e-5);
+ const firstWall=result.wall[1];
+ const [lastInterior]=result.mesh[0].slice(-2);
+ const reflected=Math.atan2(firstWall.y-lastInterior.y,firstWall.x-lastInterior.x)*180/Math.PI;
+ near(reflected,52.4393,5e-5);
+ for(let i=1;i<result.wall.length;i++){
+  const [a,b]=result.wall.slice(i-1,i+1);
+  near((b.y-a.y)/(b.x-a.x),Math.tan(a.theta),1e-12);
+ }
+ const view=sceneSVG({kind:'nozzleMoc',...result},inputs,0,'mach');
+ assert.equal(view.field.note,'Piecewise-constant region states');
+});
+
+test('region marching agrees with NASA exit coordinates and approaches the point solution with refinement',()=>{
+ const nasa={...nozzleMocExamples[2].inputs,mocThroatHalfHeight:1,nozzleMocMethod:nozzleMocMethods.region};
+ const benchmark=designMinimumLengthNozzle(nasa);
+ near(benchmark.length,64.15586,.03);
+ near(benchmark.areaRatio,12.9735,.01);
+
+ const design=(count,method)=>designMinimumLengthNozzle({...nozzleMocExamples[0].inputs,
+  mocThroatHalfHeight:1,mocFanRays:count,nozzleMocMethod:method});
+ const lengthDifference=count=>Math.abs(design(count,nozzleMocMethods.point).length-design(count,nozzleMocMethods.region).length);
+ assert.ok(lengthDifference(20)>.01);
+ assert.ok(lengthDifference(100)<lengthDifference(20)/4);
+});
+
+test('comparison keeps both contours and reports signed differences for the same inputs',()=>{
+ const id='nozzle-design',inputs={...defaults(id),nozzleMocMethod:nozzleMocMethods.compare};
+ for(const example of nozzleMocExamples){
+  const d=calculate(id,{...inputs,...example.inputs});
+  const [point,region]=d.result.designs;
+  assert.equal(point.exitMach,region.exitMach);
+  assert.notEqual(point.length,region.length);
+  assert.deepEqual(d.result.nozzleComparison.table[0].values,[point.length,region.length,region.length-point.length]);
+  const [walls,mach]=plotOptions(d);
+  assert.deepEqual(walls.chart.series.map(series=>series.name),[nozzleMocMethods.point,nozzleMocMethods.region]);
+  assert.equal(mach.chart.series.length,4);
+ }
+ const d=calculate(id,inputs);
+ const view=sceneSVG(d.scene,inputs,0,'flow-angle');
+ assert.match(view.svg,/data-nozzle-moc-method="Point-to-Point"/);
+ assert.match(view.svg,/data-nozzle-moc-method="Region-to-Region"/);
+ near(view.field.max,-view.field.min,1e-12);
+ assert.doesNotMatch(view.svg,/NaN|Infinity|undefined/);
 });

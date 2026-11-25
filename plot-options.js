@@ -1,3 +1,4 @@
+import {nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-methods';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
 import {rayleighBookPressurePlot} from './rayleigh-book.js?v=20261120-example-sequence';
@@ -192,12 +193,7 @@ function basePlotOptions(d,time=.001){
 }
 
 export function plotOptions(d,time=.001){
- if(d.id==='nozzle-design'){
-  const title='Nozzle wall coordinates',wall=d.result.wall;
-  return [{key:'nozzle-moc-mach',label:d.chart.title,chart:d.chart},
-   {key:'nozzle-moc-wall',label:title,chart:{title,xlabel:'Axial position x/hₜ',ylabel:'Wall coordinate y/hₜ',
-    series:[{name:'Upper wall',points:wall.map(p=>[p.x,p.y])},{name:'Lower wall',points:wall.map(p=>[p.x,-p.y])}]}}];
- }
+ if(d.id==='nozzle-design')return nozzleMocPlots(d.result.designs??[d.result]);
  if(d.id==='rayleigh'||d.id==='fanno'){
   const plots=basePlotOptions(d,time);
   return d.result.fannoRayleigh?plots:[...plots,ductTemperatureEntropyPlot(d)];

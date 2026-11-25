@@ -37,9 +37,9 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261125-nozzle-design';
+import {plotOptions} from './plot-options.js?v=20261125-nozzle-methods';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
-import {nozzleMocExamples} from './nozzle-moc.js?v=20261125-nozzle-gas';
+import {nozzleMocExamples} from './nozzle-moc.js?v=20261125-nozzle-methods';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-center-states';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
@@ -47,8 +47,8 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261125-nozzle-gas';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261125-nozzle-moc-contours';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261125-nozzle-methods';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261125-nozzle-methods';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -113,7 +113,8 @@ function defaults(id,selection={}){
  if(id==='nozzle')return nozzleModeDefaults(inputs,selection);
  if(id==='nozzle-design'){
   const example=nozzleMocExamples.find(entry=>entry.value===selection.bookExample)??nozzleMocExamples[0];
-  return {...inputs,...example.inputs,bookExample:example.value};
+  return {...inputs,...example.inputs,bookExample:example.value,
+   nozzleMocMethod:selection.nozzleMocMethod??inputs.nozzleMocMethod};
  }
  if(id==='normal')return {...inputs,...normalBookPreset};
  if(id==='cone')return {...inputs,...coneBookPreset,bookExample:'10-1'};
@@ -199,7 +200,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261125-nozzle-gas',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261125-nozzle-methods',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -898,6 +899,15 @@ function nozzleRegimeTable(result){
   <tbody>${regimes.map(([label,range])=>`<tr><th scope="row">${label}</th><td>${range(ratioLimits,ratio)}</td><td>${range(pressureLimits,pressure)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function renderRegionTable(d){
+ if(d.result.nozzleComparison){
+  const {methods,table}=d.result.nozzleComparison;
+  $('regionTablePanel').hidden=false;
+  $('regionTableTitle').textContent='Nozzle design method comparison';
+  $('regionTable').innerHTML=`<div class="region-table-scroll" tabindex="0" role="region" aria-label="Nozzle design comparison">
+   <table class="region-table"><thead><tr><th scope="col">Property</th>${methods.map(method=>`<th scope="col">${method}</th>`).join('')}<th scope="col">Region − Point</th></tr></thead>
+   <tbody>${table.map(({label,unit,values})=>`<tr><th scope="row">${label} <span>${unitView.label(unit)}</span></th>${values.map(v=>`<td>${displayValue(v,unit,6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return;
+ }
  if(hasNozzleDesignRegimes(d)){
   $('regionTablePanel').hidden=false;
   $('regionTableTitle').textContent='Nozzle back-pressure regimes';
@@ -1317,7 +1327,7 @@ function renderExamples(){
   {value:'3-2',label:'Shock ratios and entropy',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
  if(id==='nozzle')entries=nozzleExamples.map(entry=>({...entry,apply:()=>selectNozzleInputs({bookExample:entry.value})}));
- if(id==='nozzle-design')entries=nozzleMocExamples.map(entry=>({...entry,apply:()=>load(entry.inputs,entry.value)}));
+ if(id==='nozzle-design')entries=nozzleMocExamples.map(entry=>({...entry,apply:()=>load({...entry.inputs,nozzleMocMethod:inputs.nozzleMocMethod},entry.value)}));
  if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:e.title,note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
   const cases=Object.entries(rayleighBookExamples);
