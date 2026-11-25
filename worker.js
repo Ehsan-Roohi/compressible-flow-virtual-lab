@@ -1,4 +1,4 @@
-import {calculate} from './labs.js?v=20261124-heated-friction-duct';
+import {calculate} from './labs.js?v=20261125-nozzle-design';
 import {readPublishedPressure} from './critical-mach-pressure.js?v=20261124-expanded-airfoil-bank';
 
 // Coalesce queued slider changes and discard superseded online lookups.

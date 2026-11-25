@@ -5,7 +5,7 @@ import {calculate,defaults,inputDefinitions,labs} from './labs.js';
 import {controlVolume,controlVolumePreset} from './control-volume.js';
 import {sceneSVG,chartSVG} from './graphics.js';
 const near=(a,b,t=2e-9)=>assert.ok(Math.abs(a-b)<t*Math.max(1,Math.abs(a),Math.abs(b)),`${a} vs ${b}`);
-const gasLabs=Object.keys(labs).filter(id=>id!=='critical-mach');
+const gasLabs=Object.keys(labs).filter(id=>!['critical-mach','nozzle-design'].includes(id));
 test('Gas presets use SI constants and thermodynamically consistent fixed heat capacities',()=>{
  assert.equal(gasPresets['Hydrogen (H₂)'].R,4124);assert.equal(gasPresets['Helium (He)'].R,2076.9);
  for(const [name,p] of Object.entries(gasPresets)){const x=selectGas({},name),r=gasInfo(x);assert.equal(r.name,name);near(r.cp-r.cv,p.R);near(r.cp/r.cv,p.gamma);assert.equal(r.referenceTemperature,300);}

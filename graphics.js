@@ -1,6 +1,7 @@
 import {schlierenOutline} from './schlieren.js?v=20261118-schlieren-outline';
 import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261121-piston-menu';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
+import {nozzleMocDrawing} from './nozzle-moc-graphics.js';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261121-piston-menu';
 import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261120-region-numbers';
@@ -345,7 +346,8 @@ export function sceneSVG(scene,inputs,time=.001,quantity='pressure'){
  const schlieren=supportsSchlieren&&quantity==='schlieren';
  if(quantity==='schlieren')quantity='pressure';
  let view;
- if(scene.kind==='valveClosure')view=valveClosureDrawing();
+ if(scene.kind==='nozzleMoc')view=nozzleMocDrawing(scene);
+ else if(scene.kind==='valveClosure')view=valveClosureDrawing();
  else if(scene.kind==='pistonShocks')view=pistonShocksDrawing(scene);
  else if(scene.kind==='multiRampInlet')view=multiRampDrawing(scene,inputs,quantity);
  else if(scene.kind==='shockFanReference')view=shockFanDrawing(scene,quantity);
