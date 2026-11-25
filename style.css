@@ -484,3 +484,13 @@ body[data-lab="nozzle"] #flowRelationsPanel td { font-size: 12px; }
 .lab-header .top-actions { flex-wrap: wrap; }
 .units-selector { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 13px; }
 .units-selector select { width: auto; min-height: 30px; padding: 3px 6px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; }
+
+.field-controls > .nozzle-characteristics-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 400;
+}
+.nozzle-characteristics-toggle input { margin: 0; accent-color: var(--teal); }

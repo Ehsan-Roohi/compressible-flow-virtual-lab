@@ -4,6 +4,8 @@ import {calculate, defaults, inputDefinitions} from './labs.js';
 import {gasPresets, selectGas} from './gas-properties.js';
 import {designMinimumLengthNozzle, nozzleMocExamples} from './nozzle-moc.js';
 import {plotOptions} from './plot-options.js';
+import {sceneSVG} from './graphics.js';
+import {isentropic} from './physics.js';
 
 const near=(actual,expected,tolerance)=>assert.ok(Math.abs(actual-expected)<=tolerance,
  `Expected ${actual} within ${tolerance} of ${expected}`);
@@ -54,6 +56,33 @@ test('the exported contour uses the calculated upper wall and its mirror',()=>{
   assert.deepEqual(upper.points[i],[x,y]);
   assert.deepEqual(lower.points[i],[x,-y]);
  }
+});
+
+test('the nozzle field exposes normalized properties and an independent characteristic overlay',()=>{
+ const run=calculate('nozzle-design',defaults('nozzle-design'));
+ const {scene,inputs,result}=run,g=inputs.gamma;
+ const sonic=isentropic(1,g),exit=isentropic(result.exitMach,g);
+ const expected={
+  mach:[1,result.exitMach],
+  'pressure-ratio':[1/exit.p0p,1/sonic.p0p],
+  'temperature-ratio':[1/exit.T0T,1/sonic.T0T],
+  'density-ratio':[1/exit.rho0rho,1/sonic.rho0rho],
+  'speed-ratio':[1/Math.sqrt(sonic.T0T),result.exitMach/Math.sqrt(exit.T0T)],
+  'sound-speed-ratio':[1/Math.sqrt(exit.T0T),1/Math.sqrt(sonic.T0T)],
+ };
+ for(const [key,range] of Object.entries(expected)){
+  const view=sceneSVG(scene,inputs,0,key);
+  assert.equal(view.field.quantity,key);
+  near(view.field.min,range[0],1e-10);
+  near(view.field.max,range[1],1e-10);
+  assert.match(view.svg,/data-nozzle-moc-field/);
+  assert.doesNotMatch(view.svg,/NaN|Infinity|undefined/);
+ }
+ const angles=sceneSVG(scene,{...inputs,showNozzleCharacteristics:false},0,'flow-angle');
+ assert.ok(angles.field.min<0&&angles.field.max>0);
+ near(angles.field.min,-angles.field.max,1e-10);
+ assert.doesNotMatch(angles.svg,/data-nozzle-moc-characteristics/);
+ assert.match(sceneSVG(scene,inputs,0,'mach').svg,/data-nozzle-moc-characteristics/);
 });
 
 test('the nozzle design uses named gas gamma or an editable custom value',()=>{
