@@ -1,7 +1,7 @@
 import {schlierenOutline} from './schlieren.js?v=20261118-schlieren-outline';
 import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261121-piston-menu';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
-import {nozzleMocDrawing,compareNozzleMocDrawing} from './nozzle-moc-graphics.js?v=20261125-nozzle-contour-probe';
+import {nozzleMocDrawing,compareNozzleMocDrawing,gradualNozzleConceptDrawing} from './nozzle-moc-graphics.js?v=20261125-gradual-nozzle-concept';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261121-piston-menu';
 import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261120-region-numbers';
@@ -348,6 +348,7 @@ export function sceneSVG(scene,inputs,time=.001,quantity='pressure'){
  let view;
  if(scene.kind==='nozzleMoc')view=nozzleMocDrawing(scene,inputs.gamma,quantity,inputs.showNozzleCharacteristics!==false);
  else if(scene.kind==='nozzleMocComparison')view=compareNozzleMocDrawing(scene,inputs.gamma,quantity,inputs.showNozzleCharacteristics!==false);
+ else if(scene.kind==='gradualNozzleConcept')view=gradualNozzleConceptDrawing();
  else if(scene.kind==='valveClosure')view=valveClosureDrawing();
  else if(scene.kind==='pistonShocks')view=pistonShocksDrawing(scene);
  else if(scene.kind==='multiRampInlet')view=multiRampDrawing(scene,inputs,quantity);

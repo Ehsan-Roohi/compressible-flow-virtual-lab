@@ -159,6 +159,7 @@ export const labs={
  'nozzle-design':{chapter:8,title:'Method of Characteristics',tag:'MINIMUM-LENGTH NOZZLE',
   description:'Design the diverging contour of a planar minimum-length nozzle and compare two ways to march the characteristics.',
   inputs:[
+   {key:'nozzleMocGeometry',label:'Nozzle geometry',value:'Minimum-length nozzle',options:['Minimum-length nozzle','Gradual expansion (conceptual)']},
    {key:'nozzleMocMethod',label:'Solution method',value:nozzleMocMethods.point,options:Object.values(nozzleMocMethods)},
    {key:'nozzleMocStart',label:'Starting section',value:nozzleMocStarts.sonic,options:Object.values(nozzleMocStarts)},
    input('mocInletMach','Inlet Mach number',1.5,1.000001,8,.01,'Mᵢ'),
@@ -356,6 +357,7 @@ function groupStationInputs(fields){
 }
 export function inputDefinitions(id,x={}){
  if(id==='nozzle-design'){
+  if(x.nozzleMocGeometry==='Gradual expansion (conceptual)')return labs[id].inputs.filter(field=>field.key==='nozzleMocGeometry');
   const [fluid,gamma]=gasInputFields(x,id);
   const supersonic=x.nozzleMocStart===nozzleMocStarts.supersonic;
   const fields=labs[id].inputs.filter(field=>field.key!=='mocInletMach'||supersonic)
@@ -405,6 +407,12 @@ export function nozzleInfo(x){
 export function defaults(id){return {...(id==='wall'?{customInteraction:'',inletFlowSide:inletFlowSides[0],inletLowerDefinition:inletLowerDefinitions[0],inletLowerHeightRatio:.5,inletLowerWallLengthRatio:1,inletLowerStartRatio:0,inletLowerCowlRatio:1,inletBottomSegments:[{angle:-8,length:1}],inletSolutionVersion:2,inletReference:2,inletHeightRatio:.5,inletCowlRatio:1,inletTerminal:'Wall reflections',inletLowerSegments:multiRampPreset.inletLowerSegments.map(p=>({...p})),inletUpperWallRatio:1,inletUpperStartRatio:0}:{}),...(id==='wall'?{fanShockAngle:10,fanExpansionAngle:10}:{}),...(id==='wall'?{ramjetOrientation:ramjetOrientations[0]}:{}),...(['airfoil','fanno','wall','tube','cone','rayleigh'].includes(id)?{bookExample:''}:{}),...stateInputDefaults,...systemDefaults,...Object.fromEntries(labs[id].inputs.map(x=>[x.key,x.value])),...(id==='fanno'?{fannoTemperatureRatio:1.5,fannoPressureRatio:2}:{}),...(id==='rayleigh'?{rayleighInput:'Heat transfer + Inlet Mach',targetMach:.8,targetPressure:80}:{}),...(id==='balances'?controlVolumePreset():{}),inletT0:350,outletT0:400,inletBranch:'Subsonic',targetMach:.8,fannoInput:'Friction length',fluid:'Air',gamma:1.4,R:287,...(id==='nozzle-design'?{...nozzleMocExamples[0].inputs,bookExample:nozzleMocExamples[0].value}:{}),...(['oblique','expansion'].includes(id)?{cornerView:'Analytical contours',cornerColorVersion:1}:{})};}
 export function calculate(id,x,publishedPressure){
  if(id==='nozzle-design'){
+  if(x.nozzleMocGeometry==='Gradual expansion (conceptual)'){
+   return {id,inputs:x,model:'Conceptual comparison of expansion geometries',
+    result:{status:'ok',gradualNozzleConcept:true},rows:[],scene:{kind:'gradualNozzleConcept'},
+    chart:{title:'Geometry comparison',xlabel:'',ylabel:'',series:[]},checks:{},shockDetails:[],
+    notice:'Illustrative comparison only. Dimensions, wall coordinates and flow fields are not calculated for this geometry.',version:'0.1.0'};
+  }
   const method=x.nozzleMocMethod??nozzleMocMethods.point;
   const compare=method===nozzleMocMethods.compare;
   const methods=compare?[nozzleMocMethods.point,nozzleMocMethods.region]:[method];

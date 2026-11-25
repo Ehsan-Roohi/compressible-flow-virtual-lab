@@ -37,7 +37,7 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261125-nozzle-supersonic-inlet';
+import {plotOptions} from './plot-options.js?v=20261125-gradual-nozzle-concept';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleMocExamples,nozzleMocStarts} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
@@ -47,8 +47,8 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261125-nozzle-supersonic-inlet';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261125-nozzle-contour-probe';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261125-gradual-nozzle-concept';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261125-gradual-nozzle-concept';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -201,7 +201,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261125-nozzle-supersonic-inlet',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261125-gradual-nozzle-concept',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -597,6 +597,10 @@ function renderSingleDuctTabs(){
 }
 
 function renderInputs(){
+ if(id==='nozzle-design'){
+  const conceptual=inputs.nozzleMocGeometry==='Gradual expansion (conceptual)';
+  $('description').textContent=conceptual?'Compare the sharp-throat and rounded-expansion geometries.':labs[id].description;
+ }
  const calculatorMode=inputs.calculatorMode??calculatorModes.isentropic;
  $('resultsTitle').textContent=id==='foundations'?
   (calculatorMode===calculatorModes.isentropic?'Isentropic Flow Calculator':calculatorMode):'Computed state';
@@ -700,6 +704,13 @@ if(id==='tube'&&(x.key==='pistonType'||x.key==='unsteadyExperiment'&&(n.value===
 }
 if(id==='fanno'&&['ductProblem','fannoUnknown'].includes(x.key)){
  changeFannoMode(x.key,n.value,x.key);return;
+}
+if(id==='nozzle-design'&&x.key==='nozzleMocGeometry'){
+ request++;
+ inputs.nozzleMocGeometry=n.value;
+ renderInputs();
+ $('value-nozzleMocGeometry')?.focus({preventScroll:true});
+ schedule();return;
 }
 if(id==='nozzle-design'&&x.key==='nozzleMocStart'){
  request++;
@@ -1015,7 +1026,7 @@ const coneLimitHelp=new Map([
  ['Minimum cone Mach for attached shock','Lowest freestream Mach number that keeps the shock attached at the current cone half-angle.'],
 ]);
 function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d.result.models.length===2;
- $('results').closest('.results').hidden=coefficientsOnly;arrangeCollisionOutput(d.result);const matchingView=!!d.result.tracking&&!!d.result.finalStreamMatch&&!d.inspectTrackingEvent;if($('engineLabel'))$('engineLabel').textContent=d.result.finiteTube?'FINITE-VOLUME EULER':d.result.bodyLab?(d.result.bodyComparison?'WEDGE vs CONE':'2D WEDGE'):d.result.comparison?'COMPARE BOTH':d.result.tracking?'SHOCK–EXPANSION':d.id==='nozzle-design'?'NUMERICAL MOC':d.result.moc?.fitted?'MOC · FITTED SHOCKS':d.result.moc?'NUMERICAL MOC':'ANALYTICAL ENGINE';if(d.result.tracking)$('limitations').textContent='Attached, downstream-supersonic waves only. Expansion fans use finite fronts; check refinement. The field stops at a physical, accuracy or event-budget limit.';else if(d.result.interaction)$('limitations').textContent='The regular shock interaction and slip direction are solved. The view ends before the next wall reflection. General shock–fan interactions and Mach reflections are outside this model.';$('model').textContent=d.model;$('gasResultSummary').textContent=d.id==='nozzle-design'?`${d.gas.name} · γ = ${fmt(d.gas.gamma,5)}`:d.gas?`${d.gas.name} · cₚ = ${displayValue(d.gas.cp,'J/(kg·K)',6)}, cᵥ = ${measure(d.gas.cv,'J/(kg·K)',6)}`:'';$('status').textContent=['heat-limit','length-limit','cooling-limit'].includes(d.result.status)?'Limit exceeded':d.result.status==='sonic-limit'?'Sonic limit':d.result.status==='detached'?'Detached shock':d.result.status==='unsupported'?'Model limit':d.result.status==='partial'?'Local solution':d.result.tracking&&d.result.tracking.hasFanApproximation?'Mixed solution':'Solved';$('status').className='status'+(['heat-limit','length-limit','cooling-limit','detached','unsupported'].includes(d.result.status)?' error':'');if(d.result.external&&!d.result.external.outlet){$('status').textContent=d.result.external.status==='no-flow'?'No flow':'Model limit';$('status').className=d.result.external.status==='no-flow'?'status':'status error';}$('notice').hidden=matchingView||!d.notice;$('notice').textContent=d.result.tracking&&d.notice?'Event-driven solution: '+d.notice:d.notice??'';if(matchingView){$('status').textContent='Matched reference';$('status').className='status';$('model').textContent='Uniform final-stream matching · schematic reference';}renderIsentropicRelations(d);renderTrackingPanel(d);renderRegionTable(d);renderFlowRelations(d);renderAirfoilPanel(d,coefficientsOnly);const sidebar=resultSidebarRows(d);const slip=opposingShockSlipRows(d);
+ $('results').closest('.results').hidden=coefficientsOnly;arrangeCollisionOutput(d.result);const matchingView=!!d.result.tracking&&!!d.result.finalStreamMatch&&!d.inspectTrackingEvent;if($('engineLabel'))$('engineLabel').textContent=d.result.finiteTube?'FINITE-VOLUME EULER':d.result.bodyLab?(d.result.bodyComparison?'WEDGE vs CONE':'2D WEDGE'):d.result.comparison?'COMPARE BOTH':d.result.tracking?'SHOCK–EXPANSION':d.result.gradualNozzleConcept?'SCHEMATIC':d.id==='nozzle-design'?'NUMERICAL MOC':d.result.moc?.fitted?'MOC · FITTED SHOCKS':d.result.moc?'NUMERICAL MOC':'ANALYTICAL ENGINE';if(d.result.tracking)$('limitations').textContent='Attached, downstream-supersonic waves only. Expansion fans use finite fronts; check refinement. The field stops at a physical, accuracy or event-budget limit.';else if(d.result.interaction)$('limitations').textContent='The regular shock interaction and slip direction are solved. The view ends before the next wall reflection. General shock–fan interactions and Mach reflections are outside this model.';$('model').textContent=d.model;$('gasResultSummary').textContent=d.result.gradualNozzleConcept?'':d.id==='nozzle-design'?`${d.gas.name} · γ = ${fmt(d.gas.gamma,5)}`:d.gas?`${d.gas.name} · cₚ = ${displayValue(d.gas.cp,'J/(kg·K)',6)}, cᵥ = ${measure(d.gas.cv,'J/(kg·K)',6)}`:'';$('status').textContent=d.result.gradualNozzleConcept?'Illustration':['heat-limit','length-limit','cooling-limit'].includes(d.result.status)?'Limit exceeded':d.result.status==='sonic-limit'?'Sonic limit':d.result.status==='detached'?'Detached shock':d.result.status==='unsupported'?'Model limit':d.result.status==='partial'?'Local solution':d.result.tracking&&d.result.tracking.hasFanApproximation?'Mixed solution':'Solved';$('status').className='status'+(['heat-limit','length-limit','cooling-limit','detached','unsupported'].includes(d.result.status)?' error':'');if(d.result.external&&!d.result.external.outlet){$('status').textContent=d.result.external.status==='no-flow'?'No flow':'Model limit';$('status').className=d.result.external.status==='no-flow'?'status':'status error';}$('notice').hidden=matchingView||!d.notice;$('notice').textContent=d.result.tracking&&d.notice?'Event-driven solution: '+d.notice:d.notice??'';if(matchingView){$('status').textContent='Matched reference';$('status').className='status';$('model').textContent='Uniform final-stream matching · schematic reference';}renderIsentropicRelations(d);renderTrackingPanel(d);renderRegionTable(d);renderFlowRelations(d);renderAirfoilPanel(d,coefficientsOnly);const sidebar=resultSidebarRows(d);const slip=opposingShockSlipRows(d);
  const results=sidebar.filter(r=>(!slip.length||r.label!=='Signed slip-line angle φ')&&(d.result.ductSystem||!['rayleigh','fanno'].includes(d.id)||['Maximum heat to sonic state','Remaining heat to sonic state','Required duct length','Maximum duct length','Friction length','Available sonic friction length','Required friction parameter','Maximum friction parameter (sonic exit)','Inlet Mach number','Static-temperature ratio','Static-pressure ratio','Heat transfer','Total-pressure ratio','Entropy change'].includes(r.label))&&(d.id!=='normal'||['Pressure ratio','Temperature ratio','Density ratio','Total-pressure recovery','Entropy increase'].includes(r.label))&&!['airfoil','foundations'].includes(d.id)&&!d.result.tracking&&!r.panel&&!(d.id==='collision'&&r.label!=='Signed slip-line angle φ')&&!(d.id==='cone'&&['Conical shock angle β','Recovered cone angle','Surface Mach','Surface pressure','Surface temperature'].includes(r.label)));
  if(slip.length)results.unshift(...slip);
  const renderRow=r=>`<div class="result-row"${d.id==='cone'&&coneLimitHelp.has(r.label)?` title="${coneLimitHelp.get(r.label)}"`:''}><span class="result-label">${r.label}</span><span class="result-value">${displayValue(r.value,r.unit)}<small>${backPressureHTML(unitView.label(r.unit))}</small></span></div>`;
@@ -1052,7 +1063,7 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
    renderRow({label:`Minimum location · ${side==='both'?'both surfaces':side+' surface'}`,value:x,unit:'x/c'})+
    `<p class="control-hint"><a href="${source.url}" target="_blank" rel="noopener">${source.label}</a>${kind==='published'?` · <a href="${source.dataUrl}" target="_blank" rel="noopener">Pressure data</a>`:''}<br>${detail}</p>`);
  }
- renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();displayMeasuredTable($('trackingEventPanel'));displayMeasuredTable($('regionTable'));displayMeasuredTable($('airfoilPanel'));displayMeasuredTable($('airfoilWavePanel'));displayMeasurements($('notice'),$('trackingEventPanel'),$('regionTable'),$('flowRelationsPanel'),$('airfoilPanel'),$('airfoilWavePanel'),$('shockResults'));$('exportJson').disabled=false;$('exportCsv').disabled=false;$('pin').disabled=false;$('exportSvg').disabled=!d.scene;if(d.scene)renderScene();updatePlotChoices();renderCompare();}
+ renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();displayMeasuredTable($('trackingEventPanel'));displayMeasuredTable($('regionTable'));displayMeasuredTable($('airfoilPanel'));displayMeasuredTable($('airfoilWavePanel'));displayMeasurements($('notice'),$('trackingEventPanel'),$('regionTable'),$('flowRelationsPanel'),$('airfoilPanel'),$('airfoilWavePanel'),$('shockResults'));$('exportJson').disabled=!!d.result.gradualNozzleConcept;$('exportCsv').disabled=!!d.result.gradualNozzleConcept;$('pin').disabled=!!d.result.gradualNozzleConcept;$('exportSvg').disabled=!d.scene;if(d.scene)renderScene();updatePlotChoices();renderCompare();}
 function renderWaveKey(result){
  const key=$('waveKey');
  key.hidden=!result.finiteTube;
@@ -1357,7 +1368,7 @@ function renderExamples(){
   {value:'3-2',label:'Shock ratios and entropy',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
  if(id==='nozzle')entries=nozzleExamples.map(entry=>({...entry,apply:()=>selectNozzleInputs({bookExample:entry.value})}));
- if(id==='nozzle-design')entries=nozzleMocExamples.map(entry=>({...entry,apply:()=>load({...entry.inputs,nozzleMocMethod:inputs.nozzleMocMethod},entry.value)}));
+ if(id==='nozzle-design'&&inputs.nozzleMocGeometry!=='Gradual expansion (conceptual)')entries=nozzleMocExamples.map(entry=>({...entry,apply:()=>load({...entry.inputs,nozzleMocMethod:inputs.nozzleMocMethod},entry.value)}));
  if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:e.title,note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
   const cases=Object.entries(rayleighBookExamples);

@@ -10,6 +10,18 @@ import {areaMach,deg,isentropic,prandtlMeyer} from './physics.js';
 const near=(actual,expected,tolerance)=>assert.ok(Math.abs(actual-expected)<=tolerance,
  `Expected ${actual} within ${tolerance} of ${expected}`);
 
+test('gradual-expansion geometry is a separate illustrative view with no numerical solution or plots',()=>{
+ const inputs={...defaults('nozzle-design'),nozzleMocGeometry:'Gradual expansion (conceptual)'};
+ const result=calculate('nozzle-design',inputs);
+ assert.deepEqual(inputDefinitions('nozzle-design',inputs).map(f=>f.key),['nozzleMocGeometry']);
+ assert.equal(result.result.gradualNozzleConcept,true);
+ assert.deepEqual(result.rows,[]);
+ assert.deepEqual(plotOptions(result),[]);
+ const view=sceneSVG(result.scene,inputs);
+ assert.match(view.svg,/Schematic only/);
+ assert.equal(view.field,undefined);
+});
+
 test('nozzle design presets solve the wall and characteristic net with parallel flow at the exit',()=>{
  for(const example of nozzleMocExamples){
   const inputs={...defaults('nozzle-design'),...example.inputs};

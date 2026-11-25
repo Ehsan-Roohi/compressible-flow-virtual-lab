@@ -193,7 +193,7 @@ function basePlotOptions(d,time=.001){
 }
 
 export function plotOptions(d,time=.001){
- if(d.id==='nozzle-design')return nozzleMocPlots(d.result.designs??[d.result]);
+ if(d.id==='nozzle-design')return d.result.gradualNozzleConcept?[]:nozzleMocPlots(d.result.designs??[d.result]);
  if(d.id==='rayleigh'||d.id==='fanno'){
   const plots=basePlotOptions(d,time);
   return d.result.fannoRayleigh?plots:[...plots,ductTemperatureEntropyPlot(d)];
