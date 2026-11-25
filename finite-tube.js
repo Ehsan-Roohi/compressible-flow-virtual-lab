@@ -577,11 +577,13 @@ export function finiteTubeDrawing(r,time){
   :initial?pistonShockMarks(r,frame.time,X,arrows):resolvedShockMarks(r,frame,X,arrows);
  const expansion=analytical?'':numericalExpansionFans(r,frame,X,color,arrows,boundaries);
  const motionCaption=r.sinusoidal?pistonShockMarks(r,frame.time,X,arrows):'';
+ const leftOpen=r.endPreview?.left==='Open end',rightOpen=r.endPreview?.right==='Open end';
+ const tubeOutline=r.endPreview?`M${leftOpen?gasX:40} 92H600 M${leftOpen?gasX:40} 197H600${leftOpen?'':' M40 92V197'}${rightOpen?'':' M600 92V197'}`:'M40 92H600V197H40Z';
  const cells=analytical?initialTubePressure(r,frame.time,X,color):`<defs><linearGradient id="finitePressure">${stops}</linearGradient></defs><rect x="${gasX}" y="92" width="${600-gasX}" height="105" fill="url(#finitePressure)"/>`;
- return {label:'Numerical pressure field',meta:'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the closed shock tube">
+ return {label:'Numerical pressure field',meta:r.endPreview?'Before open-end interaction':'Closed walls',svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" role="img" aria-label="Pressure distribution in the tube">
  <text x="320" y="35" text-anchor="middle">Pressure field · t = ${(frame.time*1000).toFixed(2)} ms</text>
- ${cells}${expansion}${expansionBoundaryMarks(boundaries)}${motionCaption}${overlay}${waveDirectionArrows(arrows)}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="M40 92H600V197H40Z" fill="none" stroke="#20394a" stroke-width="3"/>
- ${r.movingPiston?`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`:`<path data-contact-surface="" d="M${contactX} 92V197" stroke="#fff" stroke-width="1.5" stroke-dasharray="8 5"/>`}
- <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
+ ${cells}${expansion}${expansionBoundaryMarks(boundaries)}${motionCaption}${overlay}${waveDirectionArrows(arrows)}${r.sample==null?'':tubeSampleMark(X(r.sample),92,197)}<path d="${tubeOutline}" fill="none" stroke="#20394a" stroke-width="3"/>
+ ${r.movingPiston?(leftOpen?'':`<path d="M${gasX} 88V202" stroke="#20394a" stroke-width="5"/>`):`<path data-contact-surface="" d="M${contactX} 92V197" stroke="#fff" stroke-width="1.5" stroke-dasharray="8 5"/>`}
+ <text x="${gasX}" y="226" text-anchor="${gasX>420?'end':'start'}">${leftOpen?'Open end':r.movingPiston?'Piston':'Driver wall'}</text><text x="600" y="226" text-anchor="end">${rightOpen?'Open end':r.closedValve?'Closed valve':r.movingPiston?'Fixed wall':'Driven wall'}</text>
  </svg>`};
 }

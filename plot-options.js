@@ -2,7 +2,7 @@ import {nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
 import {rayleighBookPressurePlot} from './rayleigh-book.js?v=20261120-example-sequence';
-import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261121-piston-menu';
+import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261125-boundary-preview';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
 import {annotateTurningRegions} from './turning-region-markers.js?v=20261120-four-shock-polar';
@@ -27,9 +27,9 @@ function finiteMapOptions(r){
  const options=fields.map(([property,label,scale,unit])=>{
   const {normalize,min,max}=finiteTubeScale(r.frames,property);
   const rows=r.frames.map(frame=>Float32Array.from(frame[property],normalize));
-  const title=`${label} map · wave reflections in the x–t plane`;
+  const title=r.endPreview?`${label} map · before open-end interaction`:`${label} map · wave reflections in the x–t plane`;
   return {key:`finite-map-${property}`,label:title,chart:{...r.chart,title,heatmap:{left:r.left,right:r.right,end:r.end*1000,rows,leftFractions:r.movingPiston?r.frames.map(frame=>frame.left/r.right):undefined}},
-   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.sinusoidal?'The dark curve is the piston trajectory. The colored field shows the compression and expansion waves and their reflections at the closed end.':r.closedValve?'The dark sloping boundary is the piston, and the fixed boundary is the closed valve. The white line traces the initial valve shock until it reaches the piston. Later reflections appear in the colored field.':r.singleStagePiston?'The dark sloping boundary is the moving piston. The white line traces the launch shock up to the first wall encounter. Later reflections appear in the colored field.':r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':r.referenceEnd===0?'The closed walls produce waves from t = 0 in the moving gas. The colored field shows the resulting waves and interactions.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted and dash-dot lines mark the fan’s leading and trailing edges. The upper view shows the original banded expansion fan before the first wall reflection. Later waves appear in the numerical pressure field. '} The horizontal cursor shows the selected time.`};
+   note:`Numerical ${label.toLowerCase()} on a logarithmic color scale: blue ${(min/scale).toPrecision(4)} to red ${(max/scale).toPrecision(4)} ${unit}. Colors are interpolated between computed samples. ${r.endPreview?'The existing solution is clipped before a response at an open end. No boundary release or returning wave is solved.':r.sinusoidal?'The dark curve is the piston trajectory. The colored field shows the compression and expansion waves and their reflections at the closed end.':r.closedValve?'The dark sloping boundary is the piston, and the fixed boundary is the closed valve. The white line traces the initial valve shock until it reaches the piston. Later reflections appear in the colored field.':r.singleStagePiston?'The dark sloping boundary is the moving piston. The white line traces the launch shock up to the first wall encounter. Later reflections appear in the colored field.':r.movingPiston?'The dark sloping boundary is the moving piston. The blank area is outside the gas. The solid and dashed white lines mark the first and second launch shocks where the analytical paths apply. Reflected waves are visible in the colored field.':r.referenceEnd===0?'The closed walls produce waves from t = 0 in the moving gas. The colored field shows the resulting waves and interactions.':'Solid white lines trace the incident and first reflected shocks. The long-dashed line traces the contact surface between the two gases. The dotted and dash-dot lines mark the fan’s leading and trailing edges. The upper view shows the original banded expansion fan before the first wall reflection. Later waves appear in the numerical pressure field. '} The horizontal cursor shows the selected time.`};
  });
  finiteMaps.set(r,options);
  return options;
@@ -122,11 +122,11 @@ function basePlotOptions(d,time=.001){
   if(r.finiteTube){
    options.splice(0,1,...finiteMapOptions(r));
    if(r.movingPiston){
-    const title=r.closedValve?'Pressure history at the piston and valve':'Pressure history at the piston and fixed wall';
+    const title=r.endPreview?'Pressure history at the domain edges':r.closedValve?'Pressure history at the piston and valve':'Pressure history at the piston and fixed wall';
     options.push({key:'piston-wall-pressure',label:title,chart:{title,xlabel:'Time t (ms)',ylabel:'p (kPa)',series:[
-     {name:'Cell next to piston',points:r.frames.map(frame=>[frame.time*1000,frame.pressure[0]/1000])},
-     {name:r.closedValve?'Cell next to closed valve':'Cell next to fixed wall',points:r.frames.map(frame=>[frame.time*1000,frame.pressure.at(-1)/1000])}
-    ]},note:'Numerical pressure adjacent to each reflecting boundary.'});
+     {name:r.endPreview?.left==='Open end'?'Cell next to upstream reference':'Cell next to piston',points:r.frames.map(frame=>[frame.time*1000,frame.pressure[0]/1000])},
+     {name:r.endPreview?.right==='Open end'?'Cell next to open end':r.closedValve?'Cell next to closed valve':'Cell next to fixed wall',points:r.frames.map(frame=>[frame.time*1000,frame.pressure.at(-1)/1000])}
+    ]},note:r.endPreview?'Before-interaction preview at the domain edges.':'Numerical pressure adjacent to each reflecting boundary.'});
    }
    if(r.sinusoidal){
     const f=finiteTubeFrame(r,time),dx=(r.right-f.left)/r.centers.length;

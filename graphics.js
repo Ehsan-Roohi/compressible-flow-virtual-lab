@@ -1,5 +1,5 @@
 import {schlierenOutline} from './schlieren.js?v=20261118-schlieren-outline';
-import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261121-piston-menu';
+import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261125-boundary-preview';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
 import {nozzleMocDrawing,compareNozzleMocDrawing} from './nozzle-moc-graphics.js?v=20261125-nozzle-contour-probe';
 import {valveClosureDrawing} from './valve-closure.js';
