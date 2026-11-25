@@ -119,28 +119,6 @@ function contourField({mesh,wall,fan},gamma,quantity,project,W,H){
   note:fan?'Piecewise-constant region states':'Interpolated characteristic field',palette:contourRamp}};
 }
 
-export function gradualNozzleConceptDrawing(){
- return {label:'Conceptual nozzle geometry comparison',meta:'Illustrative geometry · not to scale',
-  svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 310" role="img" aria-label="Schematic comparison of a sharp throat and a rounded expansion">
-   <title>Conceptual comparison of nozzle geometries</title>
-   <rect width="640" height="310" fill="#f7faf8"/>
-   <g font-family="Georgia,serif" fill="#17383b" text-anchor="middle" font-size="17">
-    <text x="160" y="32">Minimum-length</text><text x="480" y="32">Gradual expansion</text>
-   </g>
-   <g fill="#d5ebe6" stroke="#17383b" stroke-width="2.5" stroke-linejoin="round">
-    <path d="M36 85 Q66 109 93 109 Q128 76 169 66 Q225 53 284 53 L284 247 Q225 247 169 234 Q128 224 93 191 Q66 191 36 215 Z"/>
-    <path d="M356 85 Q387 114 413 112 C453 112 474 73 523 61 Q558 53 604 53 L604 247 Q558 247 523 239 C474 227 453 188 413 188 Q387 186 356 215 Z"/>
-   </g>
-   <g stroke="#54736c" stroke-width="1" stroke-dasharray="5 4">
-    <path d="M36 150H284 M356 150H604"/>
-   </g>
-   <g font-family="Georgia,serif" fill="#17383b" text-anchor="middle" font-size="14">
-    <text x="160" y="269">Sharp corner</text><text x="480" y="269">Rounded initial expansion</text>
-    <text x="320" y="296">Schematic only · no dimensions or calculated contours</text>
-   </g>
-  </svg>`};
-}
-
 export function nozzleMocDrawing(design,gamma=1.4,quantity='mach',showCharacteristics=true,viewport){
  const {mesh,wall,exitMach}=design;
  if(!Object.hasOwn(properties,quantity))quantity='mach';
