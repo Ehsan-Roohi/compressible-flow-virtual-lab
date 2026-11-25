@@ -190,3 +190,33 @@ test('uniform supersonic starts produce parallel exit flow and converge to the i
  const sonic=calculate(id,{...base,nozzleMocStart:nozzleMocStarts.sonic,mocInletMach:.9});
  assert.equal(sonic.result.inletMach,1);
 });
+
+test('the contour probe follows the selected property, wall mask and comparison panel',()=>{
+ const id='nozzle-design',preset=nozzleMocExamples.find(entry=>entry.value==='supersonic-inlet');
+ const inputs={...defaults(id),...preset.inputs,nozzleMocMethod:nozzleMocMethods.compare};
+ const run=calculate(id,inputs);
+ const [point,region]=run.result.designs;
+ const ends=[point,region].map(({wall})=>wall.at(-1));
+ const maxX=Math.max(...ends.map(end=>end.x)),maxY=Math.max(...ends.map(end=>end.y));
+ const scale=Math.min(526/maxX,104/maxY),x0=(640-maxX*scale)/2;
+ const mach=sceneSVG(run.scene,inputs,0,'mach');
+ const pressure=sceneSVG(run.scene,inputs,0,'pressure-ratio');
+ for(const [i,design] of [point,region].entries()){
+  const x=.1,y=.2;
+  const sx=x0+x*scale,sy=150+300*i-y*scale;
+  const sample=mach.probe(sx,sy);
+  assert.equal(sample.method,design.method);
+  near(sample.x,x*design.halfHeight,1e-12);
+  near(sample.y,y*design.halfHeight,1e-12);
+  near(sample.value,design.inletMach,1e-12);
+  near(pressure.probe(sx,sy).value,1/isentropic(design.inletMach,inputs.gamma).p0p,1e-12);
+  assert.equal(mach.probe(sx,150+300*i-2*scale),null);
+  assert.equal(mach.probe(x0-5,sy),null);
+ }
+ // A point inside the last, uniform region must report the target Mach number.
+ for(const [i,design] of [point,region].entries()){
+  const [axis,wall]=design.mesh.at(-1);
+  const x=(axis.x+wall.x)/2;
+  near(mach.probe(x0+x*scale,150+300*i).value,design.exitMach,1e-12);
+ }
+});
