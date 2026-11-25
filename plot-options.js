@@ -1,4 +1,4 @@
-import {nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-methods';
+import {nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
 import {rayleighBookPressurePlot} from './rayleigh-book.js?v=20261120-example-sequence';

@@ -1,7 +1,7 @@
 import {schlierenOutline} from './schlieren.js?v=20261118-schlieren-outline';
 import {finiteTubeDrawing,tubeSampleMark} from './finite-tube.js?v=20261121-piston-menu';
 import {contourColor as rasterColor,contourRamp as ramp,contourRasterURL} from './contour-raster.js?v=20261117-closed-piston';
-import {nozzleMocDrawing,compareNozzleMocDrawing} from './nozzle-moc-graphics.js?v=20261125-nozzle-methods';
+import {nozzleMocDrawing,compareNozzleMocDrawing} from './nozzle-moc-graphics.js?v=20261125-nozzle-supersonic-inlet';
 import {valveClosureDrawing} from './valve-closure.js';
 import {pistonShocksDrawing} from './piston-shocks.js?v=20261121-piston-menu';
 import {multiRampDrawing} from './multi-ramp-inlet.js?v=20261120-region-numbers';

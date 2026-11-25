@@ -12,14 +12,13 @@ const properties={
 };
 
 function forEachTriangle(mesh,wall,visit,fan){
- const inlet={x:0,y:0,M:1,theta:0};
- const first=mesh[0],throat=wall[0];
- const sonicCorner={...throat,M:1,theta:0};
- visit(inlet,sonicCorner,{...first[0],M:1,theta:0},fan?.[0]);
+ const first=mesh[0],corner=wall[0];
+ const inlet={x:0,y:0,M:corner.M,theta:0};
+ visit(inlet,{...corner,theta:0},{...inlet,x:first[0].x},fan?.[0]);
  for(let j=0;j<first.length-1;j++){
   const a=first[j],b=first[j+1];
   // The ideal sharp corner is a singular point. Use the mean fan-cell state there for display.
-  visit({...throat,M:(a.M+b.M)/2,theta:(a.theta+b.theta)/2},a,b,fan?.[j+1]);
+  visit({...corner,M:(a.M+b.M)/2,theta:(a.theta+b.theta)/2},a,b,fan?.[j+1]);
  }
  for(let i=1;i<mesh.length;i++){
   const a=mesh[i-1],b=mesh[i];
@@ -118,6 +117,7 @@ export function nozzleMocDrawing(design,gamma=1.4,quantity='mach',showCharacteri
   plus+=side===1?reflected:incident;
  }
  const x1=x0+last.x*scale, close=x1-x0<178;
+ const inletLabel=design.inletMach>1?'Inlet · M = '+Number(design.inletMach.toPrecision(6)):'Sonic throat';
  const frame=(x,h)=>`<line x1="${x}" y1="${cy-h*scale}" x2="${x}" y2="${cy+h*scale}" stroke="#607773" stroke-dasharray="4 3"/>`;
  return {svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Computed minimum-length nozzle contour and characteristic net">
   <title>Minimum-length nozzle and characteristic net</title>
@@ -135,7 +135,7 @@ export function nozzleMocDrawing(design,gamma=1.4,quantity='mach',showCharacteri
   </g>
   ${viewport?`<text x="320" y="20" font-size="17" text-anchor="middle" fill="#17383b" font-weight="bold">${design.method}</text>`:''}
   <g font-size="15" fill="#17383b" text-anchor="middle">
-   <text x="${x0-(close?8:0)}" y="${cy-scale-13}" text-anchor="${close?'end':'middle'}">Sonic throat</text>
+   <text x="${x0-(close?8:0)}" y="${cy-scale-13}" text-anchor="${close?'end':'middle'}">${inletLabel}</text>
    <text x="${x1+(close?8:0)}" y="${cy-last.y*scale-13}" text-anchor="${close?'start':'middle'}">Exit · M = ${exitMach}</text>
   </g>
   ${showCharacteristics?`<g font-size="13" fill="#17383b">

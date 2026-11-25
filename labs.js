@@ -1,7 +1,7 @@
 import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput,obliqueInputs,conicalInputs} from './appendix-calculator.js?v=20261124-shock-input-options';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
-import {designMinimumLengthNozzle,nozzleMocExamples,nozzleMocMethods,nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-methods';
+import {designMinimumLengthNozzle,nozzleMocExamples,nozzleMocMethods,nozzleMocStarts,nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {linearizedTube,movingShockSonicMach,tubeSolutionMethods} from './linearized-tube.js?v=20261121-tube-methods';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveSingleStagePiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261121-piston-menu';
@@ -160,13 +160,15 @@ export const labs={
   description:'Design the diverging contour of a planar minimum-length nozzle and compare two ways to march the characteristics.',
   inputs:[
    {key:'nozzleMocMethod',label:'Solution method',value:nozzleMocMethods.point,options:Object.values(nozzleMocMethods)},
+   {key:'nozzleMocStart',label:'Starting section',value:nozzleMocStarts.sonic,options:Object.values(nozzleMocStarts)},
+   input('mocInletMach','Inlet Mach number',1.5,1.000001,8,.01,'Mᵢ'),
    input('mocExitMach','Design exit Mach number',nozzleMocExamples[0].inputs.mocExitMach,1.01,8,.01,'Mₑ'),
    {...input('mocThroatHalfHeight','Throat half-height',.05,.001,100,.001,'m'),sliderMax:1},
    input('mocFanRays','Number of fan rays',nozzleMocExamples[0].inputs.mocFanRays,4,400,1)
   ],
   model:'Steady, isentropic planar flow · method of characteristics',
-  equation:'θmax = ν(Mₑ)/2 · C−: ν + θ = constant · C+: ν − θ = constant',
-  limitations:'Symmetric sharp-cornered sonic throat and a gas with constant specific heats. Design condition only.'},
+  equation:'θmax = [ν(Mₑ) − ν(Mᵢ)]/2 · C−: ν + θ = constant · C+: ν − θ = constant',
+  limitations:'Planar symmetric expansion from a sharp corner, with constant specific heats and uniform, axial flow at the starting section.'},
  airfoil:{chapter:9,title:'Supersonic Airfoil Lab',tag:'CHAPTER 9 · TWO METHODS',description:'Compare shock–expansion and linearized predictions on the same sharp airfoil, inspect panel states and recover the linearized surface potential.',inputs:[
  {key:'airfoilMethod',label:'Solution method',value:'Compare both',options:['Compare both','Shock–Expansion','Linearized theory']},
  {key:'airfoilFieldMode',label:'Contour model',value:'Before first wave interaction',options:['Before first wave interaction','Schematic · independent waves','Local analytical · resolved regions']},
@@ -355,10 +357,13 @@ function groupStationInputs(fields){
 export function inputDefinitions(id,x={}){
  if(id==='nozzle-design'){
   const [fluid,gamma]=gasInputFields(x,id);
+  const supersonic=x.nozzleMocStart===nozzleMocStarts.supersonic;
+  const fields=labs[id].inputs.filter(field=>field.key!=='mocInletMach'||supersonic)
+   .map(field=>field.key==='mocThroatHalfHeight'&&supersonic?{...field,label:'Inlet half-height'}:field);
   return [
    {...fluid,help:'Select a working gas to set γ, or choose Custom gas to enter it directly.'},
    {...gamma,min:1.1,max:1.67},
-   ...labs[id].inputs
+   ...fields
   ];
  }
  if(id==='foundations'){
@@ -410,18 +415,20 @@ export function calculate(id,x,publishedPressure){
     throw new p.PhysicsError(error.code??'solver-error',`${nozzleMocMethod} · ${error.message}`);
    }
   });
-  const first=designs[0];
+  const first=designs[0],supersonic=first.inletMach>1;
+  const areaUnit=supersonic?'Aₑ/Aᵢ':'Aₑ/Aₜ';
   const metrics=[
    ['Diverging section length','m','length'],
    ['Exit height','m','exitHeight'],
-   ['Exit-to-throat area ratio','Aₑ/Aₜ','areaRatio'],
+   [supersonic?'Exit-to-inlet area ratio':'Exit-to-throat area ratio',areaUnit,'areaRatio'],
    ['Relative area difference','%','areaErrorPct']
   ];
   const common=[
+   ...(supersonic?[row('Inlet Mach number',first.inletMach,'Mᵢ')]:[]),
    row('Exit Mach number',first.exitMach,'Mₑ'),
    row('Exit flow angle',first.exitAngle,'°'),
-   row('Wall angle at throat',first.wallAngle,'°'),
-   row('Isentropic area ratio',first.isentropicAreaRatio,'Aₑ/Aₜ'),
+   row(supersonic?'Wall angle at inlet corner':'Wall angle at throat',first.wallAngle,'°'),
+   row('Isentropic area ratio',first.isentropicAreaRatio,areaUnit),
    row('Exit pressure ratio',first.exitPressureRatio,'pₑ/p₀'),
    row('Exit temperature ratio',first.exitTemperatureRatio,'Tₑ/T₀')
   ];
