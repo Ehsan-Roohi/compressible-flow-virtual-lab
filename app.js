@@ -39,7 +39,7 @@ import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261125-nozzle-supersonic-inlet';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
-import {nozzleMocExamples,nozzleMocStarts} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet';
+import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261125-nozzle-design-target';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-center-states';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
@@ -47,7 +47,7 @@ import {rayleighBookInputs,rayleighBookPlotKey} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261125-nozzle-supersonic-inlet';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261125-nozzle-design-target';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261125-nozzle-contour-probe';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -114,8 +114,10 @@ function defaults(id,selection={}){
  if(id==='nozzle-design'){
   const preset=nozzleMocExamples.find(entry=>entry.value===selection.bookExample);
   const example=preset??nozzleMocExamples.find(entry=>entry.inputs.nozzleMocStart===selection.nozzleMocStart)??nozzleMocExamples[0];
-  return {...inputs,...example.inputs,bookExample:example.value,
-   nozzleMocMethod:selection.nozzleMocMethod??inputs.nozzleMocMethod};
+  const exampleInputs={...inputs,...example.inputs};
+  return {...exampleInputs,...nozzleMocTargetValues(exampleInputs),bookExample:example.value,
+   nozzleMocMethod:selection.nozzleMocMethod??inputs.nozzleMocMethod,
+   nozzleMocTarget:selection.nozzleMocTarget??inputs.nozzleMocTarget};
  }
  if(id==='normal')return {...inputs,...normalBookPreset};
  if(id==='cone')return {...inputs,...coneBookPreset,bookExample:'10-1'};
@@ -201,7 +203,7 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261125-nozzle-supersonic-inlet',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261125-nozzle-design-target',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -628,7 +630,7 @@ function renderInputs(){
  .filter(f=>f.key!=='plotProperty'&&!(id==='fanno'&&f.key==='fannoUnknown'&&inputs.fannoCondition===fannoConditions[0])&&!(id==='collision'&&f.key==='interactionType')&&(!['gamma','R'].includes(f.key)||!f.readOnly));
  if(shockTube)fields.sort((a,b)=>tubeInputOrder.indexOf(a.key)-tubeInputOrder.indexOf(b.key));
  if(id==='collision')fields.sort((a,b)=>Number(b.key==='interactionType')-Number(a.key==='interactionType'));
- $('inputs').innerHTML=waveGeometrySelector()+fields.map(x=>`${x.section?`<h3 class="input-section">${x.section}</h3>`:''}<div class="input-group"${x.stationInput?' data-station-input':''}><div class="input-top"><label for="value-${x.key}">${x.label}</label><span class="unit">${backPressureHTML(unitView.label(x.unit??''))}</span></div>${id==='rayleigh'&&x.modeField?rayleighModeSelect(x):x.type==='wall-segments'?wallSegmentEditor(x):x.type==='segments'?segmentEditor(x):x.type==='textarea'?`<textarea id="value-${x.key}" name="${x.key}" rows="4" spellcheck="false">${String(inputs[x.key]??'').replaceAll('&','&amp;').replaceAll('<','&lt;')}</textarea>`:x.type==='text'?`<div class="number-wrap"><input id="value-${x.key}" name="${x.key}" type="text" inputmode="numeric" maxlength="12" autocomplete="off" spellcheck="false" required></div>`:x.options?`<select id="value-${x.key}" name="${x.key}">${x.options.map(v=>`<option value="${v}" ${(x.selection??inputs[x.key])===v?'selected':''}>${x.optionLabels?.[v]??v}</option>`).join('')}</select>`:`<div class="number-wrap"><input id="value-${x.key}" name="${x.key}" type="number" value="${fieldNumber(inputs[x.key],x)}" min="${fieldLimit(x.min,x)}" max="${fieldLimit(x.max,x)}" step="any" inputmode="decimal" ${x.readOnly?'readonly':''} aria-label="${x.label} ${unitView.label(x.unit)}" required></div><input id="range-${x.key}" type="range" ${x.readOnly?'disabled':''} min="${fieldLimit(x.sliderMin??x.min,x)}" max="${fieldLimit(x.sliderMax??x.max,x)}" step="${x.step==='any'?x.step:fieldLimit(x.step,x)}" value="${fieldNumber(inputs[x.key],x)}" aria-label="${x.label} slider"><div class="range-labels"><span>${fieldLimit(x.sliderMin??x.min,x)}</span><span>${fieldLimit(x.sliderMax??x.max,x)}</span></div>`}</div>`).join('');compactTypedInputs(fields);showCriticalMachDataAngles();
+ $('inputs').innerHTML=waveGeometrySelector()+fields.map(x=>`${x.section?`<h3 class="input-section">${x.section}</h3>`:''}<div class="input-group"${x.stationInput?' data-station-input':''}><div class="input-top"><label for="value-${x.key}">${x.label}</label><span class="unit">${backPressureHTML(unitView.label(x.unit??''))}</span></div>${id==='rayleigh'&&x.modeField?rayleighModeSelect(x):x.type==='wall-segments'?wallSegmentEditor(x):x.type==='segments'?segmentEditor(x):x.type==='textarea'?`<textarea id="value-${x.key}" name="${x.key}" rows="4" spellcheck="false">${String(inputs[x.key]??'').replaceAll('&','&amp;').replaceAll('<','&lt;')}</textarea>`:x.type==='text'?`<div class="number-wrap"><input id="value-${x.key}" name="${x.key}" type="text" inputmode="numeric" maxlength="12" autocomplete="off" spellcheck="false" required></div>`:x.options?`<select id="value-${x.key}" name="${x.key}">${x.options.map(v=>`<option value="${v}" ${(x.selection??inputs[x.key])===v?'selected':''}>${x.optionLabels?.[v]??v}</option>`).join('')}</select>`:`<div class="number-wrap"><input id="value-${x.key}" name="${x.key}" type="number" value="${fieldNumber(inputs[x.key],x)}" min="${fieldLimit(x.min,x)}" max="${fieldLimit(x.max,x)}" step="any" inputmode="decimal" ${x.readOnly?'readonly':''} aria-label="${x.label} ${unitView.label(x.unit)}" required></div>${x.slider===false?'':`<input id="range-${x.key}" type="range" ${x.readOnly?'disabled':''} min="${fieldLimit(x.sliderMin??x.min,x)}" max="${fieldLimit(x.sliderMax??x.max,x)}" step="${x.step==='any'?x.step:fieldLimit(x.step,x)}" value="${fieldNumber(inputs[x.key],x)}" aria-label="${x.label} slider"><div class="range-labels"><span>${fieldLimit(x.sliderMin??x.min,x)}</span><span>${fieldLimit(x.sliderMax??x.max,x)}</span></div>`}`}</div>`).join('');compactTypedInputs(fields);showCriticalMachDataAngles();
 if(id==='tube'){
  const gridField=fields.find(field=>field.key==='finiteCells');
  if(gridField){
@@ -701,14 +703,20 @@ if(id==='tube'&&(x.key==='pistonType'||x.key==='unsteadyExperiment'&&(n.value===
 if(id==='fanno'&&['ductProblem','fannoUnknown'].includes(x.key)){
  changeFannoMode(x.key,n.value,x.key);return;
 }
-if(id==='nozzle-design'&&x.key==='nozzleMocStart'){
+if(id==='nozzle-design'&&['nozzleMocStart','nozzleMocTarget'].includes(x.key)){
  request++;
- inputs.nozzleMocStart=n.value;
- inputs.bookExample='';
- if(n.value===nozzleMocStarts.supersonic&&inputs.mocInletMach>=inputs.mocExitMach){
-  inputs.mocInletMach=1+(inputs.mocExitMach-1)/2;
+ let mach;
+ try{mach=resolveNozzleMocExitMach(inputs);}catch{ /* Leave the other targets available if the current input is invalid. */ }
+ inputs[x.key]=n.value;
+ if(x.key==='nozzleMocStart'){
+  inputs.bookExample='';
+  const exitMach=mach??inputs.mocExitMach;
+  if(n.value===nozzleMocStarts.supersonic&&!(inputs.mocInletMach>1&&inputs.mocInletMach<exitMach)){
+   inputs.mocInletMach=1+(exitMach-1)/2;
+  }
  }
- renderInputs();$('value-nozzleMocStart')?.focus({preventScroll:true});schedule();return;
+ if(mach!==undefined)Object.assign(inputs,nozzleMocTargetValues(inputs,mach));
+ renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }
 if(id==='nozzle'&&['nozzleType','nozzleSolve','outletCondition'].includes(x.key)){
  const previousNozzleView=inputs.nozzleView;
@@ -1357,7 +1365,9 @@ function renderExamples(){
   {value:'3-2',label:'Shock ratios and entropy',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
  if(id==='nozzle')entries=nozzleExamples.map(entry=>({...entry,apply:()=>selectNozzleInputs({bookExample:entry.value})}));
- if(id==='nozzle-design')entries=nozzleMocExamples.map(entry=>({...entry,apply:()=>load({...entry.inputs,nozzleMocMethod:inputs.nozzleMocMethod},entry.value)}));
+ if(id==='nozzle-design')entries=nozzleMocExamples.map(entry=>({...entry,apply:()=>load({
+  bookExample:entry.value,nozzleMocMethod:inputs.nozzleMocMethod,nozzleMocTarget:inputs.nozzleMocTarget
+ },entry.value)}));
  if(id==='fanno')entries=fannoExamples.map(e=>({value:'5–'+e.number,label:e.title,note:e.note,apply:()=>load(e.inputs,'5–'+e.number)}));
  if(id==='rayleigh'){
   const cases=Object.entries(rayleighBookExamples);

@@ -1,7 +1,7 @@
 import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput,obliqueInputs,conicalInputs} from './appendix-calculator.js?v=20261124-shock-input-options';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
-import {designMinimumLengthNozzle,nozzleMocExamples,nozzleMocMethods,nozzleMocStarts,nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet';
+import {designMinimumLengthNozzle,nozzleMocExamples,nozzleMocMethods,nozzleMocStarts,nozzleMocTargets,nozzleMocTargetValues,nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-design-target';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {linearizedTube,movingShockSonicMach,tubeSolutionMethods} from './linearized-tube.js?v=20261121-tube-methods';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveSingleStagePiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261121-piston-menu';
@@ -40,6 +40,12 @@ import * as p from './physics.js?v=20261110-rayleigh-audit';
 import {cone} from './cone.js?v=20261109-wedge-cone';
 import {coneLimits} from './cone-limits.js?v=20261109-wedge-cone';
 const input=(key,label,value,min,max,step=1,unit='')=>({key,label,value,min,max,step,unit});
+const nozzleMocTargetFields={
+ [nozzleMocTargets.mach]:'mocExitMach',
+ [nozzleMocTargets.pressure]:'mocExitPressureRatio',
+ [nozzleMocTargets.area]:'mocExitAreaRatio'
+};
+const defaultMocTargets=nozzleMocTargetValues(nozzleMocExamples[0].inputs);
 const g=input('gamma','Specific heat ratio',1.4,1.1,1.67,.01,'γ');
 const M=(key='M1',value=2)=>input(key,'Inlet Mach number',value,.1,8,.01,'M');
 const cornerView={key:'cornerView',label:'Drawing style',value:'Analytical contours',options:['Analytical contours','Textbook schematic'],optionLabels:{'Textbook schematic':'Schematic'}};
@@ -162,7 +168,10 @@ export const labs={
    {key:'nozzleMocMethod',label:'Solution method',value:nozzleMocMethods.point,options:Object.values(nozzleMocMethods)},
    {key:'nozzleMocStart',label:'Starting section',value:nozzleMocStarts.sonic,options:Object.values(nozzleMocStarts)},
    input('mocInletMach','Inlet Mach number',1.5,1.000001,8,.01,'Mᵢ'),
-   input('mocExitMach','Design exit Mach number',nozzleMocExamples[0].inputs.mocExitMach,1.01,8,.01,'Mₑ'),
+   {key:'nozzleMocTarget',label:'Design target',value:nozzleMocTargets.mach,options:Object.values(nozzleMocTargets)},
+   input('mocExitMach','Design exit Mach number',defaultMocTargets.mocExitMach,1.01,8,.01,'Mₑ'),
+   {...input('mocExitPressureRatio','Exit-to-stagnation pressure ratio',defaultMocTargets.mocExitPressureRatio,0,1,'any','pₑ/p₀'),slider:false},
+   {...input('mocExitAreaRatio','Exit-to-throat area ratio',defaultMocTargets.mocExitAreaRatio,1,p.areaMach(8,1.1),'any','Aₑ/Aₜ'),slider:false},
    {...input('mocThroatHalfHeight','Throat half-height',.05,.001,100,.001,'m'),sliderMax:1},
    input('mocFanRays','Number of fan rays',nozzleMocExamples[0].inputs.mocFanRays,4,400,1)
   ],
@@ -358,8 +367,16 @@ export function inputDefinitions(id,x={}){
  if(id==='nozzle-design'){
   const [fluid,gamma]=gasInputFields(x,id);
   const supersonic=x.nozzleMocStart===nozzleMocStarts.supersonic;
-  const fields=labs[id].inputs.filter(field=>field.key!=='mocInletMach'||supersonic)
-   .map(field=>field.key==='mocThroatHalfHeight'&&supersonic?{...field,label:'Inlet half-height'}:field);
+  const targetKey=nozzleMocTargetFields[x.nozzleMocTarget??nozzleMocTargets.mach];
+  const fields=labs[id].inputs
+   .filter(field=>field.key!=='mocInletMach'||supersonic)
+   .filter(field=>!Object.values(nozzleMocTargetFields).includes(field.key)||field.key===targetKey)
+   .map(field=>{
+    if(!supersonic)return field;
+    if(field.key==='mocThroatHalfHeight')return {...field,label:'Inlet half-height'};
+    if(field.key==='mocExitAreaRatio')return {...field,label:'Exit-to-inlet area ratio',unit:'Aₑ/Aᵢ'};
+    return field;
+   });
   return [
    {...fluid,help:'Select a working gas to set γ, or choose Custom gas to enter it directly.'},
    {...gamma,min:1.1,max:1.67},

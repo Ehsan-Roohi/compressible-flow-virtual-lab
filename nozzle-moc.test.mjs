@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {calculate, defaults, inputDefinitions} from './labs.js';
 import {gasPresets, selectGas} from './gas-properties.js';
-import {designMinimumLengthNozzle, nozzleMocExamples, nozzleMocMethods, nozzleMocStarts} from './nozzle-moc.js';
+import {designMinimumLengthNozzle, nozzleMocExamples, nozzleMocMethods, nozzleMocStarts, nozzleMocTargets, nozzleMocTargetValues, resolveNozzleMocExitMach} from './nozzle-moc.js';
 import {plotOptions} from './plot-options.js';
 import {sceneSVG} from './graphics.js';
 import {areaMach,deg,isentropic,prandtlMeyer} from './physics.js';
@@ -189,6 +189,51 @@ test('uniform supersonic starts produce parallel exit flow and converge to the i
   assert.throws(()=>calculate(id,{...base,mocInletMach}),/1 < inlet Mach < exit Mach/);
  const sonic=calculate(id,{...base,nozzleMocStart:nozzleMocStarts.sonic,mocInletMach:.9});
  assert.equal(sonic.result.inletMach,1);
+});
+
+test('equivalent design targets reproduce the wall for both starting sections and methods',()=>{
+ const id='nozzle-design';
+ for(const example of [nozzleMocExamples[0],nozzleMocExamples[3]]){
+  const base={...defaults(id),...example.inputs,nozzleMocMethod:nozzleMocMethods.compare};
+  const targets=nozzleMocTargetValues(base);
+  const direct=calculate(id,base).result.designs;
+  for(const nozzleMocTarget of [nozzleMocTargets.pressure,nozzleMocTargets.area]){
+   const inputs={...base,...targets,nozzleMocTarget,mocExitMach:NaN};
+   const fields=inputDefinitions(id,inputs);
+   assert.ok(!fields.some(field=>field.key==='mocExitMach'));
+   const unit=nozzleMocTarget===nozzleMocTargets.pressure?'pₑ/p₀':
+    direct[0].inletMach===1?'Aₑ/Aₜ':'Aₑ/Aᵢ';
+   assert.ok(fields.some(field=>field.unit===unit));
+   const {result:{designs}}=calculate(id,inputs);
+   for(const [i,design] of designs.entries()){
+    near(design.exitMach,base.mocExitMach,1e-12);
+    for(const [j,point] of design.wall.entries()){
+     near(point.x,direct[i].wall[j].x,1e-10);
+     near(point.y,direct[i].wall[j].y,1e-10);
+    }
+   }
+  }
+ }
+});
+
+test('alternate design targets enforce the supersonic expansion and exit Mach bounds',()=>{
+ const base=defaults('nozzle-design');
+ const pressure={...base,nozzleMocTarget:nozzleMocTargets.pressure};
+ const area={...base,nozzleMocTarget:nozzleMocTargets.area};
+ for(const gamma of [1.1,1.2,1.4,1.67]){
+  for(const mach of [1.01,8]){
+   const values=nozzleMocTargetValues({...base,gamma},mach);
+   near(resolveNozzleMocExitMach({...pressure,...values,gamma}),mach,1e-12);
+   near(resolveNozzleMocExitMach({...area,...values,gamma}),mach,1e-12);
+  }
+ }
+ assert.throws(()=>resolveNozzleMocExitMach({...pressure,mocExitPressureRatio:0}),/between 0 and 1/);
+ assert.throws(()=>resolveNozzleMocExitMach({...pressure,mocExitPressureRatio:.95}),/1.01 to 8/);
+ assert.throws(()=>resolveNozzleMocExitMach({...area,mocExitAreaRatio:1}),/greater than 1/);
+ assert.throws(()=>resolveNozzleMocExitMach({...area,mocExitAreaRatio:1e9}),/1.01 to 8/);
+ assert.throws(()=>resolveNozzleMocExitMach({
+  ...pressure,nozzleMocStart:nozzleMocStarts.supersonic,mocInletMach:2
+ }),/1 < inlet Mach < exit Mach/);
 });
 
 test('the contour probe follows the selected property, wall mask and comparison panel',()=>{

@@ -1,4 +1,4 @@
-import {calculate} from './labs.js?v=20261125-nozzle-supersonic-inlet';
+import {calculate} from './labs.js?v=20261125-nozzle-design-target';
 import {readPublishedPressure} from './critical-mach-pressure.js?v=20261124-expanded-airfoil-bank';
 
 // Coalesce queued slider changes and discard superseded online lookups.

@@ -9,6 +9,64 @@ export const nozzleMocMethods = Object.freeze({
 
 export const nozzleMocStarts = Object.freeze({sonic:'Sonic throat',supersonic:'Supersonic inlet'});
 
+export const nozzleMocTargets = Object.freeze({
+ mach:'Exit Mach number',
+ pressure:'Exit pressure ratio',
+ area:'Exit area ratio'
+});
+
+const minimumExitMach=1.01, maximumExitMach=8;
+
+function startingMach(inputs){
+ return inputs.nozzleMocStart===nozzleMocStarts.supersonic?inputs.mocInletMach:1;
+}
+
+export function nozzleMocTargetValues(inputs,mach=inputs.mocExitMach){
+ const {gamma}=inputs;
+ return {
+  mocExitMach:mach,
+  mocExitPressureRatio:1/isentropic(mach,gamma).p0p,
+  mocExitAreaRatio:areaMach(mach,gamma)/areaMach(startingMach(inputs),gamma)
+ };
+}
+
+export function resolveNozzleMocExitMach(inputs){
+ const {
+  nozzleMocTarget=nozzleMocTargets.mach,nozzleMocStart=nozzleMocStarts.sonic,
+  gamma,mocExitMach,mocExitPressureRatio,mocExitAreaRatio
+ }=inputs;
+ const inlet=startingMach(inputs);
+ const inletMessage='For a supersonic inlet, enter conditions satisfying 1 < inlet Mach < exit Mach.';
+ requireValue(finite(gamma)&&gamma>=1.1&&gamma<=1.67,'Enter a specific heat ratio from 1.1 to 1.67.');
+ requireValue(Object.values(nozzleMocStarts).includes(nozzleMocStart),'Choose a nozzle starting section.');
+ requireValue(nozzleMocStart===nozzleMocStarts.sonic||(finite(inlet)&&inlet>1&&inlet<maximumExitMach),inletMessage);
+
+ let mach=mocExitMach;
+ const machRange='The design exit Mach number must be from 1.01 to 8.';
+ if(nozzleMocTarget===nozzleMocTargets.pressure){
+  requireValue(finite(mocExitPressureRatio)&&mocExitPressureRatio>0&&mocExitPressureRatio<1,
+   'Enter an exit-to-stagnation pressure ratio between 0 and 1.');
+  mach=Math.sqrt(2*Math.expm1(-Math.log(mocExitPressureRatio)*(gamma-1)/gamma)/(gamma-1));
+  const tolerance=8*Number.EPSILON*maximumExitMach;
+  requireValue(finite(mach)&&mach>=minimumExitMach-tolerance&&mach<=maximumExitMach+tolerance,machRange);
+  mach=Math.min(maximumExitMach,Math.max(minimumExitMach,mach));
+ }else if(nozzleMocTarget===nozzleMocTargets.area){
+  requireValue(finite(mocExitAreaRatio)&&mocExitAreaRatio>1,'Enter an exit area ratio greater than 1.');
+  const inletArea=areaMach(inlet,gamma);
+  const lowerMach=Math.max(inlet,minimumExitMach);
+  const areaRatio=exitMach=>areaMach(exitMach,gamma)/inletArea;
+  const lower=areaRatio(lowerMach),upper=areaRatio(maximumExitMach);
+  requireValue(mocExitAreaRatio>=lower*(1-8*Number.EPSILON)&&mocExitAreaRatio<=upper*(1+8*Number.EPSILON),machRange);
+  const target=Math.min(upper,Math.max(lower,mocExitAreaRatio));
+  mach=bisect(exitMach=>areaRatio(exitMach)-target,lowerMach,maximumExitMach,{ftol:0}).value;
+ }else{
+  requireValue(nozzleMocTarget===nozzleMocTargets.mach,'Choose a nozzle design target.');
+ }
+ requireValue(finite(mach)&&mach>=minimumExitMach&&mach<=maximumExitMach,machRange);
+ requireValue(mach>inlet,inletMessage);
+ return mach;
+}
+
 export const nozzleMocExamples = [
  {value:'john-keith', menuNumber:1, label:'Mach 1.8 nozzle',
   inputs:{mocExitMach:1.8, fluid:'Custom gas', gamma:1.2, mocFanRays:20},
@@ -36,20 +94,16 @@ function intersect(a, angleA, b, angleB) {
 function minus(a,b){return (a.theta+b.theta-a.mu-b.mu)/2;}
 function plus(a,b){return (a.theta+b.theta+a.mu+b.mu)/2;}
 
-export function designMinimumLengthNozzle({
- mocExitMach, gamma, mocFanRays, mocThroatHalfHeight,
- nozzleMocMethod=nozzleMocMethods.point, nozzleMocStart=nozzleMocStarts.sonic, mocInletMach
-}) {
- const mach=mocExitMach, count=mocFanRays, halfHeight=mocThroatHalfHeight;
+export function designMinimumLengthNozzle(inputs) {
+ const {
+  gamma,mocFanRays:count,mocThroatHalfHeight:halfHeight,
+  nozzleMocMethod=nozzleMocMethods.point,nozzleMocStart=nozzleMocStarts.sonic
+ }=inputs;
  const regional=nozzleMocMethod===nozzleMocMethods.region;
  const supersonic=nozzleMocStart===nozzleMocStarts.supersonic;
- const inletMach=supersonic?mocInletMach:1;
+ const inletMach=startingMach(inputs);
  requireValue(regional||nozzleMocMethod===nozzleMocMethods.point,'Choose one nozzle design method.');
- requireValue(finite(mach)&&mach>=1.01&&mach<=8,'Enter an exit Mach number from 1.01 to 8.');
- requireValue(supersonic||nozzleMocStart===nozzleMocStarts.sonic,'Choose a nozzle starting section.');
- requireValue(!supersonic||(finite(inletMach)&&inletMach>1&&inletMach<mach),
-  'For a supersonic inlet, enter Mach numbers satisfying 1 < inlet Mach < exit Mach.');
- requireValue(finite(gamma)&&gamma>=1.1&&gamma<=1.67,'Enter a specific heat ratio from 1.1 to 1.67.');
+ const mach=resolveNozzleMocExitMach(inputs);
  requireValue(Number.isInteger(count)&&count>=4&&count<=400,'Enter a whole number from 4 to 400 for the number of fan rays.');
  requireValue(finite(halfHeight)&&halfHeight>=.001&&halfHeight<=100,'Enter a starting half-height from 0.001 to 100 m.');
 
