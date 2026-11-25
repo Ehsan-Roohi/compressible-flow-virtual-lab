@@ -1,7 +1,7 @@
 import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput,obliqueInputs,conicalInputs} from './appendix-calculator.js?v=20261124-shock-input-options';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
-import {designMinimumLengthNozzle,nozzleMocExamples} from './nozzle-moc.js';
+import {designMinimumLengthNozzle,nozzleMocExamples} from './nozzle-moc.js?v=20261125-nozzle-gas';
 import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
 import {linearizedTube,movingShockSonicMach,tubeSolutionMethods} from './linearized-tube.js?v=20261121-tube-methods';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveSingleStagePiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261121-piston-menu';
@@ -159,7 +159,6 @@ export const labs={
  'nozzle-design':{chapter:8,title:'Method of Characteristics',tag:'MINIMUM-LENGTH NOZZLE',
   description:'Design the diverging contour of a planar minimum-length nozzle for a specified exit Mach number.',
   inputs:[
-   {...g,value:nozzleMocExamples[0].inputs.gamma,step:.001,section:'Gas properties'},
    input('mocExitMach','Design exit Mach number',nozzleMocExamples[0].inputs.mocExitMach,1.01,8,.01,'Mₑ'),
    {...input('mocThroatHalfHeight','Throat half-height',.05,.001,100,.001,'m'),sliderMax:1},
    input('mocFanRays','Number of fan rays',nozzleMocExamples[0].inputs.mocFanRays,4,400,1)
@@ -353,7 +352,14 @@ function groupStationInputs(fields){
  });
 }
 export function inputDefinitions(id,x={}){
- if(id==='nozzle-design')return labs[id].inputs;
+ if(id==='nozzle-design'){
+  const [fluid,gamma]=gasInputFields(x,id);
+  return [
+   {...fluid,help:'Select a working gas to set γ, or choose Custom gas to enter it directly.'},
+   {...gamma,min:1.1,max:1.67},
+   ...labs[id].inputs
+  ];
+ }
  if(id==='foundations'){
   const mode=x.calculatorMode??calculatorModes.isentropic,range=calculatorMachRange(mode);
   const obliqueField={
@@ -390,7 +396,7 @@ export function nozzleInfo(x){
  return {description:'Vary back pressure to find subsonic flow, choking, an internal normal shock and external pressure adjustment.',model:'Converging–diverging nozzle · reservoir inlet · isentropic sections with up to one normal shock',equation:base.equation,limitations:'The divergent area increases monotonically. Shock location Aₛ/Aₜ is calculated; x/L uses the displayed schematic area distribution. Use External waves for local lip adjustment. Full jets and flow separation are not resolved.'};
 }
 
-export function defaults(id){return {...(id==='wall'?{customInteraction:'',inletFlowSide:inletFlowSides[0],inletLowerDefinition:inletLowerDefinitions[0],inletLowerHeightRatio:.5,inletLowerWallLengthRatio:1,inletLowerStartRatio:0,inletLowerCowlRatio:1,inletBottomSegments:[{angle:-8,length:1}],inletSolutionVersion:2,inletReference:2,inletHeightRatio:.5,inletCowlRatio:1,inletTerminal:'Wall reflections',inletLowerSegments:multiRampPreset.inletLowerSegments.map(p=>({...p})),inletUpperWallRatio:1,inletUpperStartRatio:0}:{}),...(id==='wall'?{fanShockAngle:10,fanExpansionAngle:10}:{}),...(id==='wall'?{ramjetOrientation:ramjetOrientations[0]}:{}),...(['airfoil','fanno','wall','tube','cone','rayleigh'].includes(id)?{bookExample:''}:{}),...stateInputDefaults,...systemDefaults,...Object.fromEntries(labs[id].inputs.map(x=>[x.key,x.value])),...(id==='fanno'?{fannoTemperatureRatio:1.5,fannoPressureRatio:2}:{}),...(id==='rayleigh'?{rayleighInput:'Heat transfer + Inlet Mach',targetMach:.8,targetPressure:80}:{}),...(id==='balances'?controlVolumePreset():{}),inletT0:350,outletT0:400,inletBranch:'Subsonic',targetMach:.8,fannoInput:'Friction length',fluid:'Air',gamma:1.4,R:287,...(id==='nozzle-design'?{...nozzleMocExamples[0].inputs,bookExample:nozzleMocExamples[0].value,fluid:'Custom gas'}:{}),...(['oblique','expansion'].includes(id)?{cornerView:'Analytical contours',cornerColorVersion:1}:{})};}
+export function defaults(id){return {...(id==='wall'?{customInteraction:'',inletFlowSide:inletFlowSides[0],inletLowerDefinition:inletLowerDefinitions[0],inletLowerHeightRatio:.5,inletLowerWallLengthRatio:1,inletLowerStartRatio:0,inletLowerCowlRatio:1,inletBottomSegments:[{angle:-8,length:1}],inletSolutionVersion:2,inletReference:2,inletHeightRatio:.5,inletCowlRatio:1,inletTerminal:'Wall reflections',inletLowerSegments:multiRampPreset.inletLowerSegments.map(p=>({...p})),inletUpperWallRatio:1,inletUpperStartRatio:0}:{}),...(id==='wall'?{fanShockAngle:10,fanExpansionAngle:10}:{}),...(id==='wall'?{ramjetOrientation:ramjetOrientations[0]}:{}),...(['airfoil','fanno','wall','tube','cone','rayleigh'].includes(id)?{bookExample:''}:{}),...stateInputDefaults,...systemDefaults,...Object.fromEntries(labs[id].inputs.map(x=>[x.key,x.value])),...(id==='fanno'?{fannoTemperatureRatio:1.5,fannoPressureRatio:2}:{}),...(id==='rayleigh'?{rayleighInput:'Heat transfer + Inlet Mach',targetMach:.8,targetPressure:80}:{}),...(id==='balances'?controlVolumePreset():{}),inletT0:350,outletT0:400,inletBranch:'Subsonic',targetMach:.8,fannoInput:'Friction length',fluid:'Air',gamma:1.4,R:287,...(id==='nozzle-design'?{...nozzleMocExamples[0].inputs,bookExample:nozzleMocExamples[0].value}:{}),...(['oblique','expansion'].includes(id)?{cornerView:'Analytical contours',cornerColorVersion:1}:{})};}
 export function calculate(id,x,publishedPressure){
  if(id==='nozzle-design'){
   const result=designMinimumLengthNozzle(x);
@@ -414,7 +420,8 @@ export function calculate(id,x,publishedPressure){
   ];
   const notice=Math.abs(result.areaErrorPct)>1?
    'The exit area differs by more than 1% from the isentropic value. Increase the number of fan rays to check mesh convergence.':null;
-  return {id,inputs:x,model:labs[id].model,result,rows,chart,scene:{kind:'nozzleMoc',mesh:result.mesh,wall,exitMach:result.exitMach},
+  const {name,gamma}=gasInfo(x);
+  return {id,inputs:x,gas:{name,gamma},model:labs[id].model,result,rows,chart,scene:{kind:'nozzleMoc',mesh:result.mesh,wall,exitMach:result.exitMach},
    checks:{},notice,shockDetails:[],version:'0.1.0'};
  }
  if(id==='critical-mach'){

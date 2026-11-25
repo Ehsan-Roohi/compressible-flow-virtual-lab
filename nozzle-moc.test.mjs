@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {calculate, defaults} from './labs.js';
+import {calculate, defaults, inputDefinitions} from './labs.js';
+import {gasPresets, selectGas} from './gas-properties.js';
 import {designMinimumLengthNozzle, nozzleMocExamples} from './nozzle-moc.js';
 import {plotOptions} from './plot-options.js';
 
@@ -53,4 +54,24 @@ test('the exported contour uses the calculated upper wall and its mirror',()=>{
   assert.deepEqual(upper.points[i],[x,y]);
   assert.deepEqual(lower.points[i],[x,-y]);
  }
+});
+
+test('the nozzle design uses named gas gamma or an editable custom value',()=>{
+ const id='nozzle-design', base=defaults(id);
+ assert.equal(base.fluid,'Custom gas');
+ assert.equal(base.gamma,1.2);
+ for(const [name,{gamma}] of Object.entries(gasPresets)){
+  const inputs=selectGas(base,name);
+  const [fluid,ratio]=inputDefinitions(id,inputs);
+  assert.equal(fluid.key,'fluid');
+  assert.ok(fluid.options.includes(name));
+  assert.equal(ratio.key,'gamma');
+  assert.equal(ratio.readOnly,true);
+  assert.deepEqual(calculate(id,inputs).gas,{name,gamma});
+ }
+ const custom={...selectGas(base,'Custom gas'),gamma:1.3};
+ assert.equal(inputDefinitions(id,custom)[1].readOnly,false);
+ assert.deepEqual(calculate(id,custom).gas,{name:'Custom gas',gamma:1.3});
+ assert.notEqual(calculate(id,custom).result.wallAngle,calculate(id,base).result.wallAngle);
+ assert.ok(!inputDefinitions(id,custom).some(field=>field.key==='R'));
 });

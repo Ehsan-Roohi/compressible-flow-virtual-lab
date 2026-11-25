@@ -2,12 +2,15 @@ import {areaMach, deg, isentropic, prandtlMeyer} from './physics.js';
 import {bisect, finite, requireValue} from './numerics.js';
 
 export const nozzleMocExamples = [
- {value:'john-keith', label:'Mach 1.8 · John & Keith', inputs:{mocExitMach:1.8, gamma:1.2, mocFanRays:20},
-  note:'Design inputs from Gas Dynamics, Example 14.5. The lab computes the contour on its own grid.'},
- {value:'anderson', label:'Mach 2.4 · Anderson', inputs:{mocExitMach:2.4, gamma:1.4, mocFanRays:30},
-  note:'Design inputs from Modern Compressible Flow, 3rd ed., Example 11.1.'},
- {value:'nasa-x-1502', label:'Mach 4.05 · NASA TM X-1502', inputs:{mocExitMach:4.05, gamma:1.36, mocFanRays:330},
-  note:'Design inputs from NASA TM X-1502, Table I. The fan is resolved at about 0.1° per step.'},
+ {value:'john-keith', menuNumber:1, label:'Mach 1.8 nozzle',
+  inputs:{mocExitMach:1.8, fluid:'Custom gas', gamma:1.2, mocFanRays:20},
+  note:'Design a minimum-length nozzle for Mach 1.8 with γ = 1.20. The design conditions are from John & Keith, Example 14.5.'},
+ {value:'anderson', menuNumber:2, label:'Mach 2.4 air nozzle',
+  inputs:{mocExitMach:2.4, fluid:'Air', gamma:1.4, mocFanRays:30},
+  note:'Expand air to Mach 2.4 and find the wall contour that gives parallel flow at the exit. Based on Anderson, Example 11.1.'},
+ {value:'nasa-x-1502', menuNumber:3, label:'Mach 4.05 nozzle',
+  inputs:{mocExitMach:4.05, fluid:'Custom gas', gamma:1.36, mocFanRays:330},
+  note:'Design for Mach 4.05 with γ = 1.36 and a fan increment of about 0.1°. Based on NASA TM X-1502, Table I.'},
 ];
 
 function intersect(a, angleA, b, angleB) {
