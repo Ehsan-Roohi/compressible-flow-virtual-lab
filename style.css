@@ -416,6 +416,26 @@ body[data-lab="foundations"] .compare-btn{width:auto;margin:5px var(--card-inset
 .export-disclosure > summary { font-size: 13px; padding-block: 3px; }
 .export-disclosure > div { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .export-disclosure button { color: var(--teal); }
+.export-filename {
+  display: grid;
+  flex: 1 0 100%;
+  gap: 4px;
+  margin: 4px 0;
+  min-width: 0;
+  max-width: 18rem;
+  color: var(--ink);
+  font-size: 13px;
+}
+.export-filename input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  background: #f9fbf9;
+}
+.scene-tools .export-filename { width: min(13rem, 42vw); }
 .export-disclosure summary:focus-visible, .sampling-settings summary:focus-visible,
 .reference-detail summary:focus-visible, .airfoil-detail summary:focus-visible {
   outline: 2px solid var(--teal); outline-offset: 2px;
