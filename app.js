@@ -157,8 +157,6 @@ const measure=(number,unit,digits)=>`${displayValue(number,unit,digits)} ${unitV
 const fieldNumber=(number,field)=>unitView.label(field.unit)===field.unit
  ?unitView.fieldValue(number,field):unitView.round(unitView.fieldValue(number,field),10);
 const fieldLimit=(number,field)=>unitView.label(field.unit)===field.unit?number:unitView.round(unitView.value(number,field.unit),10);
-const exportInputs=()=>inputDefinitions(id,inputs).filter(f=>typeof inputs[f.key]==='number')
- .map(f=>({parameter:f.key,value:unitView.fieldValue(inputs[f.key],f),unit:unitView.label(f.unit)}));
 const displayProbe=([label,number])=>[unitView.axisLabel(label),unitView.value(number,unitView.axisUnit(label))];
 const flowPlots=(result,time)=>plotOptions(result,time).map(unitView.plot);
 
@@ -856,12 +854,12 @@ function opposingShockSlipRows(d){
  const angle=opposingShockSlipAngle(d.result);
  return angle===null?[]:[{label:'Slip-line angle φ',value:angle,unit:'°'}];
 }
-function csvDataRows(d){if(d.id==='critical-mach'&&d.result.pressureInput){const p=d.result.pressureInput;return [{label:'Minimum incompressible pressure coefficient',value:p.cp,unit:'Cp,0 min'},{label:'Minimum pressure location',value:p.x,unit:'x/c'},{label:'Pressure source',value:p.source.label,unit:''},...d.rows];}if(d.result.tracking||d.result.shockFan){const regions=(d.inspectTrackingEvent?null:d.result.finalStreamMatch)?.regions??d.result.regions;return opposingShockSlipRows(d).concat(Object.entries(regions).flatMap(([n,z])=>[['Mach number',z.M,''],['Static pressure',z.p/1000,'kPa'],['Static temperature',z.T,'K'],['Density',z.rho,'kg/m³'],['Flow speed',z.u,'m/s'],['Flow angle',z.theta*180/Math.PI,'°'],['Stagnation pressure',z.p0/1000,'kPa'],['Stagnation temperature',z.T0,'K']].map(([label,value,unit])=>({label:`Region ${n.replace(/^Region /,'')} · ${label}`,value,unit}))));}return [...(d.result.moc?.slip?[]:opposingShockSlipRows(d)),...d.rows,...trackingExportRows(d.result),...fittedExportRows(d.result),...(d.gas?[{label:'Working gas',value:d.gas.name,unit:''},{label:'Specific gas constant',value:d.gas.R,unit:'J/(kg·K)'},{label:'Specific heat ratio',value:d.gas.gamma,unit:''},{label:'Specific heat cp',value:d.gas.cp,unit:'J/(kg·K)'}]:[]),...(d.id==='balances'?Object.entries(d.result.terms).flatMap(([k,t])=>[...t.terms.map(([label,value])=>({label:k+' · '+label,value,unit:t.unit})),{label:k+' · relative residual',value:t.relative,unit:''}]):[]),...(d.shockDetails??[]).flatMap(g=>[...g.rows.flatMap(r=>[{label:`${g.title} · ${r.label} · upstream`,value:r.before,unit:r.unit},{label:`${g.title} · ${r.label} · downstream`,value:r.after,unit:r.unit},{label:`${g.title} · ${r.label} · downstream/upstream`,value:r.ratio,unit:''}]),...g.extra.map(e=>({label:`${g.title} · ${e.label}`,value:e.value,unit:e.unit}))])]}
+function csvDataRows(d){if(d.id==='critical-mach'&&d.result.pressureInput){const p=d.result.pressureInput;return [{label:'Minimum incompressible pressure coefficient',value:p.cp,unit:'Cp,0 min'},{label:'Minimum pressure location',value:p.x,unit:'x/c'},{label:'Pressure source',value:p.source.label,unit:''},...d.rows];}if(d.result.tracking||d.result.shockFan){const regions=(d.inspectTrackingEvent?null:d.result.finalStreamMatch)?.regions??d.result.regions;return opposingShockSlipRows(d).concat(Object.entries(regions).flatMap(([n,z])=>[['Mach number',z.M,''],['Static pressure',z.p/1000,'kPa'],['Static temperature',z.T,'K'],['Density',z.rho,'kg/m³'],['Flow speed',z.u,'m/s'],['Flow angle',z.theta*180/Math.PI,'°'],['Stagnation pressure',z.p0/1000,'kPa'],['Stagnation temperature',z.T0,'K']].map(([label,value,unit])=>({label:`Region ${n.replace(/^Region /,'')} · ${label}`,value,unit}))));}return [...(d.result.moc?.slip?[]:opposingShockSlipRows(d)),...d.rows,...trackingExportRows(d.result),...fittedExportRows(d.result),...(d.gas?[{label:'Specific heat cp',value:d.gas.cp,unit:'J/(kg·K)'}]:[]),...(d.id==='balances'?Object.entries(d.result.terms).flatMap(([k,t])=>[...t.terms.map(([label,value])=>({label:k+' · '+label,value,unit:t.unit})),{label:k+' · relative residual',value:t.relative,unit:''}]):[]),...(d.shockDetails??[]).flatMap(g=>[...g.rows.flatMap(r=>[{label:`${g.title} · ${r.label} · upstream`,value:r.before,unit:r.unit},{label:`${g.title} · ${r.label} · downstream`,value:r.after,unit:r.unit},{label:`${g.title} · ${r.label} · downstream/upstream`,value:r.ratio,unit:''}]),...g.extra.map(e=>({label:`${g.title} · ${e.label}`,value:e.value,unit:e.unit}))])]}
 function renderTrackingPanel(d){
  if(!d.result.tracking){$('trackingViewControls')?.remove();$('chart').closest('.chart-card').hidden=false;}
  if(d.result.moc?.fitted){
   const panel=$('trackingEventPanel');panel.innerHTML=fittedInspectionHTML(d.result,fmt);panel.hidden=!panel.innerHTML;if(panel.hidden)return;
-  const update=()=>{$('fittedShockValues').innerHTML=fittedPointHTML(selectedFittedPoint(d.result,$('fittedShockSelect').value,$('fittedShockPosition').value),fmt,d.result.R);displayMeasuredTable($('fittedShockValues'));displayMeasurements($('fittedShockValues'));};
+  const update=()=>{$('fittedShockValues').innerHTML=fittedPointHTML(selectedFittedPoint(d.result,$('fittedShockSelect').value,$('fittedShockPosition').value),fmt,d.result.R);displayMeasuredTable($('fittedShockValues'));displayMeasurements($('fittedShockValues'));addDisplayedExports($('fittedShockValues'),'fitted-shock');};
   $('fittedShockSelect').onchange=()=>{$('fittedShockPosition').value=0;update();};$('fittedShockPosition').oninput=update;update();return;
  }
  const panel=$('trackingEventPanel'),chartCard=$('chart').closest('.chart-card');panel.hidden=!d.result.tracking;
@@ -1037,8 +1035,8 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
  if(d.id==='tube'){
   const grouped=groupTubeResults(results);
   $('results').innerHTML=grouped.sidebar.filter(({title})=>title!=='Simulation').map(({title,rows,collapsed})=>collapsed
-   ?`<details class="tube-result-group"><summary>${title}</summary>${rows.map(renderRow).join('')}</details>`
-   :`<section class="tube-result-group"><h3>${title}</h3>${rows.map(renderRow).join('')}</section>`).join('');
+   ?`<details class="tube-result-group" data-output-group><summary>${title}</summary>${rows.map(renderRow).join('')}</details>`
+   :`<section class="tube-result-group" data-output-group><h3>${title}</h3>${rows.map(renderRow).join('')}</section>`).join('');
   if(d.result.incident||d.result.acoustic){
    const {p4,p1,T4,T1}=d.inputs;
    $('results').insertAdjacentHTML('afterbegin',`<details class="tube-result-group"><summary>Initial chamber conditions</summary>${[
@@ -1066,7 +1064,7 @@ function renderResult(){let d=current;const coefficientsOnly=d.id==='airfoil'&&d
    renderRow({label:`Minimum location · ${side==='both'?'both surfaces':side+' surface'}`,value:x,unit:'x/c'})+
    `<p class="control-hint"><a href="${source.url}" target="_blank" rel="noopener">${source.label}</a>${kind==='published'?` · <a href="${source.dataUrl}" target="_blank" rel="noopener">Pressure data</a>`:''}<br>${detail}</p>`);
  }
- renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();displayMeasuredTable($('trackingEventPanel'));displayMeasuredTable($('regionTable'));displayMeasuredTable($('airfoilPanel'));displayMeasuredTable($('airfoilWavePanel'));displayMeasurements($('notice'),$('trackingEventPanel'),$('regionTable'),$('flowRelationsPanel'),$('airfoilPanel'),$('airfoilWavePanel'),$('shockResults'));$('exportJson').disabled=!!d.result.endPreview;$('exportCsv').disabled=!!d.result.endPreview;$('pin').disabled=!!d.result.endPreview;$('exportSvg').disabled=!d.scene;if(d.scene)renderScene();updatePlotChoices();renderCompare();}
+ renderShockDetails(d.result.tracking||coefficientsOnly||!$('airfoilWavePanel').hidden?[]:d.shockDetails);renderBalanceDetails();displayMeasuredTable($('trackingEventPanel'));displayMeasuredTable($('regionTable'));displayMeasuredTable($('airfoilPanel'));displayMeasuredTable($('airfoilWavePanel'));displayMeasurements($('notice'),$('trackingEventPanel'),$('regionTable'),$('flowRelationsPanel'),$('airfoilPanel'),$('airfoilWavePanel'),$('shockResults'));renderOutputExports();$('exportJson').disabled=false;$('exportCsv').disabled=false;$('pin').disabled=!!d.result.endPreview;$('exportSvg').disabled=!d.scene;if(d.scene)renderScene();updatePlotChoices();renderCompare();}
 function renderWaveKey(result){
  const key=$('waveKey');
  key.hidden=!result.finiteTube;
@@ -1194,24 +1192,94 @@ function download(name,text,type){
  anchor.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-function addDataExport(box,section,getData){
+function addDataExport(box,section,getData,{after,displayed=false,summary='Export data'}={}){
  const disclosure=document.createElement('details');
  disclosure.className='result-actions export-disclosure';
- disclosure.innerHTML='<summary>Export data</summary><div><label class="export-filename">File name <input type="text" maxlength="160" autocomplete="off" placeholder="Default name"></label><button type="button" data-format="json">JSON ↓</button><button type="button" data-format="csv">CSV ↓</button></div>';
+ disclosure.innerHTML='<summary>'+summary+'</summary><div><label class="export-filename">File name <input type="text" maxlength="160" autocomplete="off" placeholder="Default name"></label><button type="button" data-format="json">JSON ↓</button><button type="button" data-format="csv">CSV ↓</button></div>';
  disclosure.onclick=e=>{
   const format=e.target.dataset.format;
   if(!format)return;
-  const data=unitView.exportData(getData()),name=exportFilename(e.target,`compressible-flow-${id}-${section}`,format);
-  if(format==='json'){download(name,JSON.stringify(data,null,2),'application/json');return;}
-  const rows=Object.entries(data).flatMap(([group,items])=>Array.isArray(items)?items.map(item=>({group,...item})):[{group,...items}]);
+  const name=exportFilename(e.target,`compressible-flow-${id}-${section}`,format);
+  const data=getData();
+  if(displayed){
+   if(format==='json')download(name,JSON.stringify(data,null,2),'application/json');
+   else download(name,[data.columns,...data.rows].map(row=>row.map(csvCell).join(',')).join('\n'),'text/csv');
+   return;
+  }
+  const converted=unitView.exportData(data);
+  if(format==='json'){download(name,JSON.stringify(converted,null,2),'application/json');return;}
+  const rows=Object.entries(converted).flatMap(([group,items])=>Array.isArray(items)?items.map(item=>({group,...item})):[{group,...items}]);
   const columns=[...new Set(rows.flatMap(Object.keys))];
   download(name,[columns,...rows.map(row=>columns.map(key=>row[key]))].map(row=>row.map(csvCell).join(',')).join('\n'),'text/csv');
  };
- box.append(disclosure);
+ if(after)after.after(disclosure);
+ else box.append(disclosure);
 }
 const csvCell=value=>'"'+String(value==null?'':typeof value==='object'?JSON.stringify(value):value).replaceAll('"','""')+'"';
-$('exportJson').onclick=()=>{if(current&&!current.result.endPreview)download(exportFilename($('exportJson'),`compressible-flow-${id}`,'json'),JSON.stringify({...current,solverUnitSystem:'SI',displayUnitSystem:unitView.system==='US'?'US Customary':'SI',displayRows:csvDataRows(current).map(unitView.row),displayInputs:exportInputs(),exportedAt:new Date().toISOString()},null,2),'application/json');};
-$('exportCsv').onclick=()=>{if(!current||current.result.endPreview)return;download(exportFilename($('exportCsv'),`compressible-flow-${id}`,'csv'),'property,value,unit\n'+csvDataRows(current).map(unitView.row).map(r=>[r.label,r.value??'',r.unit].map(csvCell).join(',')).join('\n'),'text/csv');};
+function displayedText(cell){
+ if(!cell)return '';
+ return [...cell.childNodes].map(node=>{
+  if(node.nodeType===Node.TEXT_NODE)return node.textContent;
+  if(node.nodeType!==Node.ELEMENT_NODE)return '';
+  const text=displayedText(node);
+  if(!text)return '';
+  if(node.tagName==='SUB')return /^[-+0-9]+$/.test(text)
+   ?[...text].map(c=>'₀₁₂₃₄₅₆₇₈₉₋₊'['0123456789-+'.indexOf(c)]).join('')
+   :'_'+text;
+  if(node.tagName==='SUP')return '^'+text;
+  return node.tagName==='SMALL'||node.tagName==='SPAN'?' '+text+' ':text;
+ }).join('').replace(/\s+/g,' ').trim();
+}
+function displayedRows(element){
+ if(element.tagName==='TABLE'){
+  const rows=[...element.rows].map(row=>[...row.cells].map(displayedText));
+  return {columns:rows[0]??[],rows:rows.slice(1)};
+ }
+ if(element.tagName==='DL'){
+  return {columns:['Property','Value'],rows:[...element.querySelectorAll('dt')].map(term=>[
+   displayedText(term),displayedText(term.nextElementSibling)
+  ])};
+ }
+ return {columns:['Property','Value','Unit'],rows:[...element.querySelectorAll('.result-row')].map(row=>{
+  const value=row.querySelector('.result-value').cloneNode(true);
+  const unit=displayedText(value.querySelector('small'));
+  value.querySelector('small')?.remove();
+  return [displayedText(row.querySelector('.result-label')),displayedText(value),unit];
+ })};
+}
+function addDisplayedExports(root,section){
+ if(root.closest('[hidden]'))return;
+ const items=root.querySelectorAll('table, dl.isentropic-grid, dl.tube-plot-values, .shock-state > dl, [data-output-group]');
+ for(const [index,element] of [...items].entries()){
+  const table=element.tagName==='TABLE';
+  const group=element.hasAttribute('data-output-group');
+  if(table?element.rows.length<2:!element.querySelector(group?'.result-row':'dt'))continue;
+  const after=group?null:element.closest('.region-table-scroll, .airfoil-scroll, .shock-table-wrap, .flow-relations-scroll')??element;
+  const sibling=after?.nextElementSibling;
+  if(sibling?.matches('.export-disclosure')||group&&element.querySelector(':scope > .export-disclosure'))continue;
+  addDataExport(group?element:root,items.length===1?section:section+'-'+(index+1),
+   ()=>displayedRows(element),{after,displayed:true,summary:table?'Export table':'Export data'});
+ }
+}
+function renderOutputExports(){
+ const outputs={
+  calculatorTablePanel:'flow-properties',isentropicPanel:'calculator-results',
+  regionTablePanel:'region-properties',airfoilPanel:'airfoil-results',airfoilWavePanel:'wave-properties',
+  trackingEventPanel:'interaction-results',shockResults:'shock-states',balancePanel:'balance-terms',
+  results:'computed-results',tubePlotResults:'wave-results'
+ };
+ for(const [key,name] of Object.entries(outputs))addDisplayedExports($(key),name);
+}
+$('exportJson').onclick=()=>{
+ if(!current)return;
+ const {id,model,checks,notice,version}=current;
+ const rows=csvDataRows(current);
+ const data={id,model,checks,notice,version,rows,solverUnitSystem:'SI',
+  displayUnitSystem:unitView.system==='US'?'US Customary':'SI',displayRows:rows.map(unitView.row),
+  exportedAt:new Date().toISOString()};
+ download(exportFilename($('exportJson'),`compressible-flow-${id}`,'json'),JSON.stringify(data,null,2),'application/json');
+};
+$('exportCsv').onclick=()=>{if(!current)return;download(exportFilename($('exportCsv'),`compressible-flow-${id}`,'csv'),'property,value,unit\n'+csvDataRows(current).map(unitView.row).map(r=>[r.label,r.value??'',r.unit].map(csvCell).join(',')).join('\n'),'text/csv');};
 $('exportSvg').onclick=()=>{if(current)download(exportFilename($('exportSvg'),`compressible-flow-${id}`,'svg'),$('scene').innerHTML,'image/svg+xml');};
 function selectNozzleExamplePlot(){
  plotSelection.nozzle=inputs.bookExample==='8-4'?nozzleBookPlotKey:'nozzle-p';
@@ -1232,7 +1300,7 @@ function loadNozzleExample(selection){
 $('reset').onclick=()=>{if(id==='nozzle'){loadNozzleExample(inputs);return;}stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;inputs=defaults(id,inputs);renderInputs();solve();};
 $('pin').onclick=()=>{if(!current||current.result.endPreview)return;pinned={id,inputs:{...inputs},rows:current.rows.map(x=>({...x}))};try{localStorage.setItem('gdvl-pinned',JSON.stringify(pinned));}catch{}renderCompare();};
 try{pinned=JSON.parse(localStorage.getItem('gdvl-pinned'));}catch{}
-function renderCompare(){let box=$('comparison');if(!current||!pinned||pinned.id!==id){box.hidden=true;return;}box.hidden=false;box.innerHTML='<b>Pinned / current</b><table><tr><th>Property</th><th>Pinned</th><th>Current</th></tr>'+current.rows.map((r,i)=>`<tr><td>${r.label}</td><td>${displayValue(pinned.rows.find(v=>v.label===r.label&&v.unit===r.unit)?.value,r.unit)}</td><td>${displayValue(r.value,r.unit)} ${unitView.label(r.unit)}</td></tr>`).join('')+'</table><button class="text-btn" id="clearPin">Clear comparison</button>';$('clearPin').onclick=()=>{pinned=null;try{localStorage.removeItem('gdvl-pinned');}catch{}renderCompare();};}
+function renderCompare(){let box=$('comparison');if(!current||!pinned||pinned.id!==id){box.hidden=true;return;}box.hidden=false;box.innerHTML='<b>Pinned / current</b><table><tr><th>Property</th><th>Pinned</th><th>Current</th></tr>'+current.rows.map((r,i)=>`<tr><td>${r.label}</td><td>${displayValue(pinned.rows.find(v=>v.label===r.label&&v.unit===r.unit)?.value,r.unit)}</td><td>${displayValue(r.value,r.unit)} ${unitView.label(r.unit)}</td></tr>`).join('')+'</table><button class="text-btn" id="clearPin">Clear comparison</button>';addDisplayedExports(box,'comparison');$('clearPin').onclick=()=>{pinned=null;try{localStorage.removeItem('gdvl-pinned');}catch{}renderCompare();};}
 function syncChartPlay(){
  const button=$('chartPlay');
  button.hidden=!current?.result.finiteTube;
@@ -1456,11 +1524,6 @@ function renderExamples(){
  const heatedExamples=entries.filter(e=>e.menuGroup);
  const heatedOptions=heatedExamples.length?`<optgroup label="${heatedExamples[0].menuGroup}">${heatedExamples.map(option).join('')}</optgroup>`:'';
  box.innerHTML=`<div class="input-group"><div class="input-top"><label for="exampleSelect">Examples</label></div><select id="exampleSelect"><option value="" disabled ${selected?'':'selected'}>Select example…</option>${entries.filter(e=>!e.menuGroup).map(option).join('')}${heatedOptions}</select>${selected?.note?`<p class="control-hint">${unitView.text(selected.note)}</p>`:''}</div>`;
- addDataExport(box,'examples',()=>{
-  const examples=entries.map(({value,label,note})=>({value,label,note}));
-  const active=examples.find(e=>e.value===inputs.bookExample);
-  return active?{example:active,inputs:exportInputs(),settings:Object.entries(inputs).filter(([,value])=>typeof value!=='number').map(([parameter,value])=>({parameter,value}))}:{examples};
- });
  $('exampleSelect').onchange=e=>{const entry=entries.find(x=>x.value===e.target.value);if(!entry)return;stopSweep();sweepFinished=false;sweepPositioned=false;request++;clearTimeout(timer);if(entry.apply()===false)return;renderInputs();solve();};
 }
 
