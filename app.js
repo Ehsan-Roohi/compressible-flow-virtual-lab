@@ -1174,7 +1174,17 @@ function bindProbe(a,root=$('chart'),data=displayedChart){
  };
  hit.onpointermove=inspect;hit.onpointerdown=inspect;hit.onpointerleave=hide;
 }
-function download(name,text,type){let blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function download(name,text,type){
+ // The UTF-8 BOM lets Excel recognize Unicode symbols on direct CSV open.
+ const isCsv=type==='text/csv';
+ const blob=new Blob(isCsv?['\uFEFF',text]:[text],{type:isCsv?'text/csv;charset=utf-8':type});
+ const url=URL.createObjectURL(blob);
+ const anchor=document.createElement('a');
+ anchor.href=url;
+ anchor.download=name;
+ anchor.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function addDataExport(box,section,getData){
  const disclosure=document.createElement('details');
  disclosure.className='result-actions export-disclosure';
