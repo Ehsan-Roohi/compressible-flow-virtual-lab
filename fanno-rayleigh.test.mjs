@@ -89,7 +89,7 @@ test('Both labs load the correct default and example for each stage order', () =
   context.id = id;
   context.inputs = {};
   context.renderExamples();
-  assert.match(byId.get('examplesPanel').innerHTML, /Chapter 5 · Problem 3 · Fanno \+ Rayleigh/);
+  assert.match(byId.get('examplesPanel').innerHTML, /<option value="5–P3"[^>]*>Fanno \+ Rayleigh<\/option>/);
   byId.get('exampleSelect').onchange({target: {value: fannoRayleighExample}});
   assert.equal(context.inputs.ductProblem, fannoRayleighMode);
   assert.equal(context.inputs.bookExample, fannoRayleighExample);
