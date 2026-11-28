@@ -1,5 +1,5 @@
 import {makeCaseLink,readCaseLink,restoreCaseInputs} from './case-link.js?v=20261128-case-links';
-import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-shock-input-options';
+import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261128-calculator-state-labels';
 import {createUnitView} from './unit-system.js?v=20261124-heated-friction-duct';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -49,7 +49,7 @@ import {rayleighBookInputs} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-custom-gamma';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-calculator-state-labels';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-case-links-and-wall-segments';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -209,7 +209,7 @@ function displayMeasurements(...containers){
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
 let openedSharedCase=false,copyCaseTimer;
-const worker=new Worker(new URL('./worker.js?v=20261128-custom-gamma',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261128-calculator-state-labels',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -856,7 +856,7 @@ function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.le
 function renderIsentropicRelations(d){
  const panel=$('isentropicPanel'),tablePanel=$('calculatorTablePanel');
  panel.hidden=tablePanel.hidden=d.id!=='foundations';if(panel.hidden)return;
- const {calculatorSections,calculatorComparisons}=d.result;
+ const {calculatorSections,calculatorComparisons,calculatorStateLabel}=d.result;
  const mode=d.inputs.calculatorMode??calculatorModes.isentropic;
  const isentropic=mode===calculatorModes.isentropic;
  const sections=calculatorSections.map(({title,rows})=>`<section aria-label="${title}"><h3 class="isentropic-group-title">${title}</h3><dl class="isentropic-grid">${rows.map(r=>`<div><dt>${r.label}</dt><dd>${r.display??displayValue(r.value,r.unit,8)}${r.unit?` <small>${unitView.label(r.unit)}</small>`:''}</dd></div>`).join('')}</dl></section>`);
@@ -866,7 +866,7 @@ function renderIsentropicRelations(d){
   <div class="region-table-scroll calculator-state-scroll">
    <table class="region-table calculator-state-table">
     <caption>${title}</caption>
-    <thead><tr><th scope="col">Property</th><th scope="col">Inlet</th>${calculatorComparisons.map(c=>`<th scope="col">${c.outletLabel}</th>`).join('')}</tr></thead>
+    <thead><tr><th scope="col">Property</th><th scope="col">${calculatorStateLabel}</th>${calculatorComparisons.map(c=>`<th scope="col">${c.outletLabel}</th>`).join('')}</tr></thead>
     <tbody>${comparison.rows.map((r,index)=>`<tr><th scope="row">${r.label}${r.unit?` <span>${unitView.label(r.unit)}</span>`:''}</th>
       <td>${displayValue(r.inlet,r.unit,7)}</td>${calculatorComparisons.map(c=>`<td>${displayValue(c.rows[index].outlet,r.unit,7)}</td>`).join('')}</tr>`).join('')}</tbody>
    </table>

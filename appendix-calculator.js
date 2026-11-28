@@ -42,6 +42,13 @@ export const conicalInputs={cone:'Cone half-angle',wave:'Wave angle',surfaceMach
 
 const row = (label, value, unit = '') => ({label,value,unit});
 const section = (title, rows) => ({title,rows});
+const specifiedStateLabel = 'Specified flow state';
+const firstStateLabels = {
+  [calculatorModes.normal]: 'Before shock',
+  [calculatorModes.oblique]: 'Before shock',
+  [calculatorModes.conical]: 'Freestream',
+};
+
 function stateComparison(inlet,outlet,outletLabel,title=''){
   const properties=[
     ['Mach number','M',''],['Static pressure','p','kPa',1000],
@@ -55,14 +62,15 @@ function stateComparison(inlet,outlet,outletLabel,title=''){
   return {title,outletLabel,rows};
 }
 
-function calculatorOutput(calculatorSections,calculatorComparisons){
+function calculatorOutput(calculatorSections,calculatorComparisons,mode){
+  const calculatorStateLabel=firstStateLabels[mode]??specifiedStateLabel;
   const rows=calculatorSections.flatMap(({title,rows})=>rows.map(r=>({...r,label:`${title} · ${r.label}`})));
   const stateRows=(table,key,title)=>table.rows.filter(r=>r[key]!==null)
     .map(r=>row(`${title} · ${r.label}`,r[key],r.unit));
-  rows.push(...stateRows(calculatorComparisons[0],'inlet','Inlet state'));
+  rows.push(...stateRows(calculatorComparisons[0],'inlet',calculatorStateLabel));
   for(const table of calculatorComparisons)
     rows.push(...stateRows(table,'outlet',table.title||table.outletLabel));
-  return {rows,calculatorSections,calculatorComparisons};
+  return {rows,calculatorSections,calculatorComparisons,calculatorStateLabel};
 }
 
 function stagnationComparison(inlet,g,R){
@@ -95,7 +103,7 @@ export function isentropicCalculatorOutput(inlet,g,R){
     row('Static pressure',inlet.p/1000,'kPa'),row('Static temperature',inlet.T,'K'),
     ...comparison.rows.map(r=>row(`Stagnation reference · ${r.label}`,r.outlet,r.unit)),
   ];
-  return {rows,calculatorSections:sections,calculatorComparisons:[comparison]};
+  return {rows,calculatorSections:sections,calculatorComparisons:[comparison],calculatorStateLabel:specifiedStateLabel};
 }
 function shockRows(s){
   return [
@@ -185,7 +193,7 @@ function shockCalculator(inlet,g,R,oblique){
     ]));
     if(!jump){
       result.status='detached';
-      return {result,sections,comparisons:[stateComparison(inlet,null,'Outlet')],plots,
+      return {result,sections,comparisons:[stateComparison(inlet,null,'After shock')],plots,
         notice:'The specified deflection exceeds the limit for an attached oblique shock.'};
     }
   }else{
@@ -197,7 +205,7 @@ function shockCalculator(inlet,g,R,oblique){
   sections.push(section(title||'Shock ratios',[
     ...(oblique?[row('Shock angle β',deg(jump.beta),'°')]:[]),...shockRows(jump),
   ]));
-  const comparison=stateComparison(inlet,downstream,'Outlet',title);
+  const comparison=stateComparison(inlet,downstream,'After shock',title);
   if(oblique){
     comparison.rows.splice(1,0,{
       label:'Mach number normal to shock',unit:'',
@@ -331,7 +339,7 @@ export function calculateAppendix(x,gas){
     mode===calculatorModes.conical?conicalCalculator(inlet,g,R,x):
     ductCalculator(mode,inlet,g,R);
   const {sections,comparisons,plots,result}=calculated;
-  const {rows,...output}=calculatorOutput(sections,comparisons);
+  const {rows,...output}=calculatorOutput(sections,comparisons,mode);
   return {id:'foundations',inputs:x,gas,rows,checks:{},shockDetails:[],scene:null,
     notice:calculated.notice,chart:plots[0]?.chart,
     model:`${mode} · calorically perfect ideal gas`,result:{...result,...output,calculatorPlots:plots}};

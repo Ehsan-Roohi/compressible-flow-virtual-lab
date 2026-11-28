@@ -96,10 +96,20 @@ test('oblique calculator reports the attached-shock limit and rejects invalid in
   assert.throws(()=>run(calculatorModes.oblique,{M:2,calculatorObliqueGiven:obliqueInputs.normalMach,calculatorObliqueNormalMach:2.1}),/inlet Mach number/);
 });
 
-test('all calculator modes report ratios separately from aligned inlet and outlet or reference properties',()=>{
+test('all calculator modes report ratios separately from distinctly labeled flow states',()=>{
+  const labels={
+    [calculatorModes.isentropic]: ['Specified flow state','Stagnation reference'],
+    [calculatorModes.normal]: ['Before shock','After shock'],
+    [calculatorModes.rayleigh]: ['Specified flow state','Sonic reference'],
+    [calculatorModes.fanno]: ['Specified flow state','Sonic reference'],
+    [calculatorModes.oblique]: ['Before shock','After shock'],
+    [calculatorModes.expansion]: ['Specified flow state','Stagnation reference'],
+    [calculatorModes.conical]: ['Freestream','Behind shock','Cone surface'],
+  };
   for(const mode of Object.values(calculatorModes)){
     const d=run(mode,{M:2,p1:101,T1:300,calculatorTurn:10});
-    const {calculatorSections,calculatorComparisons}=d.result;
+    const {calculatorSections,calculatorComparisons,calculatorStateLabel}=d.result;
+    assert.deepEqual([calculatorStateLabel,...calculatorComparisons.map(c=>c.outletLabel)],labels[mode],mode);
     assert.ok(calculatorSections.flatMap(s=>s.rows).some(r=>r.label.includes('/')),mode);
     assert.ok(calculatorSections.flatMap(s=>s.rows).every(r=>!r.unit||r.unit==='°'),mode);
     const oblique=mode===calculatorModes.oblique;
