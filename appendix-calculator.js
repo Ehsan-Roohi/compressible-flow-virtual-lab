@@ -306,8 +306,8 @@ function conicalProfilePlots(solution,inlet,relations){
     const points=profile.map(s=>[deg(s.theta),s[key]]);
     return {
       key:'appendix-conical-'+key,label,
-      note:`The profile starts at the cone surface (θ꜀ = ${coneAngle.toFixed(3)}°). The solid curve ends immediately behind the shock; the dashed curve shows the upstream freestream.`,
-      chart:{title:label,xlabel:'Polar angle from cone axis θ (°)',ylabel,zeroBaseline:false,
+      note:`Read from left to right, starting in the freestream (dashed), crossing the shock at β, and following the flow profile (solid) to the cone surface (θ꜀ = ${coneAngle.toFixed(3)}°).`,
+      chart:{title:label,xlabel:'Polar angle from cone axis θ (°)',ylabel,zeroBaseline:false,invertXAxis:true,
         ...(key==='T0'?{yRange:[.98,1.02]}:{}),
         xReference:{x:waveAngle,y:Math.max(upstream,points.at(-1)[1]),label:`Shock β = ${waveAngle.toFixed(3)}°`},
         series:[

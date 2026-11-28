@@ -166,6 +166,9 @@ test('conical flow distinguishes the shock and wall states and reports unsupport
     const property=key.replace('appendix-conical-','');
     const [wall,downstream,upstream]=expectedProfiles[property];
     const [inside,outside]=chart.series.map(s=>s.points);
+    const {axis}=chartSVG(chart);
+    near(axis.xmin,outside.at(-1)[0]);
+    near(axis.xmax,r.coneAngle);
     near(chart.xReference.x,r.waveAngle);
     near(inside[0][0],r.coneAngle);
     near(inside[0][1],wall);
