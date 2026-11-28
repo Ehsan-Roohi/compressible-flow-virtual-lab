@@ -1,4 +1,4 @@
-import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput,obliqueInputs,conicalInputs} from './appendix-calculator.js?v=20261128-conical-plot-direction';
+import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculatorOutput,obliqueInputs,conicalInputs} from './appendix-calculator.js?v=20261128-conical-post-shock-range';
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {designMinimumLengthNozzle,nozzleMocExamples,nozzleMocMethods,nozzleMocStarts,nozzleMocTargets,nozzleMocTargetValues,nozzleMocPlots} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';

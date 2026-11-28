@@ -150,34 +150,32 @@ test('conical flow distinguishes the shock and wall states and reports unsupport
   near(surface.p0/s1.p0,r.p0cp01);
   near(r.p0cp01,r.p02p01);
   const expectedProfiles={
-    M:[surface.M,s2.M,s1.M],
-    p:[surface.p/s1.p,s2.p/s1.p,1],
-    T:[surface.T/s1.T,s2.T/s1.T,1],
-    rho:[surface.rho/s1.rho,s2.rho/s1.rho,1],
-    p0:[surface.p0/s1.p0,s2.p0/s1.p0,1],
-    T0:[1,1,1],
-    uRatio:[surface.u/s1.u,s2.u/s1.u,1],
-    aRatio:[surface.a/s1.a,s2.a/s1.a,1],
-    deflection:[r.coneAngle,r.shockTurn,0],
+    M:[s2.M,surface.M],
+    p:[s2.p/s1.p,surface.p/s1.p],
+    T:[s2.T/s1.T,surface.T/s1.T],
+    rho:[s2.rho/s1.rho,surface.rho/s1.rho],
+    p0:[s2.p0/s1.p0,surface.p0/s1.p0],
+    T0:[1,1],
+    uRatio:[s2.u/s1.u,surface.u/s1.u],
+    aRatio:[s2.a/s1.a,surface.a/s1.a],
+    deflection:[r.shockTurn,r.coneAngle],
   };
   const plots=plotOptions(d);
   assert.deepEqual(plots.map(p=>p.key),Object.keys(expectedProfiles).map(key=>'appendix-conical-'+key));
   for(const {key,chart} of plots){
     const property=key.replace('appendix-conical-','');
-    const [wall,downstream,upstream]=expectedProfiles[property];
-    const [inside,outside]=chart.series.map(s=>s.points);
+    const [downstream,wall]=expectedProfiles[property];
+    assert.equal(chart.series.length,1);
+    const [{points}]=chart.series;
     const {axis}=chartSVG(chart);
-    near(axis.xmin,outside.at(-1)[0]);
+    near(axis.xmin,r.waveAngle);
     near(axis.xmax,r.coneAngle);
-    near(chart.xReference.x,r.waveAngle);
-    near(inside[0][0],r.coneAngle);
-    near(inside[0][1],wall);
-    near(inside.at(-1)[0],r.waveAngle);
-    near(inside.at(-1)[1],downstream);
-    near(outside[0][0],r.waveAngle);
-    assert.ok(outside.at(-1)[0]>r.waveAngle);
-    assert.ok(outside.every(([,y])=>y===upstream));
-    if(property==='p0'||property==='T0')assert.ok(inside.every(([,y])=>y===inside[0][1]));
+    near(points[0][0],r.waveAngle);
+    near(points[0][1],downstream);
+    near(points.at(-1)[0],r.coneAngle);
+    near(points.at(-1)[1],wall);
+    assert.ok(points.every(([theta],i)=>i===0||theta<points[i-1][0]));
+    if(property==='p0'||property==='T0')assert.ok(points.every(([,y])=>y===points[0][1]));
   }
   for(const patch of [
     {calculatorConeGiven:conicalInputs.wave,calculatorConeBeta:r.waveAngle},

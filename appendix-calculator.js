@@ -285,35 +285,31 @@ function coneFromInput(M,g,x){
 
 function conicalProfilePlots(solution,inlet,relations){
   const {coneAngle,waveAngle,p02p01}=relations;
-  const profile=solution.history.slice().reverse().map(s=>{
+  const profile=solution.history.map(s=>{
     const aRatio=Math.sqrt(s.T);
     return {...s,aRatio,uRatio:s.M/inlet.M*aRatio,p0:p02p01,T0:1,
       deflection:deg(s.theta+Math.atan2(s.vt,s.vr))};
   });
-  const freestreamAngles=linspace(waveAngle,Math.min(90,waveAngle+(waveAngle-coneAngle)/4),21);
   const properties=[
-    ['M','Mach number M','M',inlet.M],
-    ['p','Static pressure ratio p/p₁','p/p₁',1],
-    ['T','Static temperature ratio T/T₁','T/T₁',1],
-    ['rho','Density ratio ρ/ρ₁','ρ/ρ₁',1],
-    ['p0','Stagnation pressure ratio p₀/p₀₁','p₀/p₀₁',1],
-    ['T0','Stagnation temperature ratio T₀/T₀₁','T₀/T₀₁',1],
-    ['uRatio','Flow speed ratio u/u₁','u/u₁',1],
-    ['aRatio','Speed of sound ratio a/a₁','a/a₁',1],
-    ['deflection','Flow angle from axis δ','δ (°)',0],
+    ['M','Mach number M','M'],
+    ['p','Static pressure ratio p/p₁','p/p₁'],
+    ['T','Static temperature ratio T/T₁','T/T₁'],
+    ['rho','Density ratio ρ/ρ₁','ρ/ρ₁'],
+    ['p0','Stagnation pressure ratio p₀/p₀₁','p₀/p₀₁'],
+    ['T0','Stagnation temperature ratio T₀/T₀₁','T₀/T₀₁'],
+    ['uRatio','Flow speed ratio u/u₁','u/u₁'],
+    ['aRatio','Speed of sound ratio a/a₁','a/a₁'],
+    ['deflection','Flow angle from axis δ','δ (°)'],
   ];
-  return properties.map(([key,label,ylabel,upstream])=>{
+  return properties.map(([key,label,ylabel])=>{
     const points=profile.map(s=>[deg(s.theta),s[key]]);
+    const firstValue=points[0][1];
     return {
       key:'appendix-conical-'+key,label,
-      note:`Read from left to right, starting in the freestream (dashed), crossing the shock at β, and following the flow profile (solid) to the cone surface (θ꜀ = ${coneAngle.toFixed(3)}°).`,
+      note:`The profile starts just behind the shock (β = ${waveAngle.toFixed(3)}°) on the left and ends at the cone surface (θ꜀ = ${coneAngle.toFixed(3)}°) on the right.`,
       chart:{title:label,xlabel:'Polar angle from cone axis θ (°)',ylabel,zeroBaseline:false,invertXAxis:true,
-        ...(key==='T0'?{yRange:[.98,1.02]}:{}),
-        xReference:{x:waveAngle,y:Math.max(upstream,points.at(-1)[1]),label:`Shock β = ${waveAngle.toFixed(3)}°`},
-        series:[
-          {name:'Behind shock',points},
-          {name:'Freestream',dash:'5 4',points:freestreamAngles.map(angle=>[angle,upstream])},
-        ]},
+        ...(key==='p0'||key==='T0'?{yRange:[firstValue*.98,firstValue*1.02]}:{}),
+        series:[{name:'Behind shock',points}]},
     };
   });
 }
