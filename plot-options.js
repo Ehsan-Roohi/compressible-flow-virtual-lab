@@ -1,4 +1,4 @@
-import {nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet';
+import {nozzleMocPlots} from './nozzle-moc.js?v=20261128-nozzle-dimensional-coordinates';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261125-boundary-preview';

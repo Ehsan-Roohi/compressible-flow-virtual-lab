@@ -48,14 +48,18 @@ test('John–Keith throat angle, NASA exit coordinates and physical dimensions',
  near(dimensional.exitHeight,.1*design.areaRatio,1e-13);
 });
 
-test('the exported contour uses the calculated upper wall and its mirror',()=>{
+test('the exported contour uses dimensional coordinates for the calculated wall and its mirror',()=>{
  const run=calculate('nozzle-design',defaults('nozzle-design'));
  const plot=plotOptions(run).find(o=>o.key==='nozzle-moc-wall');
+ const {wall,halfHeight,length,exitHeight}=run.result;
  const [upper,lower]=plot.chart.series;
- for(const [i,{x,y}] of run.result.wall.entries()){
-  assert.deepEqual(upper.points[i],[x,y]);
-  assert.deepEqual(lower.points[i],[x,-y]);
+ assert.equal(plot.chart.xlabel,'Axial position x (m)');
+ assert.equal(plot.chart.ylabel,'Wall coordinate y (m)');
+ for(const [i,{x,y}] of wall.entries()){
+  assert.deepEqual(upper.points[i],[x*halfHeight,y*halfHeight]);
+  assert.deepEqual(lower.points[i],[x*halfHeight,-y*halfHeight]);
  }
+ assert.deepEqual(upper.points.at(-1),[length,exitHeight/2]);
 });
 
 test('the nozzle field exposes normalized properties and an independent characteristic overlay',()=>{
@@ -149,6 +153,15 @@ test('comparison keeps both contours and reports signed differences for the same
   const [walls,mach]=plotOptions(d);
   assert.deepEqual(walls.chart.series.map(series=>series.name),[nozzleMocMethods.point,nozzleMocMethods.region]);
   assert.equal(mach.chart.series.length,4);
+  assert.equal(mach.chart.xlabel,walls.chart.xlabel);
+  assert.equal(walls.chart.ylabel,'Wall coordinate y (m)');
+  for(const [i,design] of d.result.designs.entries()){
+   assert.deepEqual(walls.chart.series[i].points[0],[0,design.halfHeight]);
+   assert.deepEqual(walls.chart.series[i].points.at(-1),[design.length,design.exitHeight/2]);
+   for(const curve of mach.chart.series.slice(2*i,2*i+2)){
+    assert.deepEqual(curve.points.at(-1),[design.length,design.exitMach]);
+   }
+  }
  }
  const d=calculate(id,inputs);
  const view=sceneSVG(d.scene,inputs,0,'flow-angle');
@@ -177,7 +190,7 @@ test('uniform supersonic starts produce parallel exit flow and converge to the i
  }
  const run=calculate(id,{...base,nozzleMocMethod:nozzleMocMethods.compare});
  assert.ok(run.result.nozzleComparison.table.some(({unit})=>unit==='Aₑ/Aᵢ'));
- assert.match(run.chart.xlabel,/x\/hᵢ/);
+ assert.equal(run.chart.xlabel,'Axial position x (m)');
  const view=sceneSVG(run.scene,run.inputs,0,'mach');
  assert.equal(view.field.min,base.mocInletMach);
  assert.equal(view.field.max,base.mocExitMach);

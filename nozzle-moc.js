@@ -170,37 +170,41 @@ export function designMinimumLengthNozzle(inputs) {
   exitMach:last.M,exitAngle:deg(last.theta),exitPressureRatio:1/endState.p0p,exitTemperatureRatio:1/endState.T0T};
 }
 
-function machProfile(points,regional){
- if(!regional)return points.map(({x,M})=>[x,M]);
- return [[points[0].x,points[0].M],...points.slice(1).flatMap(({x,M},i)=>[[x,points[i].M],[x,M]])];
+function machProfile(points,halfHeight,regional){
+ const samples=points.map(({x,M})=>[x*halfHeight,M]);
+ if(!regional)return samples;
+ return [samples[0],...samples.slice(1).flatMap((point,i)=>[[point[0],samples[i][1]],point])];
+}
+
+function wallCoordinates({wall,halfHeight},side=1){
+ return wall.map(({x,y})=>[x*halfHeight,side*y*halfHeight]);
 }
 
 export function nozzleMocPlots(designs){
  const compare=designs.length===2;
- const scale=designs[0].inletMach>1?'hᵢ':'hₜ';
- const xlabel=`Axial position x/${scale}`;
+ const xlabel='Axial position x (m)';
  const color={ [nozzleMocMethods.point]:'#08716a', [nozzleMocMethods.region]:'#9a4929' };
  const machTitle=compare?'Mach number comparison':'Mach number along the nozzle';
  const wallTitle=compare?'Nozzle contour comparison':'Nozzle wall coordinates';
  const mach={key:'nozzle-moc-mach',label:machTitle,chart:{
   title:machTitle,xlabel,ylabel:'Mach number',series:designs.flatMap(design=>{
-   const {axis,wall,wallInletMach,method}=design;
+   const {axis,wall,wallInletMach,method,halfHeight}=design;
    const last=wall.at(-1),regional=method===nozzleMocMethods.region;
    const name=property=>compare?`${method} · ${property}`:property;
    const style=compare?{color:color[method]}:{};
    return [
-    {name:name('Centerline'),points:machProfile([...axis,{x:last.x,M:last.M}],regional),...style},
-    {name:name('Wall'),points:machProfile([wall[0],{x:0,M:wallInletMach},...wall.slice(1)],regional),
+    {name:name('Centerline'),points:machProfile([...axis,{x:last.x,M:last.M}],halfHeight,regional),...style},
+    {name:name('Wall'),points:machProfile([wall[0],{x:0,M:wallInletMach},...wall.slice(1)],halfHeight,regional),
      ...(compare?{...style,dash:'6 4'}:{})}
    ];
   })
  }};
  const wall={key:'nozzle-moc-wall',label:wallTitle,chart:{
-  title:wallTitle,xlabel,ylabel:`Wall coordinate y/${scale}`,series:compare?
-   designs.map(({wall,method})=>({name:method,points:wall.map(p=>[p.x,p.y]),color:color[method],
-    ...(method===nozzleMocMethods.region?{dash:'6 4'}:{})})):
-   [{name:'Upper wall',points:designs[0].wall.map(p=>[p.x,p.y])},
-    {name:'Lower wall',points:designs[0].wall.map(p=>[p.x,-p.y])}]
+  title:wallTitle,xlabel,ylabel:'Wall coordinate y (m)',series:compare?
+   designs.map(design=>({name:design.method,points:wallCoordinates(design),color:color[design.method],
+    ...(design.method===nozzleMocMethods.region?{dash:'6 4'}:{})})):
+   [{name:'Upper wall',points:wallCoordinates(designs[0])},
+    {name:'Lower wall',points:wallCoordinates(designs[0],-1)}]
  },...(compare?{note:'Upper-wall profiles are overlaid. The lower walls are their reflections about the centerline.'}:{})};
  return compare?[wall,mach]:[mach,wall];
 }
