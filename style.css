@@ -404,7 +404,12 @@ body[data-lab="foundations"] .compare-btn{width:auto;margin:5px var(--card-inset
 .lab-header .model-details .model-pill { display: inline-block; margin: 0 8px 4px 0; }
 .lab-heading-row .top-actions { gap: 8px; }
 .scene-card > .card-head { align-items: center; padding-block: 6px 4px; }
-.scene-tools { align-items: baseline; }
+.scene-tools {
+  align-items: baseline;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding: 0 var(--card-inset) 7px;
+}
 .export-disclosure > summary, .sampling-settings > summary,
 .reference-detail > summary, .airfoil-detail > summary {
   display: list-item; cursor: pointer; color: var(--teal); width: fit-content;
@@ -554,11 +559,20 @@ body[data-lab="nozzle"] #flowRelationsPanel td { font-size: 12px; }
   font-variant-numeric: lining-nums tabular-nums;
 }
 
-#nozzleViewControl { min-width: 0; }
-#nozzleViewControl .input-group { padding: 0; border: 0; }
-#nozzleViewControl .input-top { margin-bottom: 3px; }
+.scene-card .card-head:has(> #nozzleViewControl:not([hidden])) { flex-wrap: wrap; }
+#nozzleViewControl { min-width: 0; max-width: 100%; }
+#nozzleViewControl .input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+}
+#nozzleViewControl .input-top { flex-shrink: 0; margin: 0; white-space: nowrap; }
+#nozzleViewControl .unit:empty { display: none; }
 #nozzleViewControl select {
   width: auto;
+  min-width: 0;
   max-width: 100%;
   min-height: 32px;
   padding: 4px 8px;
