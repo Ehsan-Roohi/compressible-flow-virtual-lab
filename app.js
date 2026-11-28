@@ -1,5 +1,5 @@
 import {makeCaseLink,readCaseLink,restoreCaseInputs} from './case-link.js?v=20261128-case-links';
-import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261128-calculator-state-labels';
+import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261128-conical-calculator-profiles';
 import {createUnitView} from './unit-system.js?v=20261124-heated-friction-duct';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -49,7 +49,7 @@ import {rayleighBookInputs} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-calculator-state-labels';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-conical-calculator-profiles';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-case-links-and-wall-segments';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -209,7 +209,7 @@ function displayMeasurements(...containers){
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
 let openedSharedCase=false,copyCaseTimer;
-const worker=new Worker(new URL('./worker.js?v=20261128-calculator-state-labels',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261128-conical-calculator-profiles',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);

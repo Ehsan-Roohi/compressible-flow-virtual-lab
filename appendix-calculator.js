@@ -283,6 +283,41 @@ function coneFromInput(M,g,x){
   return cone({M,thetaCone:x.calculatorConeAngle??20,gamma:g});
 }
 
+function conicalProfilePlots(solution,inlet,relations){
+  const {coneAngle,waveAngle,p02p01}=relations;
+  const profile=solution.history.slice().reverse().map(s=>{
+    const aRatio=Math.sqrt(s.T);
+    return {...s,aRatio,uRatio:s.M/inlet.M*aRatio,p0:p02p01,T0:1,
+      deflection:deg(s.theta+Math.atan2(s.vt,s.vr))};
+  });
+  const freestreamAngles=linspace(waveAngle,Math.min(90,waveAngle+(waveAngle-coneAngle)/4),21);
+  const properties=[
+    ['M','Mach number M','M',inlet.M],
+    ['p','Static pressure ratio p/p₁','p/p₁',1],
+    ['T','Static temperature ratio T/T₁','T/T₁',1],
+    ['rho','Density ratio ρ/ρ₁','ρ/ρ₁',1],
+    ['p0','Stagnation pressure ratio p₀/p₀₁','p₀/p₀₁',1],
+    ['T0','Stagnation temperature ratio T₀/T₀₁','T₀/T₀₁',1],
+    ['uRatio','Flow speed ratio u/u₁','u/u₁',1],
+    ['aRatio','Speed of sound ratio a/a₁','a/a₁',1],
+    ['deflection','Flow angle from axis δ','δ (°)',0],
+  ];
+  return properties.map(([key,label,ylabel,upstream])=>{
+    const points=profile.map(s=>[deg(s.theta),s[key]]);
+    return {
+      key:'appendix-conical-'+key,label,
+      note:`The profile starts at the cone surface (θ꜀ = ${coneAngle.toFixed(3)}°). The solid curve ends immediately behind the shock; the dashed curve shows the upstream freestream.`,
+      chart:{title:label,xlabel:'Polar angle from cone axis θ (°)',ylabel,zeroBaseline:false,
+        ...(key==='T0'?{yRange:[.98,1.02]}:{}),
+        xReference:{x:waveAngle,y:Math.max(upstream,points.at(-1)[1]),label:`Shock β = ${waveAngle.toFixed(3)}°`},
+        series:[
+          {name:'Behind shock',points},
+          {name:'Freestream',dash:'5 4',points:freestreamAngles.map(angle=>[angle,upstream])},
+        ]},
+    };
+  });
+}
+
 function conicalCalculator(inlet,g,R,x){
   let solved;
   try{
@@ -314,16 +349,7 @@ function conicalCalculator(inlet,g,R,x){
     stateComparison(inlet,post,'Behind shock','Immediately behind shock'),
     stateComparison(inlet,surface,'Cone surface','Cone surface'),
   ];
-  const profile=solved.history.slice().reverse();
-  const plots=[
-    ['M','Mach number M','M'],['p','Static pressure ratio p/p₁','p/p₁'],
-    ['T','Static temperature ratio T/T₁','T/T₁'],['rho','Density ratio ρ/ρ₁','ρ/ρ₁'],
-  ].map(([key,label,ylabel])=>({
-    key:'appendix-conical-'+key,label,
-    note:'The polar angle is measured from the cone axis, from the surface to the shock.',
-    chart:{title:label,xlabel:'Polar angle from cone axis (°)',ylabel,zeroBaseline:false,
-      series:[{name:label,points:profile.map(s=>[deg(s.theta),s[key]])}]},
-  }));
+  const plots=conicalProfilePlots(solved,inlet,r);
   return {result:{status:'ok',s1:inlet,s2:post,surface,relations:r},sections,comparisons,plots};
 }
 

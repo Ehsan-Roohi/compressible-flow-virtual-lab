@@ -149,9 +149,33 @@ test('conical flow distinguishes the shock and wall states and reports unsupport
   near(s2.p0/s1.p0,r.p02p01);
   near(surface.p0/s1.p0,r.p0cp01);
   near(r.p0cp01,r.p02p01);
-  const mach=plotOptions(d)[0].chart.series[0].points;
-  near(mach[0][1],r.surfaceMach);
-  near(mach.at(-1)[1],r.postShockMach);
+  const expectedProfiles={
+    M:[surface.M,s2.M,s1.M],
+    p:[surface.p/s1.p,s2.p/s1.p,1],
+    T:[surface.T/s1.T,s2.T/s1.T,1],
+    rho:[surface.rho/s1.rho,s2.rho/s1.rho,1],
+    p0:[surface.p0/s1.p0,s2.p0/s1.p0,1],
+    T0:[1,1,1],
+    uRatio:[surface.u/s1.u,s2.u/s1.u,1],
+    aRatio:[surface.a/s1.a,s2.a/s1.a,1],
+    deflection:[r.coneAngle,r.shockTurn,0],
+  };
+  const plots=plotOptions(d);
+  assert.deepEqual(plots.map(p=>p.key),Object.keys(expectedProfiles).map(key=>'appendix-conical-'+key));
+  for(const {key,chart} of plots){
+    const property=key.replace('appendix-conical-','');
+    const [wall,downstream,upstream]=expectedProfiles[property];
+    const [inside,outside]=chart.series.map(s=>s.points);
+    near(chart.xReference.x,r.waveAngle);
+    near(inside[0][0],r.coneAngle);
+    near(inside[0][1],wall);
+    near(inside.at(-1)[0],r.waveAngle);
+    near(inside.at(-1)[1],downstream);
+    near(outside[0][0],r.waveAngle);
+    assert.ok(outside.at(-1)[0]>r.waveAngle);
+    assert.ok(outside.every(([,y])=>y===upstream));
+    if(property==='p0'||property==='T0')assert.ok(inside.every(([,y])=>y===inside[0][1]));
+  }
   for(const patch of [
     {calculatorConeGiven:conicalInputs.wave,calculatorConeBeta:r.waveAngle},
     {calculatorConeGiven:conicalInputs.surfaceMach,calculatorConeSurfaceMach:r.surfaceMach},
