@@ -1,0 +1,68 @@
+/* Typography trials are applied to the lab only when a preview URL is open. */
+:root[data-font-preview] {
+  --preview-sans: "Segoe UI", Arial, sans-serif;
+  --preview-serif: Georgia, "Times New Roman", serif;
+  --preview-scientific: "Gas Lab Serif", "Cambria Math", "Times New Roman", serif;
+  --preview-interface: var(--preview-sans);
+  --preview-data: var(--preview-sans);
+}
+
+:root[data-font-preview="academic"],
+:root[data-font-preview="book"] {
+  --preview-interface: var(--preview-serif);
+}
+
+:root[data-font-preview="book"] {
+  --preview-data: var(--preview-serif);
+}
+
+:root[data-font-preview] body,
+:root[data-font-preview] body * {
+  font-family: var(--preview-interface) !important;
+}
+
+:root[data-font-preview] :is(
+  input, select, select *, textarea, button,
+  table, table *, .result-value, .result-value *,
+  .isentropic-grid dd, .isentropic-grid dd *,
+  .tube-plot-values dd, .tube-plot-values dd *,
+  .field-probe dd, .range-labels, .range-labels *
+) {
+  font-family: var(--preview-data) !important;
+}
+
+:root[data-font-preview] :is(#scene, #chart) svg :is(text, tspan) {
+  font-family: var(--preview-scientific) !important;
+}
+
+.font-preview-choices[hidden] { display: none; }
+
+.font-preview-choices:not([hidden]) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 10px 0;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.font-preview-choices > span {
+  font-weight: 600;
+  margin-inline-end: 4px;
+}
+
+.font-preview-choices > a {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--teal);
+  background: white;
+  text-decoration: none;
+}
+
+.font-preview-choices > a[aria-current="page"] {
+  background: #e6f3ef;
+  border-color: var(--teal);
+  font-weight: 600;
+}
