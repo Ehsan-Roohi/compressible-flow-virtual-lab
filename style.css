@@ -464,10 +464,11 @@ body[data-lab="foundations"] .compare-btn{width:auto;margin:5px var(--card-inset
 .chart-actions[hidden], #pinnedChartCard[hidden] { display: none; }
 .chart-actions .export-disclosure[open] { flex-basis: 100%; }
 #pinnedChartCard .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+#pinnedChartCard { min-width: 0; }
 #pinnedChartList { list-style: none; margin: 0 var(--card-inset) 10px; padding: 0; }
 #pinnedChartList li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; }
-#pinnedChartImage { margin: 0 var(--card-inset); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-#pinnedChartImage > svg { display: block; width: 100%; height: auto; }
+#pinnedChartImage { margin: 0 var(--card-inset); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+#pinnedChartImage > svg { display: block; width: 100%; min-width: var(--pinned-min-width, 0); height: auto; }
 #pinnedChartExports { margin: 6px var(--card-inset) 7px; }
 .result-actions.export-disclosure, .output-column .result-actions.export-disclosure {
   display: block; margin: 5px 0; padding: 0 var(--card-inset);

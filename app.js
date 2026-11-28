@@ -27,7 +27,7 @@ import {uniformDiagramText,backPressureHTML} from './diagram-typography.js?v=202
 import {rayleighHeatBounds} from './rayleigh-input.js?v=20261110-rayleigh-audit';
 import {reservoirExamples} from './reservoir-examples.js?v=20261119-open-intake';
 import {chartWorkbook} from './chart-export.js';
-import {pinnedChartFigure} from './pinned-charts.js?v=20261128-pinned-charts';
+import {pinnedChartFigure} from './pinned-charts.js?v=20261128-shared-chart-frames';
 import {probeBody} from './body-probe.js?v=20261110-simple-examples';
 import {comparisonHTML} from './channel-comparison.js?v=20261120-wall-methods';
 import {fittedInspectionHTML,fittedPointHTML,selectedFittedPoint,fittedExportRows} from './channel-moc-shocks-tables.js';
@@ -53,7 +53,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-calculator-axes';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-pinned-charts';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-shared-chart-frames';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -1703,7 +1703,10 @@ function renderPinnedCharts(){
  });
  list.replaceChildren(...entries);
  pinnedFigure=chartPins.length?pinnedChartFigure(chartPins):null;
- $('pinnedChartImage').innerHTML=pinnedFigure?.svg??'';
+ const image=$('pinnedChartImage');
+ image.innerHTML=pinnedFigure?.svg??'';
+ const minimumWidth=pinnedFigure?.width>640?pinnedFigure.width-140:0;
+ image.style.setProperty('--pinned-min-width',`${minimumWidth}px`);
 }
 
 $('pinChart').onclick=()=>{

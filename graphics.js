@@ -319,12 +319,41 @@ function chartHeatmap(map,X,Y){
   return `<defs><linearGradient id="contourRow${i}">${stops}</linearGradient></defs><rect x="${x+offset}" y="${Y(0)-(i+1)*height/bands}" width="${width-offset}" height="${height/bands+.03}" fill="url(#contourRow${i})"/>`;
  }).join('');
 }
-function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=c.xReference?72:49;let all=[...c.series.flatMap(s=>s.points),...(c.regionMarkers?(c.markers??[]).map(m=>[m.x,m.y]):[])].filter(s=>s.every(Number.isFinite));if(!all.length)return{svg:'',legend:''};let xmin=Math.min(...all.map(p=>p[0])),xmax=Math.max(...all.map(p=>p[0])),ymin=c.zeroBaseline===false?Math.min(...all.map(p=>p[1])):Math.min(0,...all.map(p=>p[1])),ymax=Math.max(...all.map(p=>p[1]));if(xmax===xmin)xmax=xmin+1;
+function renderChartSVG(c){
+ const yAxes=c.yAxes??[],axisSpacing=86,extraAxisWidth=Math.max(0,yAxes.length-1)*axisSpacing;
+ const W=640+extraAxisWidth,H=266,L=c.leftMargin??100,R=23+extraAxisWidth,T=15,B=c.xReference?72:49;
+ const all=[...c.series.flatMap(s=>s.points),...(c.regionMarkers?(c.markers??[]).map(m=>[m.x,m.y]):[])].filter(s=>s.every(Number.isFinite));if(!all.length)return{svg:'',legend:''};let xmin=Math.min(...all.map(p=>p[0])),xmax=Math.max(...all.map(p=>p[0])),ymin=c.zeroBaseline===false?Math.min(...all.map(p=>p[1])):Math.min(0,...all.map(p=>p[1])),ymax=Math.max(...all.map(p=>p[1]));if(xmax===xmin)xmax=xmin+1;
  if(c.xRange)[xmin,xmax]=c.xRange;
  if(c.invertXAxis)[xmin,xmax]=[xmax,xmin];
  if(ymax===ymin)ymax=ymin+1;let pad=c.heatmap?0:(ymax-ymin)*.08;ymax+=pad;if(ymin<0||c.zeroBaseline===false)ymin-=pad*.3;if(all.every(p=>p[1]>=0))ymin=Math.max(0,ymin);if(c.yRange)[ymin,ymax]=c.yRange;if(c.invertYAxis)[ymin,ymax]=[ymax,ymin];const X=x=>L+(x-xmin)/(xmax-xmin)*(W-L-R),Y=y=>H-B-(y-ymin)/(ymax-ymin)*(H-B-T);let inner=c.heatmap?.transposed
   ?`<g transform="matrix(0 -1 -1 0 0 0)">${chartHeatmap(c.heatmap,p=>-Y(p),t=>-X(t))}</g>`
-  :chartHeatmap(c.heatmap,X,Y);for(let i=0;i<=4;i++){let y=ymin+(ymax-ymin)*i/4;inner+=(c.heatmap?'':line(L,Y(y),W-R,Y(y),'#e8eee5'))+txt(L-10,Y(y)+3,fmt(y,3),'#4b5563',9,'end');}for(let i=0;i<=5;i++){let x=xmin+(xmax-xmin)*i/5;inner+=txt(X(x),H-B+18,fmt(x,3),'#4b5563',9,'middle');}inner+=line(L,T,L,H-B,'#c8d4c5')+line(L,H-B,W-R,H-B,'#c8d4c5');if(c.xReference){
+  :chartHeatmap(c.heatmap,X,Y);
+ const primaryAxis=yAxes[0],primaryColor=primaryAxis?.color??'#4b5563';
+ const tickValue=(axis,fraction)=>axis.range[0]+(axis.range[1]-axis.range[0])*fraction;
+ const verticalLabel=(label,x,color)=>{
+  const size=yAxes.length?Math.min(12,315/Math.max(1,label.length)):12;
+  return `<text transform="translate(${x} ${(T+H-B)/2}) rotate(-90)" fill="${color}" font-size="${size}" font-family="${diagramFontFamily}" text-anchor="middle">${esc(label)}</text>`;
+ };
+ for(let i=0;i<=4;i++){
+  const fraction=i/4,y=ymin+(ymax-ymin)*fraction;
+  inner+=(c.heatmap?'':line(L,Y(y),W-R,Y(y),'#e8eee5'))+
+   txt(L-10,Y(y)+3,fmt(primaryAxis?tickValue(primaryAxis,fraction):y,3),primaryColor,9,'end');
+ }
+ for(let i=0;i<=5;i++){
+  const x=xmin+(xmax-xmin)*i/5;
+  inner+=txt(X(x),H-B+18,fmt(x,3),'#4b5563',9,'middle');
+ }
+ inner+=line(L,T,L,H-B,primaryAxis?.color??'#c8d4c5')+line(L,H-B,W-R,H-B,'#c8d4c5');
+ yAxes.slice(1).forEach((axis,index)=>{
+  const x=W-R+index*axisSpacing;
+  inner+=`<g data-chart-y-axis="${esc(axis.label)}">`+line(x,T,x,H-B,axis.color);
+  for(let i=0;i<=4;i++){
+   const fraction=i/4,py=Y(fraction);
+   inner+=line(x,py,x+4,py,axis.color)+txt(x+8,py+3,fmt(tickValue(axis,fraction),3),axis.color,9,'start');
+  }
+  inner+=verticalLabel(axis.label,x+axisSpacing-15,axis.color)+'</g>';
+ });
+ if(c.xReference){
  const {x,y,label}=c.xReference,px=X(x),axis=H-B;
  const labelX=Math.max(L+44,Math.min(W-R-44,px)),color='#17383b';
  inner+=`<g ${label?"data-chart-axis-reference":"data-slip-angle-axis"}="true">`+line(px,Y(y),px,axis,color,1,'4 3')+
@@ -333,7 +362,7 @@ function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=c.x
  c.series.forEach((s,i)=>{
   const points=s.points.filter(p=>p.every(Number.isFinite));
   const color=s.color??colors[i%colors.length];
-  if(c.scatter){
+  if(s.scatter??c.scatter){
    for(const [x,y] of points)inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${s.color??colors[i%colors.length]}"/>`;
    return;
   }
@@ -355,7 +384,7 @@ function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=c.x
   inner+=`<circle cx="${X(m.x)}" cy="${Y(m.y)}" r="4.5" fill="${fill}" stroke="${stroke}" stroke-width="2">${m.title?`<title>${esc(m.title)}</title>`:''}</circle>`;
   if(m.name)inner+=txt(X(m.x)+(m.anchor==='end'?-7:7),Y(m.y)-9,m.name,i?'#ae7b3d':'#397661',9,m.anchor??'start');
  }
- inner+=txt((L+W-R)/2,H-9,c.xlabel,'#4b5563',10,'middle')+`<text transform="translate(14 ${(T+H-B)/2}) rotate(-90)" fill="#4b5563" font-size="12" font-family="${diagramFontFamily}" text-anchor="middle">${esc(c.ylabel)}</text>`;
+ inner+=txt((L+W-R)/2,H-9,c.xlabel,'#4b5563',10,'middle')+verticalLabel(c.ylabel,14,primaryColor);
  const showLineKeys=c.heatmap||c.series.some(s=>s.dash);
  const timeFraction=c.timeCursorFraction??0;
  const timeX=L+timeFraction*(W-R-L),timeY=H-B-timeFraction*(H-B-T);
