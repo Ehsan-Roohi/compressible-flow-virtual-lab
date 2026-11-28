@@ -1,7 +1,6 @@
 import {nozzleMocPlots} from './nozzle-moc.js?v=20261125-nozzle-supersonic-inlet';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
-import {rayleighBookPressurePlot} from './rayleigh-book.js?v=20261120-example-sequence';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261125-boundary-preview';
 import {multiRampPlot} from './multi-ramp-inlet.js?v=20261117-multi-inlet';
 import {defaultTrackingEvent,selectTrackingEvent} from './wave-tracker-tables.js?v=20261115-visible-regions';
@@ -55,7 +54,6 @@ function basePlotOptions(d,time=.001){
  if(id==='wall'&&r.simpleCorner)return basePlotOptions({...d,id:r.cornerKind},time);
  if(id==='wall')return r.comparison?comparisonPlots(r,x.comparisonStation):r.tracking?trackingPlots(r,x.trackingStation):r.interaction?regularChannelPlots(r):r.moc?mocProfilePlots(r,x.mocStation):r.channel?channelPlots(r):wallPlots(r);
  if(id==='airfoil')return airfoilPlots(r);
- if(id==='rayleigh')options.push(comparisonPlot(rayleighBookPressurePlot(r,g)));
  if(['rayleigh','fanno'].includes(id))options.push(...ductLongitudinalPlots(id,r));
  const original={key:'overview',label:d.chart.title,chart:d.chart};if(!['foundations','rayleigh','fanno','balances','oblique'].includes(id))options.push(original);
  if(id==='foundations'){
