@@ -83,7 +83,6 @@ h1{font-weight:650;letter-spacing:-.7px}h2{font-size:16px;font-weight:650}h3{fon
 @media(max-width:800px){.work-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"controls" "outputs" "visual"}.output-column{display:grid;grid-template-columns:1fr}.output-column #results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.output-column .isentropic-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.controls form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.output-column .result-label{max-width:none}}
 @media(max-width:480px){.output-column #results,.controls form{grid-template-columns:1fr}.output-column .isentropic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .gas-result-summary {
-  grid-column: 1 / -1;
   padding: 6px var(--card-inset);
   font-size: 13px;
   line-height: 1.5;

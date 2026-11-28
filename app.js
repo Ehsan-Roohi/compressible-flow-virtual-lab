@@ -486,11 +486,11 @@ function arrangeFannoGeometry(fields,open){
  $('inputs').append(details);
 }
 function arrangeCollisionOutput(result){
- const notice=$('notice'),results=$('results').closest('.results');
+ const notice=$('notice');
  const showWithFigure=result?.singleWallInteraction||id==='collision'||inputs.wallShape===shockFanMode||
   id==='wall'&&inputs.wallShape==='Custom wall'&&inputs.boundaryMode==='Channel'&&channelSolverName(inputs.channelSolver)==='Shock–Expansion';
  if(showWithFigure)$('scene').after(notice);
- else results.querySelector('.card-head').after(notice);
+ else $('gasResultSummary').after(notice);
 }
 function arrangePropertyPanels(){
  arrangeCollisionOutput();
