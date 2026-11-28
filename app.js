@@ -1,3 +1,4 @@
+import {makeCaseLink,readCaseLink,restoreCaseInputs} from './case-link.js?v=20261128-case-links';
 import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261124-shock-input-options';
 import {createUnitView} from './unit-system.js?v=20261124-heated-friction-duct';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
@@ -38,9 +39,9 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261128-nozzle-dimensional-coordinates';
+import {plotOptions} from './plot-options.js?v=20261128-case-links-and-wall-segments';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
-import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261128-nozzle-dimensional-coordinates';
+import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261128-case-links-and-wall-segments';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-center-states';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
@@ -48,8 +49,8 @@ import {rayleighBookInputs} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-nozzle-dimensional-coordinates';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261126-wedge-labels';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-case-links-and-wall-segments';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-case-links-and-wall-segments';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -144,10 +145,12 @@ const pistonExamplePresets={
 const $=id=>document.getElementById(id);
 const unitView=createUnitView();
 try{unitView.setSystem(localStorage.getItem('gdvl-units'));}catch{}
+let preferredUnits=unitView.system;
 const unitSelector=$('unitSystem');
 unitSelector.value=unitView.system;
 unitSelector.onchange=()=>{
  unitView.setSystem(unitSelector.value);
+ preferredUnits=unitView.system;
  try{localStorage.setItem('gdvl-units',unitView.system);}catch{}
  renderInputs();
  if(current)renderResult();
@@ -202,7 +205,8 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
-const worker=new Worker(new URL('./worker.js?v=20261128-nozzle-dimensional-coordinates',import.meta.url),{type:'module'});
+let openedSharedCase=false,copyCaseTimer;
+const worker=new Worker(new URL('./worker.js?v=20261128-case-links-and-wall-segments',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -237,9 +241,19 @@ function openChapter6Example(value){
 }
 function openLab(){
  stopSweep();clearTimeout(timer);sweepPositioned=false;sweepFinished=false;
+ if(openedSharedCase){
+  unitView.setSystem(preferredUnits);
+  unitSelector.value=unitView.system;
+ }
+ openedSharedCase=false;
+ clearTimeout(copyCaseTimer);
+ $('copyCaseLink').textContent='Copy case link';
+ $('caseLinkStatus').hidden=true;
  const [section,query]=location.hash.slice(1).split('?',2);
  const next=section||'rayleigh';
- const params=new URLSearchParams(query),requestedExample=canonicalExample(params.get('example'));
+ const params=new URLSearchParams(query);
+ const caseToken=params.get('case'),shared=readCaseLink(caseToken);
+ const requestedExample=shared?null:canonicalExample(params.get('example'));
  let example=requestedExample;
  if(next==='tube'){
   if(requestedExample==='7-12')example='7-1';
@@ -251,7 +265,7 @@ function openLab(){
  if(['oblique','expansion'].includes(next)){pendingLegacyCorner=next;location.hash='wall';return;}
  if(next==='balances'){location.hash='foundations';return;}
  if(next==='linear'){location.hash='airfoil';return;}
- if(!labs[next]){location.hash='rayleigh';return;}
+ if(!Object.hasOwn(labs,next)){location.hash='rayleigh';return;}
  id=next;document.body.dataset.lab=id;setChapterLayout(id);current=null;stopAnimation();inputs=defaults(id);
  $('scene').closest('.scene-card').hidden=['critical-mach','foundations'].includes(id);
  try{
@@ -295,9 +309,25 @@ function openLab(){
   inputs=defaults('wall',{wallShape:'Custom wall',boundaryMode,channelSolver:wallSolver??inputs.channelSolver});
   pendingCustomChannel=false;
  }
+ if(caseToken!==null){
+  try{
+   if(!shared)throw Error('Invalid case link.');
+   const base=defaults(id);
+   const mode=restoreCaseInputs(base,shared.inputs);
+   const schema={...base,...defaults(id,mode)};
+   const fields=inputDefinitions(id,restoreCaseInputs(schema,shared.inputs));
+   inputs=restoreCaseInputs(schema,shared.inputs,fields);
+   openedSharedCase=true;
+   unitView.setSystem(shared.units);
+   unitSelector.value=unitView.system;
+  }catch{
+   $('caseLinkStatus').textContent='This case link could not be opened. Showing your saved or default inputs.';
+   $('caseLinkStatus').hidden=false;
+  }
+ }
  inputs.fluid=gasInfo(inputs).name;
  if(id==='collision')inputs.geometryMode='Custom geometry';
- if(id==='wall')inputs.channelSolver=channelSolverName(wallSolver??inputs.channelSolver);
+ if(id==='wall')inputs.channelSolver=channelSolverName(openedSharedCase?inputs.channelSolver:wallSolver??inputs.channelSolver);
  const l=labs[id],chapter=chapters.find(x=>x[0]===l.chapter);
  $('labTitle').textContent=l.chapter===6?'Supersonic Wave Lab':l.title;
  $('description').textContent=l.description;$('model').textContent=l.model;$('limitations').textContent=l.limitations;
@@ -311,6 +341,10 @@ function openLab(){
   const code=example==='8-1'||example==='8-2'?example+'a':example;
   if(code==='8-1b'||nozzleExamples.some(entry=>entry.value===code)){loadNozzleExample({bookExample:code});return;}
   selectNozzleExamplePlot();
+ }
+ if(openedSharedCase){
+  plotSelection[id]=shared.plot;
+  extraPlotSelections[id]=[];
  }
  renderInputs();
  const select=$('exampleSelect');
@@ -797,7 +831,7 @@ function solve({stream=false}={}){
  stopAnimation();worker.postMessage({request,id,inputs});
 }
 
-worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('airfoilWavePanel').hidden=true;$('airfoilPanel').hidden=true;$('results').closest('.results').hidden=false;stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='boundary-preview-limit'?'Preview unavailable':data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}renderResult();syncSweep();continueSweep();};
+worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('airfoilWavePanel').hidden=true;$('airfoilPanel').hidden=true;$('results').closest('.results').hidden=false;stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='boundary-preview-limit'?'Preview unavailable':data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}if(!openedSharedCase){try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}}renderResult();syncSweep();continueSweep();};
 worker.onerror=()=>{solvePending=false;stopSweep();syncSweep();$('status').textContent='Worker error';$('notice').hidden=false;$('notice').textContent='The calculation worker could not start. Serve this folder over HTTP(S) with module support.';};
 function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.length){box.hidden=true;box.innerHTML='';return;}const compact=id==='collision';box.hidden=false;box.innerHTML=`<h3>${compact?'WAVE ANGLES & ENTROPY':'SHOCK STATES · ONE-SIDED VALUES'}</h3>${groups.map(g=>`<section class="shock-state"><h4>${g.title}</h4>${compact?'':`<p>${g.location}</p><div class="shock-table-wrap"><table><thead><tr><th>Parameter</th><th>Before</th><th>After</th><th>After / before</th></tr></thead><tbody>${g.rows.map(r=>`<tr><th>${r.label}</th><td>${measure(r.before,r.unit)}</td><td>${measure(r.after,r.unit)}</td><td>${fmt(r.ratio)}</td></tr>`).join('')}</tbody></table></div>`}<dl>${g.extra.map(e=>`<div><dt>${e.label}</dt><dd>${measure(e.value,e.unit)}</dd></div>`).join('')}</dl></section>`).join('')}`;addDataExport(box,'shocks',()=>({
   shocks:groups.flatMap(g=>[
@@ -1394,13 +1428,33 @@ $('sweepSpeed').onchange=()=>{if(sweepPlaying&&!solvePending){clearTimeout(sweep
 $('sweepEnable').onclick=()=>{stopSweep();inputs.outletCondition='Specified back pressure';sweepPositioned=false;sweepFinished=false;const p=getSweepPlan();if(p.enabled)inputs.backRatio=Math.min(p.max,Math.max(p.min,inputs.backRatio));renderInputs();solve();};
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&sweepPlaying){stopSweep();syncSweep();}});
 
+$('copyCaseLink').onclick=async()=>{
+ const button=$('copyCaseLink'),status=$('caseLinkStatus');
+ status.hidden=true;
+ let href;
+ try{
+  href=makeCaseLink(location.href,id,inputs,unitView.system,$('plotQuantity').value||undefined);
+ }catch(error){
+  status.textContent=error.message;
+  status.hidden=false;
+  return;
+ }
+ try{
+  await navigator.clipboard.writeText(href);
+  clearTimeout(copyCaseTimer);
+  button.textContent='Link copied';
+  copyCaseTimer=setTimeout(()=>{button.textContent='Copy case link';},1800);
+ }catch{
+  window.prompt('Copy this case link',href);
+ }
+};
 $('guideButton').onclick=()=>{const details=$('modelDetails');details.hidden=!details.hidden;$('guideButton').setAttribute('aria-expanded',String(!details.hidden));};window.addEventListener('hashchange',openLab);openLab();
 
 $('exportPng').onclick=async()=>{if(!current)return;const button=$('exportPng');const name=exportFilename(button,`compressible-flow-${id}`,'png');button.disabled=true;let url;try{const svg=$('scene').querySelector('svg').cloneNode(true);svg.setAttribute('xmlns','http://www.w3.org/2000/svg');const box=svg.viewBox.baseVal;const width=box.width||960,height=box.height||450;svg.setAttribute('width',width);svg.setAttribute('height',height);url=URL.createObjectURL(new Blob([uniformDiagramText(new XMLSerializer().serializeToString(svg))],{type:'image/svg+xml'}));const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=url;});const canvas=document.createElement('canvas');canvas.width=width*2;canvas.height=height*2;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw Error('PNG export failed');const link=document.createElement('a'),pngUrl=URL.createObjectURL(blob);link.href=pngUrl;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(pngUrl),1000);}catch(error){alert('Image export failed. Please use SVG or try again.');}finally{if(url)URL.revokeObjectURL(url);button.disabled=false;}};
 
-function isBookOverlay(key){return key===nozzleBookPlotKey;}
+function isStandalonePlot(key){return key===nozzleBookPlotKey||key==='nozzle-moc-wall-segments';}
 function canOverlayPlot(first,other){
- return !isBookOverlay(first.key) && !isBookOverlay(other.key) &&
+ return !isStandalonePlot(first.key) && !isStandalonePlot(other.key) &&
   !first.chart.heatmap && !other.chart.heatmap && first.chart.xlabel===other.chart.xlabel;
 }
 function renderPlotPicker(){

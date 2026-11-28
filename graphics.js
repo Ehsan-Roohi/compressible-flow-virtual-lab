@@ -324,7 +324,21 @@ function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=c.x
  const labelX=Math.max(L+44,Math.min(W-R-44,px)),color='#17383b';
  inner+=`<g ${label?"data-chart-axis-reference":"data-slip-angle-axis"}="true">`+line(px,Y(y),px,axis,color,1,'4 3')+
   line(px,axis,px,axis+6,color,1.4)+txt(labelX,axis+38,label??`φ = ${Number(x.toFixed(2))}°`,color,14,'middle')+'</g>';
- }c.series.forEach((s,i)=>{if(c.scatter){for(const [x,y] of s.points.filter(p=>p.every(Number.isFinite)))inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${colors[i%colors.length]}"/>`;return;}inner+=`<polyline points="${s.points.filter(p=>p.every(Number.isFinite)).map(([x,y])=>[X(x),Y(y)].join(',')).join(' ')}" fill="none" stroke="${s.color??colors[i%colors.length]}" stroke-width="${s.width??2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round"/>`;});if(c.regionMarkers){
+ }
+ c.series.forEach((s,i)=>{
+  const points=s.points.filter(p=>p.every(Number.isFinite));
+  const color=s.color??colors[i%colors.length];
+  if(c.scatter){
+   for(const [x,y] of points)inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${colors[i%colors.length]}"/>`;
+   return;
+  }
+  inner+=`<polyline points="${points.map(([x,y])=>[X(x),Y(y)].join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="${s.width??2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round"/>`;
+  if(s.vertexRadius){
+   inner+=`<g data-chart-vertices="true" fill="white" stroke="${color}" stroke-width="1">${points.map(([x,y])=>
+    `<circle cx="${X(x)}" cy="${Y(y)}" r="${s.vertexRadius}"/>`).join('')}</g>`;
+  }
+ });
+ if(c.regionMarkers){
  const occupied=[];
  for(const m of c.markers??[]){const label=m.detail?`${m.name} · ${m.detail}`:m.name,px=X(m.x),py=Y(m.y),width=Math.min(260,String(label).length*8+8),candidates=[...[-13,22,-35,44,-57,66,-79,88,-101,110].flatMap(dy=>[[9,dy],[-9,dy]]),...[-13,22,-35,44,-57,66].flatMap(dy=>[[-120,dy],[-230,dy]])].map(([dx,dy])=>{const anchor=dx<0?'end':'start',xx=px+dx,left=Math.max(L+3,Math.min(W-R-width-3,anchor==='end'?xx-width:xx)),yy=Math.max(T+15,Math.min(H-B-5,py+dy));return {x:anchor==='end'?left+width:left,y:yy,anchor,left,top:yy-16,right:left+width,bottom:yy+5};});
  const overlaps=q=>occupied.filter(z=>q.left<z.right+4&&q.right>z.left-4&&q.top<z.bottom+4&&q.bottom>z.top-4).length;

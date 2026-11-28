@@ -4,7 +4,7 @@ import {calculate, defaults, inputDefinitions} from './labs.js';
 import {gasPresets, selectGas} from './gas-properties.js';
 import {designMinimumLengthNozzle, nozzleMocExamples, nozzleMocMethods, nozzleMocStarts, nozzleMocTargets, nozzleMocTargetValues, resolveNozzleMocExitMach} from './nozzle-moc.js';
 import {plotOptions} from './plot-options.js';
-import {sceneSVG} from './graphics.js';
+import {chartSVG,sceneSVG} from './graphics.js';
 import {areaMach,deg,isentropic,prandtlMeyer} from './physics.js';
 
 const near=(actual,expected,tolerance)=>assert.ok(Math.abs(actual-expected)<=tolerance,
@@ -60,6 +60,25 @@ test('the exported contour uses dimensional coordinates for the calculated wall 
   assert.deepEqual(lower.points[i],[x*halfHeight,-y*halfHeight]);
  }
  assert.deepEqual(upper.points.at(-1),[length,exitHeight/2]);
+});
+
+test('wall segments mark exact upper-wall vertices on the expanded dimensional chart',()=>{
+ const id='nozzle-design';
+ const inputs={...defaults(id),...nozzleMocExamples[3].inputs,nozzleMocMethod:nozzleMocMethods.compare};
+ const run=calculate(id,inputs);
+ const {chart,note}=plotOptions(run).find(option=>option.key==='nozzle-moc-wall-segments');
+ const {svg,axis}=chartSVG(chart);
+ assert.match(note,new RegExp(`${inputs.mocFanRays} straight segments`));
+ assert.equal(chart.xlabel,'Axial position x (m)');
+ assert.equal(chart.ylabel,'Wall coordinate y (m)');
+ assert.ok(axis.ymin>0);
+ assert.equal(chart.series.length,2);
+ for(const [i,{wall,halfHeight}] of run.result.designs.entries()){
+  assert.deepEqual(chart.series[i].points,wall.map(({x,y})=>[x*halfHeight,y*halfHeight]));
+ }
+ assert.equal([...svg.matchAll(/data-chart-vertices="true"/g)].length,2);
+ assert.equal([...svg.matchAll(/<g data-chart-vertices[^>]*>(.*?)<\/g>/g)]
+  .flatMap(([,vertices])=>[...vertices.matchAll(/<circle /g)]).length,2*(inputs.mocFanRays+1));
 });
 
 test('the nozzle field exposes normalized properties and an independent characteristic overlay',()=>{
