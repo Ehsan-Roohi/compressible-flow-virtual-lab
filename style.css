@@ -402,7 +402,7 @@ body[data-lab="foundations"] .compare-btn{width:auto;margin:5px var(--card-inset
 
 /* Keep the controls and secondary results quiet beside the flow diagram. */
 .lab-header .model-details .model-pill { display: inline-block; margin: 0 8px 4px 0; }
-.lab-heading-row .top-actions { gap: 6px; }
+.lab-heading-row .top-actions { gap: 8px; }
 .scene-card > .card-head { align-items: center; padding-block: 6px 4px; }
 .scene-tools { align-items: baseline; }
 .export-disclosure > summary, .sampling-settings > summary,
@@ -503,6 +503,25 @@ body[data-lab="nozzle"] #flowRelationsPanel td { font-size: 12px; }
 }
 .units-selector { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 13px; }
 .units-selector select { width: auto; min-height: 30px; padding: 3px 6px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; }
+
+.lab-header .top-actions .icon-btn {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid #738f85;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fff;
+}
+.lab-header .top-actions #copyCaseLink {
+  border-color: #4b8579;
+  color: #145b51;
+  background: #eaf4ef;
+}
+.lab-header .top-actions :is(#copyCaseLink, #guideButton):hover,
+.lab-header .top-actions #guideButton[aria-expanded="true"] {
+  border-color: var(--teal);
+  background: #deeee7;
+}
 
 .field-controls > .nozzle-characteristics-toggle {
   grid-column: 1 / -1;
