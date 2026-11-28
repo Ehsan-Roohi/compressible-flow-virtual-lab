@@ -39,7 +39,7 @@ export const nozzleExamples = [
   {value:'8-3', label:'Design for Mach 3.5', inputs:{nozzleSolve:nozzleSolveModes[2],nozzleDesignMach:3.5,p0:1000,T0:333.15,minAreaCm2:500},
     note:'Find exit area, design mass flow and the back-pressure ranges for internal shock, overexpanded flow and underexpanded flow.'},
   {value:'8-4', label:'Internal normal shock', inputs:{},
-    note:'Locate the shock for an exit-to-throat area ratio of 3 and back pressure of 50.66 kPa. The book gives no reservoir temperature, absolute throat area or axial contour. Dimensional values use the lab’s reference inputs and the axial position uses its schematic contour.'},
+    note:'Find the normal-shock location for an exit-to-throat area ratio of 3 and a back pressure of 50.66 kPa. The axial location uses the displayed nozzle contour.'},
 ];
 
 export function nozzleModeDefaults(base,selection={}){

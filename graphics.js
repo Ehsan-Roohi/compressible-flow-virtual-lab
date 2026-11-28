@@ -124,7 +124,7 @@ if(s.comparison){
  return {densityCells,label:'Shock–Expansion vs method of characteristics',meta:'Same geometry and color scale · quantitative comparison uses only the common accepted domain',field:fields.length?{...fields[0],...range,note:'Shared range across both accepted fields'}:null,svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 330" role="img" aria-label="Two methods on the same geometry">${diagramFontStyle}${cards}</svg>`};
  }let inner='',label='Schematic geometry · analytical states',meta='Ideal gas · no CFD',field=null,nozzleAxial=null,densityCells=null;
  const f=regionalField(s,inputs,quantity);quantity=f.key;const vals=f.values.filter(Number.isFinite),lo=Math.min(...vals),hi=Math.max(...vals),shade=v=>(['oblique','expansion','collision'].includes(s.kind)?cornerContourColor:contourColor)(hi-lo<1e-14?.5:(v-lo)/(hi-lo));if(vals.length)field={quantity,options:f.options,label:quantity==='cp'?'Surface pressure coefficient':quantity,units:f.units,min:lo,max:hi,note:f.note};
- const W=640,H=s.kind==='wall'&&s.tracking?trackingCoordinates(s).height:300;let flow=(angle=0,color='#ffffff')=>{let r='';for(let y of [85,125,165,205])r+=directedArrow(27,y,56,angle,color);return r;};
+ const W=640,H=s.kind==='wall'&&s.tracking?trackingCoordinates(s).height:300;
  if(s.kind==='balance'){
   const H=55,ratio=Math.sqrt(s.A2/s.A1),h1=H/Math.max(1,ratio),h2=h1*ratio;
   inner+=`<defs><pattern id="cvInterior" width="9" height="9" patternUnits="userSpaceOnUse"><path d="M0 9 L9 0" stroke="#ccd3da" stroke-width=".8"/></pattern></defs>`;
@@ -143,7 +143,20 @@ if(s.comparison){
    +txt(120,196,`ρ = ${fmt(s.s1.rho)} kg/m³`,'#17383b',14);inner+=line(360,105,360,205,'#a4bbab',1,'4 4')+txt(390,131,s.reference?.label??'AT REST','#17383b',9)
    +txt(390,163,`T${s.reference?'*':'₀'} = ${fmt(s.reference?.temperature??s.s1.T0)} K`,'#17383b',17)
    +txt(390,193,`p${s.reference?'*':'₀'} = ${fmt((s.reference?.pressure??s.s1.p0)/1000)} kPa`,'#17383b');}
- else if(s.kind==='normal'){inner+=poly([[20,70],[315,70],[315,230],[20,230]],'#ddf4f1')+poly([[315,70],[620,70],[620,230],[315,230]],'#ffd1c6');inner+=flow(0,'#000000')+line(315,53,315,245,'#000000',3)+txt(315,45,'NORMAL SHOCK','#17383b',11,'middle');inner+=txt(110,118,'UPSTREAM','#17383b',9)+txt(110,151,`M₁ = ${fmt(s.s1.M)}`,'#17383b',22)+txt(110,184,`p₁ = ${fmt(s.s1.p/1000)} kPa`,'#17383b',12)+txt(375,118,'DOWNSTREAM','#17383b',9)+txt(375,151,`M₂ = ${fmt(s.s2.M)}`,'#17383b',22)+txt(375,184,`p₂ = ${fmt(s.s2.p/1000)} kPa`,'#17383b',12);label='Uniform analytical regions · pressure jump';}
+ else if(s.kind==='normal'){
+  const color='#17383b';
+  inner+=poly([[20,70],[315,70],[315,230],[20,230]],'#ddf4f1')+
+   poly([[315,70],[620,70],[620,230],[315,230]],'#ffd1c6')+
+   line(315,53,315,245,'#000000',3)+txt(315,45,'Normal shock',color,14,'middle');
+  for(const [side,index,x,state] of [['Upstream','₁',167,s.s1],['Downstream','₂',468,s.s2]]){
+   inner+=`<g data-normal-side="${side.toLowerCase()}">`+
+    txt(x,95,side,color,14,'middle')+directedArrow(x-49,115,98,0,'#000000')+
+    txt(x,151,`M${index} = ${fmt(state.M)}`,color,17,'middle')+
+    txt(x,179,`p${index} = ${fmt(state.p/1000)} kPa`,color,17,'middle')+
+    txt(x,207,`T${index} = ${fmt(state.T)} K`,color,17,'middle')+'</g>';
+  }
+  label='Flow direction and states across a normal shock';
+ }
  else if(s.kind==='duct'){inner+=poly([[40,85],[600,85],[600,215],[40,215]],'#e5efe2');if(s.s2){inner+=poly([[40,86],[320,86],[320,214],[40,214]],['rayleigh','fanno'].includes(s.process)?'#d8e8e6':shade(f.values[0]))+poly([[320,86],[600,86],[600,214],[320,214]],['rayleigh','fanno'].includes(s.process)?'#eddfca':shade(f.values[1]));inner+=txt(68,130,'INLET',undefined,9)+txt(68,158,`M₁ = ${fmt(s.s1.M)}`,undefined,19)+txt(398,130,'OUTLET',undefined,9)+txt(398,158,`M₂ = ${fmt(s.s2.M)}`,undefined,19);for(let x=90;x<590;x+=80)inner+=arrow(x,187,35)+dot(x+10,187,x);if(s.process==='rayleigh'){for(let x=220;x<420;x+=42)inner+=line(x,44,x,77,'#cb9b60',1.4)+((s.q??inputs.q)>=0?poly([[x,79],[x-3,73],[x+3,73]],'#cb9b60'):poly([[x,42],[x-3,48],[x+3,48]],'#cb9b60'));inner+=txt(320,33,`${(s.q??inputs.q)>=0?'HEATING':'COOLING'}  q = ${fmt(s.q??inputs.q)} kJ/kg`,'#a77944',10,'middle');}else inner+=txt(320,50,`WALL FRICTION · fᴅL/D = ${fmt(inputs.lambda)}`,'#8a7862',10,'middle');label='Illustration of endpoint states · shading is schematic';}else inner+=txt(320,152,'NO STEADY OUTLET FOR THIS INLET','#a3784c',14,'middle');inner+=line(40,85,600,85,'#819a85',3)+line(40,215,600,215,'#819a85',3);}
  else if(s.kind==='oblique'||s.kind==='expansion'){
   const view=cornerDrawing(s,{...inputs,_cornerQuantity:quantity,_cornerUp:f.values[0],_cornerDown:f.values.at(-1)},{txt,line,poly,shade,fmt});if(view.densityCells.length){

@@ -2,7 +2,7 @@ import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculat
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {designMinimumLengthNozzle,nozzleMocExamples,nozzleMocMethods,nozzleMocStarts,nozzleMocTargets,nozzleMocTargetValues,nozzleMocPlots} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';
-import {nozzleDesignTargets,nozzleSizingInputs,nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261128-nozzle-mass-flow';
+import {nozzleDesignTargets,nozzleSizingInputs,nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261128-normal-shock-labels';
 import {linearizedTube,movingShockSonicMach,tubeSolutionMethods} from './linearized-tube.js?v=20261121-tube-methods';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveSingleStagePiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261125-boundary-preview';
 import {tubeEndFields,tubeEndKeys,hasOpenEnd,beforeOpenEnd} from './tube-boundary-preview.js?v=20261125-boundary-preview';
@@ -34,7 +34,7 @@ import {automaticPressure,manualPressure,resolveCriticalPressure} from './critic
 import {ductReferenceTable,conicalRelations,coneReferenceTable} from './reference-relations.js?v=20261119-cone-limit-help';
 import {solveInteraction,interactionPair} from './wave-interaction.js?v=20261109-wedge-cone';
 import {expandedInput,validateMachInputs} from './input-ranges.js?v=20261109-wedge-cone';
-import {gasInputFields,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
+import {gasInputFields,gasInfo} from './gas-properties.js?v=20261128-normal-shock-labels';
 import {controlVolume,controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {externalJet} from './jet.js?v=20261109-wedge-cone';
 import * as p from './physics.js?v=20261110-rayleigh-audit';
@@ -206,7 +206,7 @@ export const labs={
  'critical-mach':{chapter:9,title:'Critical Mach Number',tag:'CHAPTER 9 · SONIC ONSET',
   description:'Estimate the freestream Mach number at which the flow first reaches Mach 1 on the airfoil surface.',
   inputs:[
-   {...input('gamma','Specific heat ratio',1.4,1.01,2,.001,'γ'),section:'Gas properties'},
+   input('gamma','Specific heat ratio',1.4,1.01,2,.001,'γ'),
    {key:'criticalPressureSource',label:'Pressure input',value:automaticPressure,options:[automaticPressure,manualPressure]},
    {key:'criticalNacaCode',label:'NACA airfoil code',value:'4412',type:'text'},
    input('criticalAlpha','Angle of attack',0,-15,15,.1,'°'),

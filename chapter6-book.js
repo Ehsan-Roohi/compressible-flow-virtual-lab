@@ -18,7 +18,7 @@ function entry(number,title,note,preset,lab='wall'){
 export const chapter6BookExamples=[
  entry(1,'Weak oblique shock','Find the weak shock angle for a 25° flow turn. Pressure and temperature are reference values.',{...compression,M1:2.5,theta:25}),
  entry(2,'Oblique-shock states','Find the shock angle and downstream static and stagnation properties for a 20° ramp.',{...compression,M1:3,theta:20,p1:101,T1:288}),
- entry(3,'Stronger ramp compression','Repeat Example 2 with a 30° ramp and inspect downstream pressure and Mach number.',{...compression,M1:3,theta:30,p1:101,T1:288}),
+ entry(3,'Stronger ramp compression','For Mach 3 flow over a 30° ramp, find the downstream pressure and Mach number.',{...compression,M1:3,theta:30,p1:101,T1:288}),
  entry(4,'Opposing shock interaction','Inspect regions 2, 3, 4, and 4′ and the slip-line angle. Temperature and channel dimensions are reference values.',chapter6Example(4)),
  entry(5,'Successive compression corners','Two successive 10° turns on one wall produce interacting shocks. Inspect regions 2–5 and the slip-line angle.',{...chapter6Example(5),boundaryMode:'Single wall',wallSide:'Gas above wall'}),
  entry(6,'Prandtl–Meyer expansion','The inlet is at 1.8 kPa and 250 °C. Read the two fan-ray inclinations relative to the inlet direction.',{wallShape:'Expansion corner',boundaryMode:'Single wall',wallSide:'Gas above wall',M1:2,p1:1.8,T1:523.15,theta:20}),

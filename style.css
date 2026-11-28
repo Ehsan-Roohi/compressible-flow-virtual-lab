@@ -180,6 +180,19 @@ main{max-width:none;margin:0;padding:0 clamp(8px,1.2vw,16px) 12px;min-width:0}
 .scene,.field-controls{margin-inline:8px}
 #waveKey{margin:6px var(--card-inset) 4px}
 .plot-controls{padding:6px var(--card-inset) 0}
+.controls > .card-head {
+  display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between;
+  column-gap: 6px; padding-inline: min(var(--card-inset), 12px);
+  container-type: inline-size;
+}
+.controls > .card-head > #inputTitle {
+  margin: 0; white-space: nowrap; font-size: 16px;
+  font-size: clamp(12px, 8.5cqi, 17px);
+}
+.controls > .card-head > #reset {
+  flex: none; white-space: nowrap;
+  font-size: clamp(11px, 7cqi, 14px);
+}
 .plot-controls.chart-axes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
 .chart-axes select{min-width:0}
 .chart-axes #plotXAxisLabel,.chart-axes #plotXAxis{grid-column:1}

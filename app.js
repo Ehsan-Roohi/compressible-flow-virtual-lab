@@ -16,7 +16,7 @@ import {compactTypedInputs} from './typed-inputs.js?v=20261114-compact-inputs';
 import {probeWedgeWall} from './wedge-wall.js?v=20261114-region-markers';
 import {ramjetMode,ramjetDescription,ramjetLimit} from './ramjet-inlet.js?v=20261114-restored-inlet-text';
 import {probeInlet} from './ramjet-inlet-graphics.js?v=20261118-wave-density';
-import {fannoExamples} from './fanno-examples.js?v=20261120-example-titles';
+import {fannoExamples} from './fanno-examples.js?v=20261128-normal-shock-labels';
 import {fannoRayleighMode,fannoRayleighPreset,fannoRayleighExample,fannoRayleighInfo,rayleighFannoPreset,rayleighFannoExample,stagedDuctDefaults,changeDuctStageOrder,changeDuctStageData,stagedRayleighCoolingChoice} from './fanno-rayleigh.js?v=20261124-duct-known-data';
 import {heatedFrictionMode,heatedFrictionExample,heatedFrictionPreset,heatedFrictionInfo,changeHeatedDuctInput} from './heated-friction-duct.js?v=20261124-heated-example-label';
 import {fannoModeDefaults,fannoModeSelection} from './fanno-defaults.js?v=20261124-fanno-inverse-ratios';
@@ -36,7 +36,7 @@ import {channelSolverName} from './channel-solver.js?v=20261114-custom-final';
 import {trackingPreset} from './wave-tracker.js?v=20261109-wedge-cone';
 import {trackingInspectionHTML,drawableTrackingEvents,defaultTrackingEvent,selectTrackingEvent,trackingExportRows,trackingSummaryRows} from './wave-tracker-tables.js?v=20261117-example-numbers';
 import {probeTracking} from './wave-tracker-graphics.js?v=20261118-wave-density';
-import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js?v=20261121-airfoil-forces';
+import {chapter6BookExamples,getChapter6BookExample,chapter6WallGeometries,activeChapter6WallGeometry,chapter6ResetExample,chapter6BookResult} from './chapter6-book.js?v=20261128-normal-shock-labels';
 import {wallPresets} from './wave-wall.js?v=20261109-wedge-cone';
 import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tables.js?v=20261121-total-loads';
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
@@ -45,15 +45,15 @@ import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261128-lab-axes';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';
-import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey,nozzleDesignTargets,nozzleSizingInputs,resolveNozzleCase} from './nozzle-book.js?v=20261128-nozzle-mass-flow';
+import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey,nozzleDesignTargets,nozzleSizingInputs,resolveNozzleCase} from './nozzle-book.js?v=20261128-normal-shock-labels';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-center-states';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
 import {rayleighBookInputs} from './rayleigh-book.js';
-import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
+import {selectGas,gasInfo} from './gas-properties.js?v=20261128-normal-shock-labels';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-nozzle-mass-flow';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-shared-chart-frames';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-normal-shock-labels';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-normal-shock-labels';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -226,7 +226,7 @@ let calculatorPlotFamily='',coneSweepState;
 const calculatorMode=d=>d?.inputs.calculatorMode??calculatorModes.isentropic;
 const isConeSweepAxis=key=>key===coneFreestreamAxis||key?.startsWith('cone-sweep-');
 let openedSharedCase=false,copyCaseTimer;
-const worker=new Worker(new URL('./worker.js?v=20261128-nozzle-mass-flow',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261128-normal-shock-labels',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -1044,7 +1044,7 @@ function renderRegionTable(d){
  }
  const showShockGuide=d.id==='fanno'&&d.result.fullSystem&&d.inputs.fannoCondition===fannoConditions[0];
  const shockGuide=showShockGuide?'<p class="control-hint">Use the back-pressure slider above to set the shock location. The station properties in this table depend on the selected location.</p>':'';
- if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Gas properties across the shock':d.result.twoStagePiston?'Gas properties before catch-up':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${unitView.axisLabel(r.label)}</th>${r.values.map(v=>`<td>${displayValue(v,unitView.axisUnit(r.label),6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${backPressureHTML(t.note)}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
+ if(d.result.ductSystem||d.result.twoStagePiston||d.result.valveClosure){const t=d.result.referenceTable;$('regionTablePanel').hidden=false;$('regionTableTitle').textContent=d.result.valveClosure?'Flow properties across the shock':d.result.twoStagePiston?'Flow properties before catch-up':'Properties at every station';$('regionTable').innerHTML=`${shockGuide}<div class="region-table-scroll"><table class="region-table"><thead><tr><th>Property</th>${t.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr><th>${unitView.axisLabel(r.label)}</th>${r.values.map(v=>`<td>${displayValue(v,unitView.axisUnit(r.label),6)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${t.note?`<p class="control-hint">${backPressureHTML(t.note)}</p>`:''}`;const highlights=hasFannoFrictionAnswer(d)?t.highlights?.filter(r=>r.label!=='Friction length'):t.highlights;if(highlights?.length){
   const summary=document.createElement('p');summary.className='control-hint';
   summary.textContent=highlights.map(r=>`${r.label} ${measure(r.value,r.unit,6)}`.trim()).join(' · ');
   $('regionTable').append(summary);
@@ -1784,18 +1784,18 @@ function renderExamples(){
    slider.min='0';slider.step='0.001';slider.value=bookExample==='7–10'?'0.1875':bookExample==='7–3'?'0.067':'0.133';
   }
  };
- if(id==='tube')entries=[{value:'7–1',label:'Moving normal shock',note:'Air at rest, T₁ = 300 K, p₂/p₁ = 10. p₁ = 100 kPa is a reference pressure; T₄ = 300 K defines an equivalent shock-tube driver. The shock reflects at the closed end. Shock speed, induced gas speed and T₂/T₁ do not depend on these additional driver/reference choices. For Example 7–6, the flow behind the shock is supersonic in the laboratory when Mₛ exceeds the reported critical value.',apply:()=>{stopAnimation();load(movingNormalShockPreset,movingNormalShockPreset.bookExample);}}];
- if(id==='tube')entries.push({value:'7–2',label:'Single-stage piston',note:'Air at rest at 298 K. A piston starts moving at 150 m/s. Find the resulting shock speed. The 100 kPa reference pressure does not affect the shock speed. The 6 m demonstration tube allows a 10 ms view before reflection.',apply:()=>{stopAnimation();load(pistonExamplePresets['Single-stage piston'],'7–2');}});
- if(id==='tube')entries.push({value:'7–3',label:'Two successive shocks',note:'Helium: γ = 1.667, R = 2077 J/(kg·K), T₁ = 300 K. Piston speed 25 → 50 m/s after 1 s. p₁ = 100 kPa is a reference; it does not affect shock speeds or catch-up. The end wall is 40 km away so the shocks merge at 31.325464 s and 32452.402 m before reflections. The 90 s simulation also shows the return of the reflected wave toward the piston.',apply:()=>{stopAnimation();load(pistonExamplePresets['Two-stage piston'],'7–3');}});
- if(id==='tube')entries.push({value:'7–4',label:'Sudden valve closure',note:'Air flows toward the valve at 60 m/s, 101 kPa and 300 K. A shock moves upstream and brings the gas behind it to rest. The upstream piston keeps moving at 60 m/s. The 6 m tube and 30 ms duration are editable simulation settings.',apply:()=>{stopAnimation();load({unsteadyExperiment:valveExperiment,valveInletSpeed:60,p1:101,T1:300},'7–4');}});
- if(id==='tube')entries.push({value:'7–7',label:'Shock into moving gas',note:'Air approaches the incident shock at 200 m/s (u₁ = −200 m/s), with T₁ = 300 K and p₂/p₁ = 10 as in Example 1. The equivalent driver shares the initial velocity. p₁ = 100 kPa and T₄ = 300 K set reference chamber conditions. The numerical field also includes waves generated at both closed ends at t = 0.',apply:()=>{stopAnimation();load({tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,tubeInitialVelocity:-200,p1:100,T1:300,T4:300},'7–7');}});
- if(id==='tube')entries.push({value:'7–10',label:'Sinusoidal piston',note:'The book gives a symbolic small-amplitude solution for one complete cycle. This preset uses air at 100 kPa and 300 K, ε = 0.01, f = 100 Hz and a 6 m closed tube. The preview compares both solutions before reflections; Play continues through reflections to 40 ms.',apply:()=>{stopAnimation();load(pistonExamplePresets['Sinusoidal piston'],'7–10');plotSelection.tube='tube-profile-sine-u';}});
+ if(id==='tube')entries=[{value:'7–1',label:'Moving normal shock',note:'Air is initially at rest at 300 K and the shock pressure ratio is 10. Find the shock and induced gas speeds, then follow the reflection at the closed end.',apply:()=>{stopAnimation();load(movingNormalShockPreset,movingNormalShockPreset.bookExample);}}];
+ if(id==='tube')entries.push({value:'7–2',label:'Single-stage piston',note:'A piston moving at 150 m/s compresses stationary air at 298 K. Find the resulting shock speed.',apply:()=>{stopAnimation();load(pistonExamplePresets['Single-stage piston'],'7–2');}});
+ if(id==='tube')entries.push({value:'7–3',label:'Two successive shocks',note:'The piston speed in helium rises from 25 to 50 m/s after 1 s. Find where and when the shocks merge, then follow the reflected wave.',apply:()=>{stopAnimation();load(pistonExamplePresets['Two-stage piston'],'7–3');}});
+ if(id==='tube')entries.push({value:'7–4',label:'Sudden valve closure',note:'Close the valve on air flowing at 60 m/s, 101 kPa and 300 K. Follow the upstream-moving shock and the reflected waves.',apply:()=>{stopAnimation();load({unsteadyExperiment:valveExperiment,valveInletSpeed:60,p1:101,T1:300},'7–4');}});
+ if(id==='tube')entries.push({value:'7–7',label:'Shock into moving gas',note:'Air at 300 K approaches the shock at 200 m/s. Use p₂/p₁ = 10 to find the wave speeds and post-shock laboratory-frame state.',apply:()=>{stopAnimation();load({tubeInput:'Shock pressure ratio p₂/p₁',shockRatio:10,tubeInitialVelocity:-200,p1:100,T1:300,T4:300},'7–7');}});
+ if(id==='tube')entries.push({value:'7–10',label:'Sinusoidal piston',note:'A piston drives one 100 Hz cycle in a 6 m closed tube with ε = 0.01. Compare the numerical and small-disturbance solutions before reflections.',apply:()=>{stopAnimation();load(pistonExamplePresets['Sinusoidal piston'],'7–10');plotSelection.tube='tube-profile-sine-u';}});
  if(id==='tube'){
-  entries.push({value:'7–13',label:'Finite shock tube',note:'Air in both chambers. Driver: 4 m, 200 kPa, 20 °C. Driven: 6 m, 5 kPa, 25 °C. The sample is 3 m downstream of the diaphragm. Passage times use the initial analytical wave speeds. The simulation initially runs to 30 ms.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,tubeInput:'Chamber pressures',p4:200,p1:5,T4:293.15,T1:298.15,finiteDriverLength:4,finiteDrivenLength:6},'7–13');}});
+  entries.push({value:'7–13',label:'Finite shock tube',note:'The driver is 4 m long at 200 kPa and 20 °C. The driven chamber is 6 m long at 5 kPa and 25 °C. Find the wave arrival times 3 m downstream of the diaphragm.',apply:()=>{stopAnimation();load({tubeDomain:finiteTubeMode,tubeInput:'Chamber pressures',p4:200,p1:5,T4:293.15,T1:298.15,finiteDriverLength:4,finiteDrivenLength:6},'7–13');}});
  }
  if(id==='normal')entries=[
-  {value:normalBookPreset.bookExample,label:'Downstream shock state',note:'Air enters at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K. Find the downstream state, the stagnation-pressure loss and the entropy increase.',apply:()=>load(normalBookPreset,normalBookPreset.bookExample)},
-  {value:'3-2',label:'Shock ratios and entropy',note:'Air enters at M₁ = 1.8. The book supplies Mach only. The preset uses 101 kPa and 300 K as reference values for dimensional results. The shock ratios and entropy increase are independent of those values.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
+  {value:normalBookPreset.bookExample,label:'Downstream shock state',note:'For air at M₁ = 2, p₁ = 137.9 kPa and T₁ = 277.78 K, find the downstream state, stagnation-pressure loss and entropy increase.',apply:()=>load(normalBookPreset,normalBookPreset.bookExample)},
+  {value:'3-2',label:'Shock ratios and entropy',note:'Find the shock property ratios and entropy increase for air at M₁ = 1.8. The dimensional results use p₁ = 101 kPa and T₁ = 300 K.',apply:()=>load({M1:1.8,p1:101,T1:300},'3-2')},
  ];
  if(id==='nozzle')entries=nozzleExamples.map(entry=>({...entry,apply:()=>selectNozzleInputs({bookExample:entry.value})}));
  if(id==='nozzle-design')entries=nozzleMocExamples.map(entry=>({...entry,apply:()=>load({
@@ -1822,7 +1822,7 @@ function renderExamples(){
   });
  }
  if(['rayleigh','fanno'].includes(id))entries.push(
-  {value:fannoRayleighExample,label:'Chapter 5 · Problem 3 · Fanno + Rayleigh',numbered:false,
+  {value:fannoRayleighExample,label:'Fanno + Rayleigh',numbered:false,
    note:'Air passes through the Fanno section and is then heated to Mach 1 in the Rayleigh section.',
    apply:()=>load(fannoRayleighPreset,fannoRayleighExample)},
   {value:rayleighFannoExample,label:'Rayleigh → Fanno · Known heat and friction',numbered:false,
@@ -1847,7 +1847,7 @@ function renderExamples(){
   for(const [value,label] of [['reflection','Shock reflections'],['shock-fan','Shock + expansion'],['fans','Two expansion fans']])entries.push({value,label,apply:()=>{inputs={...inputs,...trackingPreset(value),channelSolver:inputs.channelSolver,bookExample:value};}});
  }
 
- if(id==='airfoil')entries.push({value:'9-7',label:'Linearized triangular airfoil',note:'Chapter 9, Fig. 9–22. At Mach 2, the upper surface peaks at x/c = 0.5 and y/c = 0.1 above a flat lower surface. Start at zero incidence and vary α from −10° to +10° to compare lift and wave drag with the small-disturbance solution.',apply:()=>{
+ if(id==='airfoil')entries.push({value:'9-7',label:'Linearized triangular airfoil',note:'At Mach 2, the upper surface peaks at x/c = 0.5 and y/c = 0.1 above a flat lower surface. Vary incidence from −10° to +10° and compare lift and wave drag.',apply:()=>{
   load(chapter9Triangle,'9-7');
  }});
  if(id==='cone')entries=[{
