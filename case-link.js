@@ -32,10 +32,10 @@ export function restoreCaseInputs(defaults,inputs,fields=[]){
  return {...defaults,...Object.fromEntries(accepted)};
 }
 
-export function makeCaseLink(currentURL,lab,inputs,units,plot){
+export function makeCaseLink(currentURL,lab,inputs,units,plot,plotX){
  const snapshot=Object.fromEntries(Object.entries(inputs).filter(([,value])=>value!==undefined));
  if(!validValue(snapshot))throw Error('Complete the inputs before copying the case link.');
- const data=new TextEncoder().encode(JSON.stringify({v:1,inputs:snapshot,units,plot}));
+ const data=new TextEncoder().encode(JSON.stringify({v:1,inputs:snapshot,units,plot,plotX}));
  const token=btoa(Array.from(data,byte=>String.fromCharCode(byte)).join(''))
   .replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
  if(token.length>maxTokenLength)throw Error('This case is too large for a shareable link.');
@@ -50,9 +50,9 @@ export function readCaseLink(token){
  try{
   const data=Uint8Array.from(atob(token.replaceAll('-','+').replaceAll('_','/')),c=>c.charCodeAt(0));
   const decoded=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(data));
+  const validPlot=plot=>plot===undefined||typeof plot==='string'&&validValue(plot);
   if(decoded?.v!==1||!['SI','US'].includes(decoded.units)||!isRecord(decoded.inputs)||
-     !validValue(decoded.inputs)||decoded.plot!==undefined&&
-     (typeof decoded.plot!=='string'||!validValue(decoded.plot)))return null;
-  return {inputs:decoded.inputs,units:decoded.units,plot:decoded.plot};
+     !validValue(decoded.inputs)||!validPlot(decoded.plot)||!validPlot(decoded.plotX))return null;
+  return {inputs:decoded.inputs,units:decoded.units,plot:decoded.plot,...(decoded.plotX===undefined?{}:{plotX:decoded.plotX})};
  }catch{return null;}
 }

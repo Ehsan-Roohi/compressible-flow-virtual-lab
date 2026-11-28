@@ -314,6 +314,59 @@ function conicalProfilePlots(solution,inlet,relations){
   });
 }
 
+export function conicalMachPlots(thetaCone,g){
+  const {min,max}=calculatorMachRange(calculatorModes.conical);
+  const attachmentMargin=M=>coneAttachmentLimit(M,g).thetaMax-rad(thetaCone);
+  if(attachmentMargin(max)<=0)return [];
+  const lower=attachmentMargin(min)>=0?min:bisect(attachmentMargin,min,max,{xtol:2e-8,ftol:2e-9}).value;
+  const start=lower===min?min:lower+Math.min(.001,(max-lower)/10);
+  const segments=[];
+  let segment=[];
+  for(const M of linspace(start,max,37)){
+    let solved=null;
+    try{
+      solved=cone({M,thetaCone,gamma:g});
+    }catch(error){
+      if(error.code!=='cone-unresolved')throw error;
+      const {betaAtLimit}=coneAttachmentLimit(M,g);
+      const mu=Math.asin(1/M),target=rad(thetaCone);
+      try{
+        const residual=beta=>beta===mu?-target:coneFromShock(M,beta,g).thetaCone-target;
+        const beta=bisect(residual,mu,betaAtLimit,{xtol:1e-13,ftol:2e-9}).value;
+        solved=coneFromShock(M,beta,g);
+      }catch(error){
+        if(!['cone-singularity','nonconverged','unbracketed'].includes(error.code))throw error;
+      }
+    }
+    if(solved)segment.push([M,conicalRelations(solved,M,g)]);
+    else{
+      if(segment.length>1)segments.push(segment);
+      segment=[];
+    }
+  }
+  if(segment.length>1)segments.push(segment);
+  if(!segments.length)return [];
+  const properties=[
+    ['waveAngle','Shock angle β','β (°)'],
+    ['shockTurn','Flow deflection across shock δ','δ (°)'],
+    ['postShockMach','Mach number behind shock M₂','M₂'],
+    ['surfaceMach','Surface Mach number M꜀','M꜀'],
+    ['p2p1','Pressure ratio behind shock p₂/p₁','p₂/p₁'],
+    ['T2T1','Temperature ratio behind shock T₂/T₁','T₂/T₁'],
+    ['rho2rho1','Density ratio behind shock ρ₂/ρ₁','ρ₂/ρ₁'],
+    ['pcp1','Surface pressure ratio p꜀/p₁','p꜀/p₁'],
+    ['TcT1','Surface temperature ratio T꜀/T₁','T꜀/T₁'],
+    ['rhocRho1','Surface density ratio ρ꜀/ρ₁','ρ꜀/ρ₁'],
+    ['p0cp01','Stagnation pressure ratio p₀꜀/p₀₁','p₀꜀/p₀₁'],
+  ];
+  return properties.map(([key,label,ylabel])=>({
+    key:'cone-sweep-'+key,label,
+    note:`Weak attached shocks for a fixed cone half-angle of ${Number(thetaCone.toFixed(3))}° and γ = ${g}.`,
+    chart:{title:label,xlabel:'Freestream Mach number M₁',ylabel,zeroBaseline:false,
+      series:segments.map(samples=>({name:label,points:samples.map(([M,r])=>[M,r[key]])}))},
+  }));
+}
+
 function conicalCalculator(inlet,g,R,x){
   let solved;
   try{

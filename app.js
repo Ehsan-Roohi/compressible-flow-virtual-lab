@@ -1,5 +1,6 @@
-import {makeCaseLink,readCaseLink,restoreCaseInputs} from './case-link.js?v=20261128-case-links';
-import {calculatorMachRange,calculatorModes,shockCalculatorLabs} from './appendix-calculator.js?v=20261128-conical-post-shock-range';
+import {makeCaseLink,readCaseLink,restoreCaseInputs} from './case-link.js?v=20261128-calculator-axes';
+import {calculatorMachRange,calculatorModes,conicalInputs,shockCalculatorLabs} from './appendix-calculator.js?v=20261128-calculator-axes';
+import {calculatorXAxisOptions,calculatorPlotsOnAxis,parameterAxis,coneFreestreamAxis} from './calculator-plot-axes.js?v=20261128-calculator-axes';
 import {createUnitView} from './unit-system.js?v=20261124-heated-friction-duct';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
@@ -49,7 +50,7 @@ import {rayleighBookInputs} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-conical-post-shock-range';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-calculator-axes';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-conical-plot-direction';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -208,8 +209,12 @@ function displayMeasurements(...containers){
 }let id='rayleigh',inputs={},request=0,current=null,pinned=null,timer,animation=false,frame,lastFrame=0,sceneTime=.001,fieldQuantity='pressure';
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
+const calculatorXSelections=new Map(),calculatorYSelections=new Map();
+let calculatorPlotFamily='',coneSweepState;
+const calculatorMode=d=>d?.inputs.calculatorMode??calculatorModes.isentropic;
+const isConeSweepAxis=key=>key===coneFreestreamAxis||key?.startsWith('cone-sweep-');
 let openedSharedCase=false,copyCaseTimer;
-const worker=new Worker(new URL('./worker.js?v=20261128-conical-post-shock-range',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261128-calculator-axes',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -350,6 +355,11 @@ function openLab(){
    expandNozzleWall.checked=shared.plot===sharedWallDetailKey;
    plotSelection[id]=expandNozzleWall.checked?nozzleWallPlotKey:shared.plot;
   }else plotSelection[id]=shared.plot;
+  if(id==='foundations'){
+   const mode=inputs.calculatorMode??calculatorModes.isentropic;
+   calculatorXSelections.set(mode,shared.plotX??parameterAxis);
+   calculatorYSelections.set(mode+(isConeSweepAxis(shared.plotX)?'-sweep':''),shared.plot);
+  }
   extraPlotSelections[id]=[];
  }
  renderInputs();
@@ -844,7 +854,7 @@ function solve({stream=false}={}){
  stopAnimation();worker.postMessage({request,id,inputs});
 }
 
-worker.onmessage=({data})=>{if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('gasResultSummary').hidden=true;$('airfoilWavePanel').hidden=true;$('airfoilPanel').hidden=true;$('results').closest('.results').hidden=false;stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='boundary-preview-limit'?'Preview unavailable':data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}if(!openedSharedCase){try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}}renderResult();syncSweep();continueSweep();};
+worker.onmessage=({data})=>{if(data.coneSweep){receiveConeSweep(data);return;}if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('gasResultSummary').hidden=true;$('airfoilWavePanel').hidden=true;$('airfoilPanel').hidden=true;$('results').closest('.results').hidden=false;stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='boundary-preview-limit'?'Preview unavailable':data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';if(id==='foundations')for(const key of ['plotXAxis','plotXAxisLabel','plotQuantity','plotYAxisLabel','chartExports'])$(key).hidden=true;$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}if(!openedSharedCase){try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}}renderResult();syncSweep();continueSweep();};
 worker.onerror=()=>{solvePending=false;stopSweep();syncSweep();$('status').textContent='Worker error';$('notice').hidden=false;$('notice').textContent='The calculation worker could not start. Serve this folder over HTTP(S) with module support.';};
 function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.length){box.hidden=true;box.innerHTML='';return;}const compact=id==='collision';box.hidden=false;box.innerHTML=`<h3>${compact?'WAVE ANGLES & ENTROPY':'SHOCK STATES · ONE-SIDED VALUES'}</h3>${groups.map(g=>`<section class="shock-state"><h4>${g.title}</h4>${compact?'':`<p>${g.location}</p><div class="shock-table-wrap"><table><thead><tr><th>Parameter</th><th>Before</th><th>After</th><th>After / before</th></tr></thead><tbody>${g.rows.map(r=>`<tr><th>${r.label}</th><td>${measure(r.before,r.unit)}</td><td>${measure(r.after,r.unit)}</td><td>${fmt(r.ratio)}</td></tr>`).join('')}</tbody></table></div>`}<dl>${g.extra.map(e=>`<div><dt>${e.label}</dt><dd>${measure(e.value,e.unit)}</dd></div>`).join('')}</dl></section>`).join('')}`;addDataExport(box,'shocks',()=>({
   shocks:groups.flatMap(g=>[
@@ -1179,8 +1189,70 @@ function currentPlotTime(){
  const fraction=Number($('unsteadyProfileTime').value);
  return fraction*(r.end??r.catchTime??1);
 }
+function calculatorChartView(original){
+ const mode=calculatorMode(current),xSelect=$('plotXAxis');
+ const axes=calculatorXAxisOptions(original);
+ const selected=calculatorXSelections.get(mode);
+ const angle=current.result.relations?.coneAngle??(current.inputs.calculatorConeGiven===conicalInputs.cone?current.inputs.calculatorConeAngle:null);
+ const canSweep=mode===calculatorModes.conical&&angle>0&&angle<70;
+ const gamma=current.gas.gamma;
+ const thetaCone=canSweep?Number(angle.toFixed(7)):null;
+ const key=`${thetaCone}:${gamma}`;
+ const sweep=canSweep&&coneSweepState?.key===key?coneSweepState:null;
+ if(canSweep){
+  axes.push({key:coneFreestreamAxis,label:'Freestream Mach number M₁'});
+  if(sweep?.plots)axes.push(...calculatorXAxisOptions(sweep.plots).slice(1));
+ }
+ const useSweep=canSweep&&(isConeSweepAxis(selected)||!original.length);
+ const fallback=useSweep?coneFreestreamAxis:parameterAxis;
+ const axis=axes.some(option=>option.key===selected)?selected:fallback;
+ xSelect.replaceChildren(...axes.map(option=>new Option(option.label,option.key)));
+ xSelect.value=axis;
+ calculatorPlotFamily=mode+(useSweep?'-sweep':'');
+ if(!useSweep)return {plots:calculatorPlotsOnAxis(original,axis),showAxis:axes.length>0};
+ if(!sweep){
+  coneSweepState={key};
+  worker.postMessage({coneSweep:key,thetaCone,gamma});
+ }
+ const note=sweep?.error?'The freestream Mach sweep could not be calculated for this cone.':
+  sweep?.plots?'No weak attached-shock solutions were found over the calculator Mach range.':
+   'Computing the freestream Mach sweep…';
+ const plots=calculatorPlotsOnAxis(sweep?.plots??[],axis);
+ return {plots,showAxis:true,note};
+}
+function receiveConeSweep(data){
+ if(data.coneSweep!==coneSweepState?.key)return;
+ coneSweepState={key:data.coneSweep,plots:data.plots,error:data.error};
+ if(current?.id==='foundations'&&calculatorMode(current)===calculatorModes.conical)updatePlotChoices();
+}
 function updatePlotChoices(){
- chartChoices=flowPlots(current,currentPlotTime());$('chartPlay').hidden=!current.result.finiteTube;$('unsteadyProfileTimeLabel').hidden=true;$('chart').closest('.chart-card').hidden=!chartChoices.length||!!(current.result.finalStreamMatch&&current.inspectTrackingEvent);if(!chartChoices.length){$('extraPlotPicker')?.setAttribute('hidden','');$('plotQuantity').innerHTML='';$('plotQuantity').hidden=true;$('plotQuantity').previousElementSibling.hidden=true;$('chart').innerHTML='';$('legend').innerHTML='';$('plotNote').textContent='';displayedChart=null;return;}const select=$('plotQuantity');select.innerHTML=chartChoices.map(o=>`<option value="${o.key}">${o.label}</option>`).join('');if(!chartChoices.some(o=>o.key===plotSelection[id]))plotSelection[id]=chartChoices[0].key;select.value=plotSelection[id];const single=chartChoices.length===1;select.hidden=single;select.previousElementSibling.hidden=single;renderSelectedPlot();renderPlotPicker();
+ const isCalculator=current.id==='foundations';
+ const view=isCalculator?calculatorChartView(plotOptions(current,currentPlotTime())):null;
+ chartChoices=view?view.plots.map(unitView.plot):flowPlots(current,currentPlotTime());
+ const select=$('plotQuantity'),label=$('plotYAxisLabel'),xSelect=$('plotXAxis');
+ const showAxis=!!view?.showAxis;
+ xSelect.hidden=$('plotXAxisLabel').hidden=!showAxis;
+ xSelect.parentElement.classList.toggle('calculator-axes',showAxis);
+ label.textContent=isCalculator?'Vertical axis (Y)':'Plot property';
+ select.setAttribute('aria-label',label.textContent);
+ $('chartPlay').hidden=!current.result.finiteTube;
+ $('unsteadyProfileTimeLabel').hidden=true;
+ $('chart').closest('.chart-card').hidden=(!chartChoices.length&&!showAxis)||!!(current.result.finalStreamMatch&&current.inspectTrackingEvent);
+ if(!chartChoices.length){
+  $('extraPlotPicker')?.setAttribute('hidden','');
+  select.replaceChildren();select.hidden=label.hidden=true;
+  $('chart').innerHTML='';$('legend').innerHTML='';
+  $('chartTitle').textContent='Property map';$('plotNote').hidden=false;$('plotNote').textContent=view?.note??'';
+  $('chartExports').hidden=true;displayedChart=null;
+  return;
+ }
+ select.replaceChildren(...chartChoices.map(o=>new Option(o.label,o.key)));
+ const preferred=isCalculator?calculatorYSelections.get(calculatorPlotFamily):plotSelection[id];
+ plotSelection[id]=chartChoices.find(o=>o.key===preferred)?.key??chartChoices[0].key;
+ select.value=plotSelection[id];
+ select.hidden=label.hidden=!isCalculator&&chartChoices.length===1;
+ $('chartExports').hidden=false;
+ renderSelectedPlot();renderPlotPicker();
 }
 function renderSelectedPlot(){
  $('chartProbe').hidden=true;
@@ -1214,7 +1286,17 @@ $('unsteadyProfileTime').oninput=()=>{
  if(current?.result.finiteTube){stopAnimation();showFiniteTime();}
  else renderSelectedPlot();
 };
-$('plotQuantity').onchange=()=>{plotSelection[id]=$('plotQuantity').value;renderSelectedPlot();renderPlotPicker();};
+$('plotXAxis').onchange=event=>{
+ if(current?.id!=='foundations')return;
+ calculatorXSelections.set(calculatorMode(current),event.target.value);
+ extraPlotSelections[id]=[];
+ updatePlotChoices();
+};
+$('plotQuantity').onchange=()=>{
+ plotSelection[id]=$('plotQuantity').value;
+ if(id==='foundations')calculatorYSelections.set(calculatorPlotFamily,plotSelection[id]);
+ renderSelectedPlot();renderPlotPicker();
+};
 expandNozzleWall.onchange=updatePlotChoices;
 function bindProbe(a,root=$('chart'),data=displayedChart){
  const local=k=>root.querySelector('[id="'+k+'"]');
@@ -1457,7 +1539,8 @@ $('copyCaseLink').onclick=async()=>{
  try{
   const selected=$('plotQuantity').value||undefined;
   const plot=selected===nozzleWallPlotKey&&expandNozzleWall.checked?sharedWallDetailKey:selected;
-  href=makeCaseLink(location.href,id,inputs,unitView.system,plot);
+  const plotX=id==='foundations'?$('plotXAxis').value||undefined:undefined;
+  href=makeCaseLink(location.href,id,inputs,unitView.system,plot,plotX);
  }catch(error){
   status.textContent=error.message;
   status.hidden=false;
@@ -1506,7 +1589,7 @@ function selectedCharts(){
  const extras=extraPlotSelections[id]??[];
  return first?[first,...chartChoices.filter(o=>o!==first && extras.includes(o.key) && canOverlayPlot(first,o))]:[];
 }
-function renderExtraPlots(){const options=selectedCharts();if(!options.length)return;const mixed=options.some(o=>o.chart.ylabel!==options[0].chart.ylabel);const series=options.flatMap(o=>o.chart.series.map(curve=>({...curve,name:`${curve.name}${mixed?' ['+o.chart.ylabel+']':''}`,points:curve.points})));displayedChart={...options[0].chart,title:options.length>1?'Selected properties':options[0].chart.title,markers:options.flatMap(o=>o.chart.markers??[]),ylabel:mixed?'Property value (units in legend)':options[0].chart.ylabel,series};const view=chartSVG(displayedChart);$('chart').innerHTML=view.svg;$('legend').innerHTML=view.legend;$('chartTitle').textContent=displayedChart.title;$('plotNote').textContent=options.length>1?'All curves use their original values on one shared vertical scale. Units are shown in the legend.':options[0].note??'';bindProbe(view.axis);renderChartExports();updateDuctNotes();}
+function renderExtraPlots(){const options=selectedCharts();if(!options.length)return;const mixed=options.some(o=>o.chart.ylabel!==options[0].chart.ylabel);const series=options.flatMap(o=>o.chart.series.map(curve=>({...curve,name:`${curve.name}${mixed?' ['+o.chart.ylabel+']':''}`,points:curve.points})));displayedChart={...options[0].chart,title:options.length>1?'Selected properties':options[0].chart.title,markers:options.flatMap(o=>o.chart.markers??[]),ylabel:mixed?'Property value (units in legend)':options[0].chart.ylabel,series};if(id==='foundations'&&options.length>1)delete displayedChart.yRange;const view=chartSVG(displayedChart);$('chart').innerHTML=view.svg;$('legend').innerHTML=view.legend;$('chartTitle').textContent=displayedChart.title;$('plotNote').textContent=options.length>1?'All curves use their original values on one shared vertical scale. Units are shown in the legend.':options[0].note??'';bindProbe(view.axis);renderChartExports();updateDuctNotes();}
 function saveChartBlob(name,blob){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function renderChartExports(){const box=$('chartExports');box.querySelector('[data-format="xlsx"]').hidden=!!displayedChart.heatmap;box.onclick=async e=>{const format=e.target.dataset.format;if(!format)return;const name=exportFilename(e.target,`compressible-flow-${id}-chart`,format);if(format==='xlsx'){saveChartBlob(name,chartWorkbook(selectedCharts().map(o=>o.chart)));return;}const svg=$('chart').querySelector('svg').cloneNode(true);const width=640,heatNote=current?.id==='rayleigh'&&/x\/L/.test(displayedChart.xlabel),extra=displayedChart.series.length*22+42+(heatNote?40:0);svg.setAttribute('viewBox',`0 0 640 ${266+extra}`);svg.setAttribute('width',640);svg.setAttribute('height',266+extra);const ns='http://www.w3.org/2000/svg';const text=(value,y,size=11)=>{const t=document.createElementNS(ns,'text');t.setAttribute('x',20);t.setAttribute('y',y);t.setAttribute('font-size',size);t.setAttribute('fill','#17383b');t.textContent=value;svg.append(t);};text(displayedChart.title,284,14);displayedChart.series.forEach((s,i)=>text(s.name,306+i*22));if(heatNote){text('Uniform heat transfer along the heated duct:',306+displayedChart.series.length*22);text('equal heat added/removed per unit length; temperature need not be uniform.',322+displayedChart.series.length*22);}const blob=new Blob([uniformDiagramText(new XMLSerializer().serializeToString(svg))],{type:'image/svg+xml'});if(format==='svg'){saveChartBlob(name,blob);return;}const button=e.target;button.disabled=true;const url=URL.createObjectURL(blob);try{const img=new Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=(266+extra)*2;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);const png=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(png)saveChartBlob(name,png);}finally{URL.revokeObjectURL(url);button.disabled=false;}};}
 

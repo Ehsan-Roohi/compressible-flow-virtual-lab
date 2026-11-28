@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {calculate, defaults, inputDefinitions} from './labs.js';
-import {calculatorModes, shockCalculatorLabs, obliqueInputs, conicalInputs} from './appendix-calculator.js';
+import {calculatorModes, shockCalculatorLabs, obliqueInputs, conicalInputs, conicalMachPlots} from './appendix-calculator.js';
+import {calculatorXAxisOptions,calculatorPlotsOnAxis,parameterAxis} from './calculator-plot-axes.js';
+import {makeCaseLink,readCaseLink} from './case-link.js';
 import {chartSVG} from './graphics.js';
 import {plotOptions} from './plot-options.js';
 
@@ -207,4 +209,50 @@ test('shock input menus show only the numeric field relevant to the selected rel
       assert.deepEqual(fields.filter(f=>f.key.startsWith('calculator')).map(f=>f.key),['calculatorMode',key,expected]);
     }
   }
+});
+
+test('each calculator can plot its compatible properties against a selected horizontal axis',()=>{
+  for(const mode of Object.values(calculatorModes)){
+    const plots=plotOptions(run(mode,{M:2}));
+    const axes=calculatorXAxisOptions(plots);
+    assert.equal(axes[0].key,parameterAxis);
+    assert.ok(axes.length>2,mode);
+    assert.equal(calculatorPlotsOnAxis(plots,parameterAxis),plots);
+    for(const {key} of axes.slice(1)){
+      const choices=calculatorPlotsOnAxis(plots,key);
+      assert.ok(choices.some(p=>p.key===parameterAxis));
+      assert.ok(choices.every(p=>p.key!==key));
+      for(const {chart} of choices)assert.doesNotMatch(chartSVG(chart).svg,/NaN|Infinity|undefined/);
+    }
+  }
+  const oblique=plotOptions(run(calculatorModes.oblique,{M:2}));
+  const normals=calculatorPlotsOnAxis(oblique,'appendix-oblique-beta').find(p=>p.key==='appendix-oblique-M1n');
+  assert.deepEqual(normals.chart.series.map(s=>s.name),['Weak shock','Strong shock']);
+  for(const s of normals.chart.series)for(const [beta,M1n] of s.points)near(M1n,2*Math.sin(beta*Math.PI/180));
+  const cone=plotOptions(run(calculatorModes.conical,{M:4.08}));
+  const pressure=calculatorPlotsOnAxis(cone,'appendix-conical-M').find(p=>p.key==='appendix-conical-p');
+  const {axis}=chartSVG(pressure.chart);
+  assert.ok(axis.xmin>axis.xmax);
+  assert.ok(calculatorXAxisOptions(cone).every(x=>!['appendix-conical-p0','appendix-conical-T0'].includes(x.key)));
+});
+
+test('the conical freestream Mach sweep solves weak attached cases at a fixed cone angle',()=>{
+  const plots=conicalMachPlots(20,1.4);
+  const beta=plots.find(p=>p.key==='cone-sweep-waveAngle').chart.series[0].points;
+  const surfacePressure=plots.find(p=>p.key==='cone-sweep-pcp1').chart.series[0].points;
+  assert.ok(beta[0][0]>1.2&&beta.at(-1)[0]===10);
+  const [M,waveAngle]=beta[12];
+  const {relations}=run(calculatorModes.conical,{M,calculatorConeAngle:20}).result;
+  near(waveAngle,relations.waveAngle);
+  near(surfacePressure[12][1],relations.pcp1);
+  assert.deepEqual(conicalMachPlots(65,1.4),[]);
+});
+
+test('shared calculator links round-trip both chart axes and accept legacy links',()=>{
+  const read=(...axes)=>{
+    const url=new URL(makeCaseLink('https://example.test/lab','foundations',{M:2},'SI',...axes));
+    return readCaseLink(new URLSearchParams(url.hash.split('?')[1]).get('case'));
+  };
+  assert.equal(read('appendix-conical-p','appendix-conical-M').plotX,'appendix-conical-M');
+  assert.deepEqual(read('iso-pP0'),{inputs:{M:2},units:'SI',plot:'iso-pP0'});
 });

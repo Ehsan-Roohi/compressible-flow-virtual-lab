@@ -1,9 +1,16 @@
-import {calculate} from './labs.js?v=20261128-conical-post-shock-range';
+import {calculate} from './labs.js?v=20261128-calculator-axes';
+import {conicalMachPlots} from './appendix-calculator.js?v=20261128-calculator-axes';
 import {readPublishedPressure} from './critical-mach-pressure.js?v=20261124-expanded-airfoil-bank';
 
 // Coalesce queued slider changes and discard superseded online lookups.
 let solveTimer, latestRequest;
 self.onmessage=({data})=>{
+ if(data.coneSweep){
+  const {coneSweep,thetaCone,gamma}=data;
+  try{self.postMessage({coneSweep,plots:conicalMachPlots(thetaCone,gamma)});}
+  catch(error){self.postMessage({coneSweep,error:error.message});}
+  return;
+ }
  clearTimeout(solveTimer);
  latestRequest=data.request;
  solveTimer=setTimeout(async()=>{
