@@ -1,6 +1,11 @@
 import {areaMach,isentropic,machFromArea,nozzle} from './physics.js';
+import {gas,positive,requireValue} from './numerics.js';
 
-export const nozzleSolveModes = ['Specified back pressure', 'Required reservoir pressure', 'Design exit Mach'];
+export const nozzleSolveModes = [
+  'Specified back pressure', 'Required reservoir pressure', 'Design exit Mach', 'Supply pressure for target mass flow'
+];
+export const nozzleDesignTargets = ['Exit Mach number', 'Exit-to-throat area ratio'];
+export const nozzleSizingInputs = ['Throat area', 'Target mass flow'];
 
 export const nozzleBookPlotKey = 'nozzle-book-pressure';
 export const nozzleBookInputs = Object.freeze({
@@ -48,6 +53,14 @@ export function nozzleModeDefaults(base,selection={}){
       nozzleSolve===nozzleSolveModes[1]?'8-2c':nozzleSolve===nozzleSolveModes[2]?'8-3':'8-4'
   ));
   const inputs={...base,...nozzleBookInputs,nozzleSolve:nozzleSolveModes[0],...choice.inputs,bookExample:choice.value};
+  if(!example&&nozzleType==='Converging–diverging'&&nozzleSolve===nozzleSolveModes[3]){
+    return {...inputs,nozzleSolve,bookExample:''};
+  }
+  if(!example&&nozzleType==='Converging–diverging'&&nozzleSolve===nozzleSolveModes[2]&&
+     (selection.nozzleDesignTarget===nozzleDesignTargets[1]||selection.nozzleSizingInput===nozzleSizingInputs[1])){
+    return {...inputs,nozzleDesignTarget:selection.nozzleDesignTarget??base.nozzleDesignTarget,
+      nozzleSizingInput:selection.nozzleSizingInput??base.nozzleSizingInput,bookExample:''};
+  }
   if(chokedPreset)inputs.backRatio=200/500;
   if(!example&&nozzleType==='Diverging'){
     return {...inputs,nozzleType,MIn:1,sonicBranch:outletCondition==='Specified back pressure'?'supersonic':sonicBranch,outletCondition,bookExample:''};
@@ -55,17 +68,60 @@ export function nozzleModeDefaults(base,selection={}){
   return inputs;
 }
 
+// The sonic mass flux is linear in stagnation pressure for a fixed gas and T₀.
+function sonicMassFluxPerPressure(T0,gamma,R){
+  gas(gamma,R);
+  positive(T0,'Stagnation temperature');
+  const sonic=isentropic(1,gamma);
+  return Math.sqrt(gamma*sonic.T0T/(R*T0))/sonic.p0p;
+}
+
 export function resolveNozzleCase(x){
   if(x.nozzleType!=='Converging–diverging')return x;
-  const g=x.gamma??1.4;
+  const {gamma:g=1.4,R=287,T0=400}=x;
   if(x.nozzleSolve===nozzleSolveModes[1]){
-    if(!Number.isFinite(x.nozzleExitPressure)||x.nozzleExitPressure<=0)throw Error('Specify a positive subsonic exit pressure.');
+    positive(x.nozzleExitPressure,'Subsonic exit pressure');
     const backRatio=subsonicRatio(x.areaRatio,g);
     return {...x,backRatio,p0:x.nozzleExitPressure/backRatio,nozzlePressureType:'Stagnation pressure'};
   }
   if(x.nozzleSolve===nozzleSolveModes[2]){
-    if(!(Number.isFinite(x.nozzleDesignMach)&&x.nozzleDesignMach>1&&x.nozzleDesignMach<=20))throw Error('Specify a design exit Mach number greater than 1 and at most 20.');
-    return {...x,areaRatio:areaMach(x.nozzleDesignMach,g),backRatio:pressureRatio(x.nozzleDesignMach,g)};
+    const byArea=x.nozzleDesignTarget===nozzleDesignTargets[1];
+    const exitMach=byArea?machFromArea(x.nozzleDesignAreaRatio,'supersonic',g):x.nozzleDesignMach;
+    requireValue(Number.isFinite(exitMach)&&exitMach>1&&exitMach<=20+(byArea?1e-10:0),
+      'The design exit Mach number must be greater than 1 and at most 20.');
+    const mach=Math.min(20,exitMach);
+    const areaRatio=byArea?x.nozzleDesignAreaRatio:areaMach(mach,g);
+    const design={...x,nozzleDesignMach:mach,areaRatio,backRatio:pressureRatio(mach,g)};
+    if(x.nozzleSizingInput!==nozzleSizingInputs[1])return design;
+    positive(x.p0,'Stagnation pressure');
+    positive(x.nozzleTargetMassFlow,'Target mass flow');
+    const area=x.nozzleTargetMassFlow/(x.p0*1000*sonicMassFluxPerPressure(T0,g,R));
+    return {...design,minAreaCm2:area*1e4,nozzlePressureType:'Stagnation pressure',
+      nozzleTemperatureType:'Stagnation temperature'};
+  }
+  if(x.nozzleSolve===nozzleSolveModes[3]){
+    positive(x.nozzleTargetMassFlow,'Target mass flow');
+    positive(x.nozzleAbsoluteBackPressure,'Back pressure');
+    positive(x.minAreaCm2,'Throat area');
+    requireValue(Number.isFinite(x.areaRatio)&&x.areaRatio>1,'Require exit-to-throat area ratio greater than 1.');
+    const throatArea=x.minAreaCm2*1e-4,exitArea=throatArea*x.areaRatio;
+    const pb=x.nozzleAbsoluteBackPressure*1000;
+    const chokedPressure=x.nozzleTargetMassFlow/(throatArea*sonicMassFluxPerPressure(T0,g,R));
+    const onset=subsonicRatio(x.areaRatio,g);
+    let p0=chokedPressure;
+    if(pb/chokedPressure>onset){
+      // For the unchoked branch pₑ = pᵦ. Continuity gives
+      // ṁ/(Aₑ pᵦ) sqrt(R T₀/γ) = Mₑ sqrt(1 + (γ−1) Mₑ²/2).
+      const massParameter=x.nozzleTargetMassFlow*Math.sqrt(R*T0/g)/(exitArea*pb);
+      const square=massParameter**2;
+      const exitMach=Math.sqrt(2*square/(1+Math.sqrt(1+2*(g-1)*square)));
+      p0=pb*isentropic(exitMach,g).p0p;
+    }
+    const backRatio=pb/p0;
+    requireValue(Number.isFinite(p0)&&backRatio>0&&backRatio<1,
+      'The requested mass flow is outside the pressure resolution of this model.');
+    return {...x,backRatio,p0:p0/1000,nozzlePressureType:'Stagnation pressure',
+      nozzleTemperatureType:'Stagnation temperature'};
   }
   return x;
 }

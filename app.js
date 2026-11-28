@@ -45,14 +45,14 @@ import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
 import {plotOptions} from './plot-options.js?v=20261128-lab-axes';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';
-import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
+import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey,nozzleDesignTargets,nozzleSizingInputs,resolveNozzleCase} from './nozzle-book.js?v=20261128-nozzle-mass-flow';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-center-states';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
 import {rayleighBookInputs} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-calculator-axes';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-nozzle-mass-flow';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-shared-chart-frames';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -226,7 +226,7 @@ let calculatorPlotFamily='',coneSweepState;
 const calculatorMode=d=>d?.inputs.calculatorMode??calculatorModes.isentropic;
 const isConeSweepAxis=key=>key===coneFreestreamAxis||key?.startsWith('cone-sweep-');
 let openedSharedCase=false,copyCaseTimer;
-const worker=new Worker(new URL('./worker.js?v=20261128-calculator-axes',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261128-nozzle-mass-flow',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -793,10 +793,41 @@ if(id==='nozzle-design'&&['nozzleMocStart','nozzleMocTarget'].includes(x.key)){
  if(mach!==undefined)Object.assign(inputs,nozzleMocTargetValues(inputs,mach));
  renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }
+if(id==='nozzle'&&['nozzleDesignTarget','nozzleSizingInput'].includes(x.key)){
+ stopSweep();request++;
+ if(x.key==='nozzleDesignTarget'){
+  try{
+   const design=resolveNozzleCase(inputs);
+   inputs.nozzleDesignMach=design.nozzleDesignMach;
+   inputs.nozzleDesignAreaRatio=design.areaRatio;
+  }catch{ /* Keep the last entry for each design target. */ }
+ }else if(current?.id==='nozzle'&&!solvePending){
+  const result=current.result;
+  inputs.minAreaCm2=result.minArea*1e4;
+  if(n.value===nozzleSizingInputs[1]&&result.massFlow>0){
+   inputs.nozzleTargetMassFlow=result.massFlow;
+   inputs.p0=result.p0/1000;
+   inputs.T0=result.T0;
+  }
+ }
+ if(x.key==='nozzleSizingInput'&&n.value===nozzleSizingInputs[1]){
+  inputs.nozzlePressureType='Stagnation pressure';
+  inputs.nozzleTemperatureType='Stagnation temperature';
+ }
+ inputs[x.key]=n.value;inputs.bookExample='';
+ renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
+}
 if(id==='nozzle'&&['nozzleType','nozzleSolve','outletCondition'].includes(x.key)){
  const previousNozzleView=inputs.nozzleView;
  stopSweep();request++;
- selectNozzleInputs({nozzleType:inputs.nozzleType,nozzleSolve:inputs.nozzleSolve,sonicBranch:inputs.sonicBranch,[x.key]:n.value});
+ if(x.key==='nozzleSolve'&&n.value===nozzleSolveModes[3]&&current?.id==='nozzle'&&!solvePending){
+  const result=current.result;
+  inputs={...inputs,nozzleSolve:n.value,bookExample:'',minAreaCm2:result.minArea*1e4,
+   areaRatio:result.exitAreaRatio,T0:result.T0,nozzleTemperatureType:'Stagnation temperature',
+   nozzleTargetMassFlow:result.massFlow>0?result.massFlow:inputs.nozzleTargetMassFlow,
+   nozzleAbsoluteBackPressure:result.backRatio*result.p0/1000};
+  selectNozzleExamplePlot();
+ }else selectNozzleInputs({nozzleType:inputs.nozzleType,nozzleSolve:inputs.nozzleSolve,sonicBranch:inputs.sonicBranch,[x.key]:n.value});
  inputs.nozzleView=previousNozzleView;
  renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }

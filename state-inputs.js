@@ -8,6 +8,7 @@ const reference=x=>x.ductSolve==='Upstream reference + sonic outlet'||x.ductProb
 export function stateInputFields(id,x,fields){
  const existing=new Set(fields.map(f=>f.key)),out=[];
  for(const f of fields){let typeKey,kind,base=f.label,def;
+  if(f.stagnationOnly){out.push(f);continue;}
   if(f.key==='p1'&&!reference(x)){typeKey='inletPressureType';kind='pressure';def='Static pressure';}
   if(f.key==='T1'&&!reference(x)){typeKey='temperatureInput';kind='temperature';def='Static temperature';}
   if(f.key==='p4'){typeKey='driverPressureType';kind='pressure';def='Static pressure';}

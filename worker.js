@@ -1,4 +1,4 @@
-import {calculate} from './labs.js?v=20261128-calculator-axes';
+import {calculate} from './labs.js?v=20261128-nozzle-mass-flow';
 import {conicalMachPlots} from './appendix-calculator.js?v=20261128-calculator-axes';
 import {readPublishedPressure} from './critical-mach-pressure.js?v=20261124-expanded-airfoil-bank';
 

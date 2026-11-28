@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {calculate, defaults, inputDefinitions} from './labs.js';
 import {plotOptions} from './plot-options.js';
 import {chartSVG} from './graphics.js';
-import {nozzleBookInputs, nozzleBookPlotKey, nozzleExamples, nozzleModeDefaults, nozzleSolveModes} from './nozzle-book.js';
+import {nozzleBookInputs, nozzleBookPlotKey, nozzleExamples, nozzleModeDefaults, nozzleSolveModes, nozzleDesignTargets, nozzleSizingInputs} from './nozzle-book.js';
 
 function plots(overrides = {}) {
   return plotOptions(calculate('nozzle', {...defaults('nozzle'), ...nozzleBookInputs, ...overrides}));
@@ -116,4 +116,51 @@ test('Nozzle modes select the corresponding chapter defaults',()=>{
     near(result.Me,expectedMach,.00001);
     for(const {values} of result.referenceTable.rows)assert.equal(values[0],values[1]);
   }
+});
+
+
+test('design sizing recovers throat and exit areas from mass flow and either exit target',()=>{
+ const gamma=1.4,R=287,p0=500,T0=300,target=.5,mach=2.4;
+ const throatArea=target/(p0*1000*Math.sqrt(gamma/(R*T0))*
+  (2/(gamma+1))**((gamma+1)/(2*(gamma-1))));
+ const areaRatio=((2+(gamma-1)*mach**2)/(gamma+1))**((gamma+1)/(2*(gamma-1)))/mach;
+ const base={...defaults('nozzle'),nozzleSolve:nozzleSolveModes[2],nozzleSizingInput:nozzleSizingInputs[1],
+  gamma,R,p0,T0,nozzleTargetMassFlow:target,nozzleDesignMach:mach,nozzleDesignAreaRatio:areaRatio};
+ for(const nozzleDesignTarget of nozzleDesignTargets){
+  const inputs={...base,nozzleDesignTarget};
+  const {result,rows}=calculate('nozzle',inputs);
+  near(result.minArea,throatArea,1e-12);
+  near(result.exitArea,throatArea*areaRatio,1e-12);
+  near(result.Me,mach,1e-9);
+  near(result.massFlow,target,1e-10);
+  near(result.exitPressure,result.backRatio*result.p0,1e-7);
+  assert.ok(rows.some(r=>r.label==='Throat area'));
+  const keys=inputDefinitions('nozzle',inputs).map(f=>f.key);
+  assert.ok(keys.includes('nozzleTargetMassFlow')&&!keys.includes('minAreaCm2'));
+  assert.ok(!keys.includes('nozzlePressureType')&&!keys.includes('nozzleTemperatureType'));
+  assert.equal(keys.includes('nozzleDesignAreaRatio'),nozzleDesignTarget===nozzleDesignTargets[1]);
+  assert.equal(keys.includes('nozzleDesignMach'),nozzleDesignTarget===nozzleDesignTargets[0]);
+ }
+});
+
+test('supply pressure inverts the forward flow on unchoked and choked branches',()=>{
+ const base={...nozzleModeDefaults(defaults('nozzle'),{nozzleSolve:nozzleSolveModes[3]}),
+  p0:600,T0:360,minAreaCm2:3,areaRatio:3};
+ assert.equal(base.nozzleSolve,nozzleSolveModes[3]);
+ const keys=inputDefinitions('nozzle',base).map(f=>f.key);
+ for(const key of ['minAreaCm2','areaRatio','nozzleTargetMassFlow','nozzleAbsoluteBackPressure','T0'])assert.ok(keys.includes(key));
+ for(const key of ['p0','backRatio','nozzleTemperatureType','nozzlePressureType'])assert.ok(!keys.includes(key));
+ const forward={...base,nozzleSolve:nozzleSolveModes[0]};
+ const onset=calculate('nozzle',forward).result.onset;
+ for(const backRatio of [.999,.99,onset,.65,.1]){
+  const known=calculate('nozzle',{...forward,backRatio}).result;
+  const recovered=calculate('nozzle',{...base,nozzleTargetMassFlow:known.massFlow,
+   nozzleAbsoluteBackPressure:base.p0*backRatio});
+  near(recovered.result.p0,base.p0*1000,1e-4);
+  near(recovered.result.massFlow,known.massFlow,1e-8);
+  near(recovered.result.backRatio,backRatio,1e-10);
+  assert.ok(recovered.rows.some(row=>row.label==='Required reservoir stagnation pressure'));
+ }
+ assert.throws(()=>calculate('nozzle',{...base,nozzleTargetMassFlow:0}),/Target mass flow/);
+ assert.throws(()=>calculate('nozzle',{...base,nozzleAbsoluteBackPressure:-5}),/Back pressure/);
 });

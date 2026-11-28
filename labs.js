@@ -2,7 +2,7 @@ import {calculateAppendix,calculatorMachRange,calculatorModes,isentropicCalculat
 import {solveSingleWall} from './single-wall-interaction.js';
 import {hasWallMethodChoice,wallMethodDomain} from './wall-methods.js?v=20261120-moc-slip-angle';
 import {designMinimumLengthNozzle,nozzleMocExamples,nozzleMocMethods,nozzleMocStarts,nozzleMocTargets,nozzleMocTargetValues,nozzleMocPlots} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';
-import {nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261120-chapter-eight';
+import {nozzleDesignTargets,nozzleSizingInputs,nozzleSolveModes,resolveNozzleCase} from './nozzle-book.js?v=20261128-nozzle-mass-flow';
 import {linearizedTube,movingShockSonicMach,tubeSolutionMethods} from './linearized-tube.js?v=20261121-tube-methods';
 import {finiteTubeMode,finiteTubeFields,solveFiniteTube,closedPistonMode,closedPistonFields,solveClosedPiston,solveSingleStagePiston,solveClosedValve,expansionRaySpeeds,sinusoidalExperiment,sinusoidalFields,solveSinusoidalPiston} from './finite-tube.js?v=20261125-boundary-preview';
 import {tubeEndFields,tubeEndKeys,hasOpenEnd,beforeOpenEnd} from './tube-boundary-preview.js?v=20261125-boundary-preview';
@@ -14,7 +14,7 @@ import {airfoilRegionLabel} from './airfoil-region-labels.js';
 import {shockFanMode,shockFanPreset,solveShockFan} from './shock-fan-example.js?v=20261120-shock-fan-contours';
 import {ramjetMode,ramjetOrientations,solveRamjetInlet,ramjetPlots} from './ramjet-inlet.js?v=20261113-inlet-clearance';
 import {ductProfile} from './duct-contours.js?v=20261113-rainbow-physical';
-import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261121-piston-menu';
+import {stateInputFields,stateInputDefaults,normalizeStateInputs} from './state-inputs.js?v=20261128-nozzle-mass-flow';
 import {systemFields,systemDefaults,solveDuctSystem} from './duct-systems.js?v=20261124-single-duct-tabs';
 import {ductInputs,fannoInletMachModes} from './duct-input.js?v=20261124-fanno-inverse-ratios';
 import {rayleighHeatFromInput} from './rayleigh-input.js?v=20261110-rayleigh-audit';
@@ -149,9 +149,15 @@ export const labs={
  nozzle:{chapter:8,title:'Nozzle flow laboratory',tag:'QUASI-1D FLOW',description:'Choose a converging, diverging or converging–diverging passage and inspect its flow regime.',inputs:[
   {key:'nozzleView',label:'Nozzle view',value:'Internal flow',options:['Nozzle + external waves','Internal flow','External waves']},
   {key:'nozzleType',label:'Nozzle geometry',value:'Converging–diverging',options:['Converging–diverging','Converging','Diverging']},
-  {key:'nozzleSolve',label:'Solve for',value:nozzleSolveModes[0],options:nozzleSolveModes},
+  {key:'nozzleSolve',label:'Solve for',value:nozzleSolveModes[0],options:nozzleSolveModes,
+   optionLabels:{[nozzleSolveModes[2]]:'Design exit condition'}},
+  {key:'nozzleDesignTarget',label:'Design target',value:nozzleDesignTargets[0],options:nozzleDesignTargets},
+  {key:'nozzleSizingInput',label:'Known sizing input',value:nozzleSizingInputs[0],options:nozzleSizingInputs},
   input('nozzleExitPressure','Exit static pressure',47.42,.001,10000,.01,'kPa'),
   input('nozzleDesignMach','Design exit Mach',3.5,1.0001,20,.01,'Mₑ'),
+  {...input('nozzleDesignAreaRatio','Design exit-to-throat area ratio',p.areaMach(3.5,1.4),1,Number.MAX_VALUE,'any','Aₑ/Aₜ'),slider:false},
+  {...input('nozzleTargetMassFlow','Target mass flow',.5,.000001,1e6,'any','kg/s'),slider:false},
+  {...input('nozzleAbsoluteBackPressure','Back pressure (absolute)',101.325,.001,10000,'any','kPa'),slider:false},
   input('areaRatio','Exit-to-throat area',2,1.01,12,.01,'Aₑ/Aₜ'),
   input('contractionRatio','Inlet-to-exit area',2,1.01,12,.01,'Aᵢ/Aₑ'),
   {key:'outletCondition',label:'Outlet condition',value:'Matched isentropic',options:['Matched isentropic','Specified back pressure']},
@@ -307,14 +313,23 @@ function experimentInputs(id,x={}){
  if(id==='cone')return labs.cone.inputs.filter(f=>(!['nearbyWall','wallDistance'].includes(f.key)||x.bodyGeometry==='Wedge'&&(f.key==='nearbyWall'||x.nearbyWall&&x.nearbyWall!=='None'))&&(f.key!=='wedgeAlpha'||x.bodyGeometry==='Wedge'||x.bodyGeometry==='Compare both')).map(f=>f.key==='thetaCone'?{...f,label:x.bodyGeometry==='Wedge'?'Wedge half-angle':x.bodyGeometry==='Compare both'?'Common body half-angle':'Cone half-angle'}:f.key==='T1'?{...f,label:'Freestream temperature'}:f.key==='p1'?{...f,label:'Freestream pressure'}:f);
  if(id!=='nozzle')return ['oblique','expansion'].includes(id)?[...labs[id].inputs,cornerView]:labs[id].inputs;
  const type=x.nozzleType??'Converging–diverging';
- const inverse=type==='Converging–diverging'&&x.nozzleSolve===nozzleSolveModes[1];
- const design=type==='Converging–diverging'&&x.nozzleSolve===nozzleSolveModes[2];
+ const cd=type==='Converging–diverging';
+ const inverse=cd&&x.nozzleSolve===nozzleSolveModes[1];
+ const design=cd&&x.nozzleSolve===nozzleSolveModes[2];
+ const supply=cd&&x.nozzleSolve===nozzleSolveModes[3];
+ const sizeByFlow=design&&x.nozzleSizingInput===nozzleSizingInputs[1];
+ const targetAreaRatio=x.nozzleDesignTarget===nozzleDesignTargets[1];
  return labs.nozzle.inputs.filter(f=>{
-  if(f.key==='nozzleSolve')return type==='Converging–diverging';
+  if(f.key==='nozzleSolve')return cd;
+  if(['nozzleDesignTarget','nozzleSizingInput'].includes(f.key))return design;
   if(f.key==='nozzleExitPressure')return inverse;
-  if(f.key==='nozzleDesignMach')return design;
-  if(f.key==='p0'&&inverse)return false;
-  if(f.key==='backRatio'&&(inverse||design))return false;
+  if(f.key==='nozzleDesignMach')return design&&!targetAreaRatio;
+  if(f.key==='nozzleDesignAreaRatio')return design&&targetAreaRatio;
+  if(f.key==='nozzleTargetMassFlow')return supply||sizeByFlow;
+  if(f.key==='nozzleAbsoluteBackPressure')return supply;
+  if(f.key==='p0'&&(inverse||supply))return false;
+  if(f.key==='minAreaCm2'&&sizeByFlow)return false;
+  if(f.key==='backRatio'&&(inverse||design||supply))return false;
   if(f.key==='areaRatio'&&design)return false;
   if(f.key==='ambientRatio')return ['External waves','Nozzle + external waves'].includes(x.nozzleView)&&type==='Diverging'&&x.outletCondition!=='Specified back pressure';
   if(f.key==='areaRatio')return type!=='Converging';
@@ -324,7 +339,13 @@ function experimentInputs(id,x={}){
   if(f.key==='MIn')return type==='Diverging';
   if(f.key==='sonicBranch')return type==='Diverging'&&x.MIn===1;
   return true;
- }).map(f=>f.key==='backRatio'&&type==='Diverging'?{...f,label:'Back-to-inlet stagnation pressure'}:f.key==='areaRatio'&&type==='Diverging'?{...f,label:'Exit-to-inlet area',unit:'Aₑ/Aᵢ'}:f.key==='minAreaCm2'?{...f,label:type==='Converging'?'Exit area':type==='Diverging'?'Inlet area':'Throat area'}:f);
+ }).map(f=>{
+  if((sizeByFlow||supply)&&['p0','T0'].includes(f.key))return {...f,stagnationOnly:true};
+  if(f.key==='minAreaCm2')return {...f,label:type==='Converging'?'Exit area':type==='Diverging'?'Inlet area':'Throat area'};
+  if(type==='Diverging'&&f.key==='backRatio')return {...f,label:'Back-to-inlet stagnation pressure'};
+  if(type==='Diverging'&&f.key==='areaRatio')return {...f,label:'Exit-to-inlet area',unit:'Aₑ/Aᵢ'};
+  return f;
+ });
 }
 function rawInputDefinitions(id,x={}){return [...gasInputFields(x,id),...(['rayleigh','fanno'].includes(id)&&(x.ductProblem??'Single duct')==='Single duct'?systemFields(id,x):[]),...(id==='rayleigh'&&(x.ductProblem??'Single duct')==='Single duct'&&x.rayleighInput==='Outlet Mach + stagnation temperatures'?[input('inletT0','Inlet stagnation temperature',350,1,100000,.1,'K'),input('outletT0','Outlet stagnation temperature',400,1,100000,.1,'K'),...(x.targetMach===1?[{key:'inletBranch',label:'Inlet branch (sonic outlet)',value:'Subsonic',options:['Subsonic','Supersonic']}]:[])]:[]),...experimentInputs(id,x).filter(f=>!['gamma','R'].includes(f.key)).map(f=>expandedInput(id==='wall'&&x.wallShape==='Expansion corner'?'expansion':id,f))];}
 function singleFannoFrictionFields(x,includeLength){
@@ -418,6 +439,10 @@ export function inputDefinitions(id,x={}){
 }
 export function nozzleInfo(x){
  const base=labs.nozzle,type=x.nozzleType??'Converging–diverging';
+ if(type==='Converging–diverging'&&x.nozzleSolve===nozzleSolveModes[3])return {...base,
+  description:'Find the reservoir stagnation pressure that delivers the target mass flow at the specified back pressure.'};
+ if(type==='Converging–diverging'&&x.nozzleSolve===nozzleSolveModes[2]&&x.nozzleSizingInput===nozzleSizingInputs[1])
+  return {...base,description:'Find the throat and exit areas for the target mass flow and a perfectly expanded supersonic exit.'};
  if(['External waves','Nozzle + external waves'].includes(x.nozzleView))return {description:x.nozzleView==='Nozzle + external waves'?'Follow the complete schematic planar nozzle and the first pair of waves from its exit lips.':'Match the local jet pressure to the ambient through a centered expansion or a weak attached oblique shock.',model:'Local planar upper-lip model · uniform axial exit · pressure-matched free jet boundary',equation:'p₂ = pₐ   ·   expansion: Δθ = ν(M₂) − ν(Mₑ)   ·   shock: θ–β–M',limitations:'External waves shows a local upper lip. Nozzle + external waves shows the complete schematic planar nozzle and mirrored first lip waves, ending at their first centerline interaction. A sonic-exit fan is schematic in the combined view; use the local view for its simple-wave details. This is not a full interacting or axisymmetric jet solution. Opposite-lip interactions, reflections, shock cells, Mach disks, separation and mixing are not computed. Ambient is treated as a constant-pressure boundary.'};
  if(type==='Converging')return {description:'Accelerate reservoir air through a converging nozzle and find its sonic exit-pressure limit.',model:'Converging nozzle · reservoir inlet · isentropic internal flow',equation:'p*/p₀ = [2/(γ + 1)]^[γ/(γ − 1)]   ·   pₑ = max(pᵦ, p*)',limitations:'The minimum area is the exit. Once choked, reducing back pressure changes the external jet, not the internal exit Mach or pressure. Use External waves for a local planar lip expansion; the full jet is not resolved.'};
  if(type==='Diverging')return x.outletCondition==='Specified back pressure'?{description:'Prescribe the inlet Mach and back pressure to locate a normal shock or identify external pressure adjustment.',model:'Diverging passage · prescribed inlet state and back pressure · isentropic sections with up to one normal shock',equation:'pₑ(Aₛ/Aᵢ) = pᵦ   ·   T₀₂ = T₀₁   ·   p₀₂ < p₀₁ across a shock',limitations:'A normal shock requires a supersonic upstream stream. Pressure above the shock-at-inlet limit cannot preserve the prescribed inlet Mach. A subsonic inlet permits only its matched outlet pressure. Use External waves for local lip adjustment. Separation and unstart are not resolved; x/L follows the schematic area distribution.'}:{description:'Prescribe the inlet Mach number: a diverging passage decelerates subsonic flow and accelerates supersonic flow.',model:'Diverging passage · prescribed inlet Mach and stagnation state · isentropic branch',equation:'Aₑ/A* = (Aₑ/Aᵢ)(Aᵢ/A*)   ·   choose the inlet Mach branch',limitations:'The inlet Mach and area ratio fix the matched outlet pressure. Select Specified back pressure to test a normal shock on the supersonic branch. Local lip waves are available in External waves; separation is not resolved; a sonic inlet requires a downstream branch.'};
@@ -650,11 +675,16 @@ export function calculate(id,x,publishedPressure){
    chart={title:jet.status==='expansion'?`Expansion fan · ${prop.toLowerCase()}`:jet.status==='shock'?`Across external shock · ${prop.toLowerCase()}`:`Exit state · ${prop.toLowerCase()}`,xlabel:jet.status==='expansion'?'Upper-lip flow turn θ (°)':jet.status==='shock'?'Across shock · schematic coordinate':'Reference coordinate',ylabel:prop==='Pressure'?'p/p₀, inlet':prop==='Mach number'?'Mach number':'Temperature (K)',series:[{name:prop,points:pts}]};
    if(prop==='Pressure')chart.series.push({name:'Ambient pressure',points:[[pts[0][0],ambient/result.p0],[pts.at(-1)[0],ambient/result.p0]]});
   }
-  if(type==='Converging–diverging'&&x.nozzleSolve===nozzleSolveModes[1]){
+  if(type==='Converging–diverging'&&[nozzleSolveModes[1],nozzleSolveModes[3]].includes(x.nozzleSolve)){
    rows.unshift(row('Required reservoir stagnation pressure',result.p0/1000,'kPa'));
+   if(x.nozzleSolve===nozzleSolveModes[3]){
+    rows.push(row('Back pressure',x.nozzleAbsoluteBackPressure,'kPa'),
+     row('Back-to-reservoir pressure ratio',result.backRatio,'pᵦ/p₀'));
+   }
   }
   if(type==='Converging–diverging'&&x.nozzleSolve===nozzleSolveModes[2]){
    rows.unshift(row('Exit area',result.exitArea,'m²'),row('Exit-to-throat area ratio',result.exitAreaRatio,'Aₑ/Aₜ'));
+   if(x.nozzleSizingInput===nozzleSizingInputs[1])rows.unshift(row('Throat area',result.minArea,'m²'));
    const pressure=ratio=>Number((ratio*result.p0/1000).toPrecision(6));
    result.referenceTable.note=`An internal normal shock occurs for ${pressure(result.exitShock)} < pᵦ < ${pressure(result.onset)} kPa. The nozzle is overexpanded for ${pressure(result.design)} < pᵦ < ${pressure(result.exitShock)} kPa and underexpanded for pᵦ < ${pressure(result.design)} kPa.`;
    rows.push(row('Back pressure for perfect expansion',result.design*result.p0/1000,'kPa'),
