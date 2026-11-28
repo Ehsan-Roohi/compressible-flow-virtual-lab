@@ -180,7 +180,7 @@ function wallCoordinates({wall,halfHeight},side=1){
  return wall.map(({x,y})=>[x*halfHeight,side*y*halfHeight]);
 }
 
-export function nozzleMocPlots(designs){
+export function nozzleMocPlots(designs,{expandWall=false}={}){
  const compare=designs.length===2;
  const xlabel='Axial position x (m)';
  const color={ [nozzleMocMethods.point]:'#08716a', [nozzleMocMethods.region]:'#9a4929' };
@@ -199,24 +199,21 @@ export function nozzleMocPlots(designs){
    ];
   })
  }};
- const wall={key:'nozzle-moc-wall',label:wallTitle,chart:{
-  title:wallTitle,xlabel,ylabel:'Wall coordinate y (m)',series:compare?
-   designs.map(design=>({name:design.method,points:wallCoordinates(design),color:color[design.method],
-    ...(design.method===nozzleMocMethods.region?{dash:'6 4'}:{})})):
-   [{name:'Upper wall',points:wallCoordinates(designs[0])},
-    {name:'Lower wall',points:wallCoordinates(designs[0],-1)}]
- },...(compare?{note:'Upper-wall profiles are overlaid. The lower walls are their reflections about the centerline.'}:{})};
- const segmentsTitle='Wall segments';
  const segmentCount=designs[0].wall.length-1;
- const segments={key:'nozzle-moc-wall-segments',label:segmentsTitle,
-  note:`${segmentCount} straight segments per upper wall. Dots mark the computed vertices. The vertical scale is expanded to show changes in slope.`,
-  chart:{title:segmentsTitle,xlabel,ylabel:'Wall coordinate y (m)',zeroBaseline:false,
-   series:designs.map(design=>({
-    name:compare?design.method:'Upper wall',color:color[design.method],
-    points:wallCoordinates(design),vertexRadius:segmentCount>100?1:segmentCount>40?1.7:2.5,
-    ...(compare&&design.method===nozzleMocMethods.region?{dash:'6 4'}:{})
-   }))
-  }
- };
- return compare?[wall,mach,segments]:[mach,wall,segments];
+ const vertexRadius=segmentCount>100?1:segmentCount>40?1.7:2.5;
+ const upper=designs.map(design=>({
+  name:compare?design.method:'Upper wall',color:color[design.method],
+  points:wallCoordinates(design),vertexRadius,
+  ...(compare&&design.method===nozzleMocMethods.region?{dash:'6 4'}:{})
+ }));
+ const series=compare||expandWall?upper:[
+  ...upper,{name:'Lower wall',points:wallCoordinates(designs[0],-1),vertexRadius}
+ ];
+ const note=`${segmentCount} straight segments per wall. Dots mark the computed vertices.`;
+ const wall={key:'nozzle-moc-wall',label:wallTitle,chart:{
+  title:wallTitle,xlabel,ylabel:'Wall coordinate y (m)',series,
+  ...(expandWall?{zeroBaseline:false}:{})
+ },note:expandWall?`${note} Upper wall only, with an expanded vertical scale.`:
+  compare?`${note} The lower walls mirror the upper profiles.`:note};
+ return compare?[wall,mach]:[mach,wall];
 }

@@ -66,8 +66,14 @@ test('wall segments mark exact upper-wall vertices on the expanded dimensional c
  const id='nozzle-design';
  const inputs={...defaults(id),...nozzleMocExamples[3].inputs,nozzleMocMethod:nozzleMocMethods.compare};
  const run=calculate(id,inputs);
- const {chart,note}=plotOptions(run).find(option=>option.key==='nozzle-moc-wall-segments');
+ const regular=plotOptions(run).find(option=>option.key==='nozzle-moc-wall');
+ const expanded=plotOptions(run,.001,{expandNozzleWall:true});
+ const {chart,note}=expanded.find(option=>option.key==='nozzle-moc-wall');
  const {svg,axis}=chartSVG(chart);
+ assert.equal(expanded.length,2);
+ assert.equal(chart.title,regular.chart.title);
+ assert.equal(regular.chart.series.length,2);
+ assert.ok(regular.chart.series.every(series=>series.vertexRadius>0));
  assert.match(note,new RegExp(`${inputs.mocFanRays} straight segments`));
  assert.equal(chart.xlabel,'Axial position x (m)');
  assert.equal(chart.ylabel,'Wall coordinate y (m)');

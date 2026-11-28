@@ -1,4 +1,4 @@
-import {nozzleMocPlots} from './nozzle-moc.js?v=20261128-case-links-and-wall-segments';
+import {nozzleMocPlots} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {nozzleBookPressurePlot} from './nozzle-book.js?v=20261120-example-sequence';
 import {finiteTubeFrame,finiteTubeScale,sinusoidalReference,sinusoidalVelocity} from './finite-tube.js?v=20261125-boundary-preview';
@@ -190,8 +190,8 @@ function basePlotOptions(d,time=.001){
  return options.filter(o=>id!=='normal'||['normal-M','normal-p','normal-rho','normal-T','normal-p0','normal-dsR'].includes(o.key)).filter(o=>o.chart.series.some(s=>s.points.length));
 }
 
-export function plotOptions(d,time=.001){
- if(d.id==='nozzle-design')return nozzleMocPlots(d.result.designs??[d.result]);
+export function plotOptions(d,time=.001,{expandNozzleWall=false}={}){
+ if(d.id==='nozzle-design')return nozzleMocPlots(d.result.designs??[d.result],{expandWall:expandNozzleWall});
  if(d.id==='rayleigh'||d.id==='fanno'){
   const plots=basePlotOptions(d,time);
   return d.result.fannoRayleigh?plots:[...plots,ductTemperatureEntropyPlot(d)];

@@ -39,9 +39,9 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261128-case-links-and-wall-segments';
+import {plotOptions} from './plot-options.js?v=20261128-wall-coordinates-detail';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
-import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261128-case-links-and-wall-segments';
+import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
 import {setChapterLayout,restoreChapterControls,refreshChapterLayout} from './chapter-layout.js?v=20261124-calculator-center-states';
 import {arrangeCompactGeometry} from './compact-geometry.js?v=20261121-airfoil-compact-layout';
@@ -49,7 +49,7 @@ import {rayleighBookInputs} from './rayleigh-book.js';
 import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
-import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-case-links-and-wall-segments';
+import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-wall-coordinates-detail';
 import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-case-links-and-wall-segments';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
@@ -161,7 +161,10 @@ const fieldNumber=(number,field)=>unitView.label(field.unit)===field.unit
  ?unitView.fieldValue(number,field):unitView.round(unitView.fieldValue(number,field),10);
 const fieldLimit=(number,field)=>unitView.label(field.unit)===field.unit?number:unitView.round(unitView.value(number,field.unit),10);
 const displayProbe=([label,number])=>[unitView.axisLabel(label),unitView.value(number,unitView.axisUnit(label))];
-const flowPlots=(result,time)=>plotOptions(result,time).map(unitView.plot);
+const nozzleWallPlotKey='nozzle-moc-wall';
+const sharedWallDetailKey='nozzle-moc-wall-segments';
+const expandNozzleWall=$('expandNozzleWall');
+const flowPlots=(result,time)=>plotOptions(result,time,{expandNozzleWall:expandNozzleWall.checked}).map(unitView.plot);
 
 // Some analytical views render tables with the unit shared by the entire row.
 function displayMeasuredTable(container){
@@ -206,7 +209,7 @@ function displayMeasurements(...containers){
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
 let openedSharedCase=false,copyCaseTimer;
-const worker=new Worker(new URL('./worker.js?v=20261128-case-links-and-wall-segments',import.meta.url),{type:'module'});
+const worker=new Worker(new URL('./worker.js?v=20261128-wall-coordinates-detail',import.meta.url),{type:'module'});
 function renderNav(){
  $('chapters').innerHTML=chapters.map(([,title,,ids])=>{
   const active=ids.includes(id);
@@ -343,7 +346,10 @@ function openLab(){
   selectNozzleExamplePlot();
  }
  if(openedSharedCase){
-  plotSelection[id]=shared.plot;
+  if(id==='nozzle-design'){
+   expandNozzleWall.checked=shared.plot===sharedWallDetailKey;
+   plotSelection[id]=expandNozzleWall.checked?nozzleWallPlotKey:shared.plot;
+  }else plotSelection[id]=shared.plot;
   extraPlotSelections[id]=[];
  }
  renderInputs();
@@ -1165,6 +1171,7 @@ function updatePlotChoices(){
 function renderSelectedPlot(){
  $('chartProbe').hidden=true;
  if(!current)return;
+ $('expandNozzleWallLabel').hidden=id!=='nozzle-design'||plotSelection[id]!==nozzleWallPlotKey;
  const profile=id==='tube'&&(plotSelection[id]??'').startsWith('tube-profile-');
  $('unsteadyProfileTimeLabel').hidden=!(current.result.finiteTube||profile&&(current.result.twoStagePiston||current.result.valveClosure));
  $('unsteadyProfileTime').min=current.result.finiteTube?'0':'0.01';
@@ -1194,6 +1201,7 @@ $('unsteadyProfileTime').oninput=()=>{
  else renderSelectedPlot();
 };
 $('plotQuantity').onchange=()=>{plotSelection[id]=$('plotQuantity').value;renderSelectedPlot();renderPlotPicker();};
+expandNozzleWall.onchange=updatePlotChoices;
 function bindProbe(a,root=$('chart'),data=displayedChart){
  const local=k=>root.querySelector('[id="'+k+'"]');
  const hit=local('chartHit'),svg=hit?.ownerSVGElement,box=$('chartProbe');box.hidden=true;if(!hit||!a)return;
@@ -1433,7 +1441,9 @@ $('copyCaseLink').onclick=async()=>{
  status.hidden=true;
  let href;
  try{
-  href=makeCaseLink(location.href,id,inputs,unitView.system,$('plotQuantity').value||undefined);
+  const selected=$('plotQuantity').value||undefined;
+  const plot=selected===nozzleWallPlotKey&&expandNozzleWall.checked?sharedWallDetailKey:selected;
+  href=makeCaseLink(location.href,id,inputs,unitView.system,plot);
  }catch(error){
   status.textContent=error.message;
   status.hidden=false;
@@ -1452,9 +1462,11 @@ $('guideButton').onclick=()=>{const details=$('modelDetails');details.hidden=!de
 
 $('exportPng').onclick=async()=>{if(!current)return;const button=$('exportPng');const name=exportFilename(button,`compressible-flow-${id}`,'png');button.disabled=true;let url;try{const svg=$('scene').querySelector('svg').cloneNode(true);svg.setAttribute('xmlns','http://www.w3.org/2000/svg');const box=svg.viewBox.baseVal;const width=box.width||960,height=box.height||450;svg.setAttribute('width',width);svg.setAttribute('height',height);url=URL.createObjectURL(new Blob([uniformDiagramText(new XMLSerializer().serializeToString(svg))],{type:'image/svg+xml'}));const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=url;});const canvas=document.createElement('canvas');canvas.width=width*2;canvas.height=height*2;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw Error('PNG export failed');const link=document.createElement('a'),pngUrl=URL.createObjectURL(blob);link.href=pngUrl;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(pngUrl),1000);}catch(error){alert('Image export failed. Please use SVG or try again.');}finally{if(url)URL.revokeObjectURL(url);button.disabled=false;}};
 
-function isStandalonePlot(key){return key===nozzleBookPlotKey||key==='nozzle-moc-wall-segments';}
+function isStandalonePlot({key,chart}){
+ return key===nozzleBookPlotKey||key===nozzleWallPlotKey&&chart.zeroBaseline===false;
+}
 function canOverlayPlot(first,other){
- return !isStandalonePlot(first.key) && !isStandalonePlot(other.key) &&
+ return !isStandalonePlot(first) && !isStandalonePlot(other) &&
   !first.chart.heatmap && !other.chart.heatmap && first.chart.xlabel===other.chart.xlabel;
 }
 function renderPlotPicker(){
