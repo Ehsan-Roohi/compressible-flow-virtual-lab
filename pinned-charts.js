@@ -30,6 +30,45 @@ function ordinateScale(pins){
  return original.invertYAxis?[top,bottom]:[bottom,top];
 }
 
+function ordinateUnit(label){
+ const unit=label.match(/ \((.+)\)$/)?.[1];
+ if(unit)return unit;
+ const symbol=label.replace(/\s+/g,'');
+ if(/^(?:(?:Local|Upstream|Downstream|Freestream)?Machnumber|M[₀-₉꜀∞ₙ]*|M=\|u\|\/a|C[pLD](?:,wave)?|Δs\/R|\(s\*−s\)\/R|fᴅL\*\/D)$/.test(symbol))
+  return 'dimensionless';
+ const ratio=/^([pTρuaAvM])[₀-₉꜀∞ₙ*]*(?:ref)?\/\1[₀-₉꜀∞ₙ*]*(?:ref)?$/;
+ return ratio.test(symbol)?'dimensionless':null;
+}
+
+function compatibleScales(a,b){
+ if(!a.unit||a.unit!==b.unit||a.inverted!==b.inverted)return false;
+ const span=Math.max(a.high,b.high)-Math.min(a.low,b.low);
+ return span<=1.5*Math.min(a.narrowestSpan,b.narrowestSpan);
+}
+
+function combinedOrdinateScales(byOrdinate){
+ const axes=[],byLabel=new Map();
+ let colorIndex=0;
+ for(const [label,pins] of byOrdinate){
+  const range=ordinateScale(pins),color=colors[colorIndex++%colors.length];
+  const low=Math.min(...range),high=Math.max(...range),unit=ordinateUnit(label);
+  const candidate={label,range,color,low,high,unit,inverted:range[0]>range[1],narrowestSpan:high-low};
+  let axis=axes.find(existing=>compatibleScales(existing,candidate));
+  if(axis){
+   axis.low=Math.min(axis.low,low);axis.high=Math.max(axis.high,high);
+   axis.range=axis.inverted?[axis.high,axis.low]:[axis.low,axis.high];
+   axis.narrowestSpan=Math.min(axis.narrowestSpan,candidate.narrowestSpan);
+   axis.label=unit==='dimensionless'?'Dimensionless':unit;
+   axis.color='#4b5563';
+  }else{
+   axis=candidate;
+   axes.push(axis);
+  }
+  byLabel.set(label,{axis,color});
+ }
+ return {axes,byLabel};
+}
+
 function sharedFrame(group){
  const original=group[0].chart,byOrdinate=new Map();
  for(const pin of group){
@@ -37,28 +76,28 @@ function sharedFrame(group){
   if(!byOrdinate.has(label))byOrdinate.set(label,[]);
   byOrdinate.get(label).push(pin);
  }
- const multipleScales=byOrdinate.size>1;
+ const multipleQuantities=byOrdinate.size>1;
+ const {axes,byLabel}=combinedOrdinateScales(byOrdinate);
+ const multipleScales=axes.length>1;
  const reference=original.xReference;
  const sharedReference=!multipleScales&&reference&&group.every(({chart})=>
   chart.xReference?.x===reference.x&&chart.xReference?.y===reference.y&&chart.xReference?.label===reference.label);
- const scales=new Map(Array.from(byOrdinate,([label,pins],i)=>[
-  label,{label,range:ordinateScale(pins),color:colors[i%colors.length]},
- ]));
  let colorIndex=0;
  const series=[],markers=[];
  const dashPatterns=['','7 4','2 3','9 3 2 3','12 4','6 3 1 3'];
  const curveCounts=new Map();
  for(const pin of group){
-  const chart=pin.chart,scale=scales.get(chart.ylabel);
-  const [bottom,top]=scale.range;
+  const chart=pin.chart,{axis,color}=byLabel.get(chart.ylabel);
+  const [bottom,top]=axis.range;
   const value=y=>multipleScales?(y-bottom)/(top-bottom):y;
   for(const curve of chart.series){
-   const index=curveCounts.get(scale)??0;
-   curveCounts.set(scale,index+1);
-   series.push({...curve,name:`Pin ${pin.number} · ${pin.label} · ${curve.name}`,
-    color:multipleScales?scale.color:colors[colorIndex++%colors.length],
+   const index=curveCounts.get(chart.ylabel)??0;
+   curveCounts.set(chart.ylabel,index+1);
+   const legend=multipleQuantities&&!curve.name.includes(chart.ylabel)?`${curve.name} (${chart.ylabel})`:curve.name;
+   series.push({...curve,name:`Pin ${pin.number} · ${pin.label} · ${legend}`,
+    color:multipleQuantities?color:colors[colorIndex++%colors.length],
     legendColor:undefined,scatter:curve.scatter??!!chart.scatter,
-    dash:multipleScales?dashPatterns[index%dashPatterns.length]||curve.dash:curve.dash,
+    dash:multipleQuantities?dashPatterns[index%dashPatterns.length]||curve.dash:curve.dash,
     points:multipleScales?curve.points.map(([x,y])=>[x,value(y)]):curve.points,
    });
   }
@@ -68,13 +107,16 @@ function sharedFrame(group){
    markers.push({x,y:value(y),name:label??`φ = ${Number(x.toFixed(2))}°`});
   }
  }
- const title=multipleScales?`Properties vs ${original.xlabel}`:`${original.ylabel} vs ${original.xlabel}`;
- return {title,source:'',chart:{...original,title,series,scatter:false,
+ const title=multipleQuantities?`Properties vs ${original.xlabel}`:`${original.ylabel} vs ${original.xlabel}`;
+ const sharedRange=multipleQuantities&&!multipleScales?axes[0].range:undefined;
+ return {title,source:'',chart:{...original,title,ylabel:axes[0].label,series,scatter:false,
   markers:[...new Map(markers.map(marker=>[JSON.stringify(marker),marker])).values()],
   regionMarkers:group.some(pin=>pin.chart.regionMarkers),
   xReference:sharedReference?reference:undefined,xRange:undefined,
-  ...(multipleScales?{yAxes:[...scales.values()],yRange:[0,1],invertYAxis:false,zeroBaseline:false}:
-   {yRange:undefined,zeroBaseline:group.every(pin=>pin.chart.zeroBaseline===false)?false:undefined}),
+  ...(multipleScales?{yAxes:axes.map(({label,range,color})=>({label,range,color})),
+   yRange:[0,1],invertYAxis:false,zeroBaseline:false}:
+   {yRange:sharedRange&&[...sharedRange].sort((a,b)=>a-b),
+    zeroBaseline:group.every(pin=>pin.chart.zeroBaseline===false)?false:undefined}),
  }};
 }
 

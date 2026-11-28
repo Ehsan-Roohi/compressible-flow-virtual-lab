@@ -51,6 +51,46 @@ test('pressure and temperature use two physical scales in one shared Mach frame'
  assert.doesNotMatch(figure.svg,/NaN|Infinity|undefined/);
 });
 
+test('close dimensionless ratios share one vertical scale and appear in the legend',()=>{
+ const density=plot({ylabel:'ρ₂/ρ₁',series:[{name:'Density ratio',points:[[1,1],[4.69,4.89]]}]});
+ const temperature=plot({ylabel:'T₂/T₁',series:[{name:'Temperature ratio',points:[[1,1],[4.69,5.22]]}]});
+ const pins=[pin(1,density),pin(2,temperature)];
+ const {chart}=pinnedChartPanels(pins)[0];
+ assert.equal(chart.ylabel,'Dimensionless');
+ assert.equal(chart.yAxes,undefined);
+ assert.deepEqual(chart.series.map(s=>s.points),[density.series[0].points,temperature.series[0].points]);
+ const figure=pinnedChartFigure(pins);
+ assert.equal(figure.width,640);
+ assert.doesNotMatch(figure.svg,/data-chart-y-axis=/);
+ assert.match(figure.svg,/Density ratio \(ρ₂\/ρ₁\)/);
+ assert.match(figure.svg,/Temperature ratio \(T₂\/T₁\)/);
+});
+
+test('only the comparable curves share the scale in a mixed-range frame',()=>{
+ const series=(name,y)=>[{name,points:[[1,1],[4.69,y]]}];
+ const pins=[
+  pin(1,plot({ylabel:'ρ₂/ρ₁',series:series('Density ratio',4.89)})),
+  pin(2,plot({ylabel:'T₂/T₁',series:series('Temperature ratio',5.22)})),
+  pin(3,plot({ylabel:'M₂',series:series('Downstream Mach',.42)})),
+ ];
+ const {chart}=pinnedChartPanels(pins)[0];
+ assert.deepEqual(chart.yAxes.map(axis=>axis.label),['Dimensionless','M₂']);
+ assert.notEqual(chart.series[0].color,chart.series[1].color);
+ for(const [i,original] of pins.entries()){
+  const [bottom,top]=chart.yAxes[i===2?1:0].range;
+  const y=chart.series[i].points[1][1];
+  assert.ok(Math.abs(bottom+y*(top-bottom)-original.chart.series[0].points[1][1])<1e-9);
+ }
+});
+
+test('similar numerical values with different units or opposite orientations keep separate scales',()=>{
+ const pressure=plot({ylabel:'p (kPa)'});
+ const temperature=plot({ylabel:'T (K)'});
+ const totalPressure=plot({ylabel:'p₀ (kPa)',invertYAxis:true});
+ const {chart}=pinnedChartPanels([pin(1,pressure),pin(2,temperature),pin(3,totalPressure)])[0];
+ assert.deepEqual(chart.yAxes.map(axis=>axis.label),['p (kPa)','T (K)','p₀ (kPa)']);
+});
+
 test('the combined SVG retains heatmap orientation and cursor without duplicate IDs',()=>{
  const wave=plot({
   title:'Density map',xlabel:'Time t (ms)',ylabel:'Position x (m)',timeCursorFraction:.5,

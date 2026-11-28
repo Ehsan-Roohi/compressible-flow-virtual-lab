@@ -27,7 +27,7 @@ import {uniformDiagramText,backPressureHTML} from './diagram-typography.js?v=202
 import {rayleighHeatBounds} from './rayleigh-input.js?v=20261110-rayleigh-audit';
 import {reservoirExamples} from './reservoir-examples.js?v=20261119-open-intake';
 import {chartWorkbook} from './chart-export.js';
-import {pinnedChartFigure} from './pinned-charts.js?v=20261128-shared-chart-frames';
+import {pinnedChartFigure} from './pinned-charts.js?v=20261128-shared-y-scale';
 import {probeBody} from './body-probe.js?v=20261110-simple-examples';
 import {comparisonHTML} from './channel-comparison.js?v=20261120-wall-methods';
 import {fittedInspectionHTML,fittedPointHTML,selectedFittedPoint,fittedExportRows} from './channel-moc-shocks-tables.js';
