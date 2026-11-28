@@ -141,7 +141,7 @@ h1{font-weight:650;letter-spacing:-.7px}h2{font-size:16px;font-weight:650}h3{fon
 .scene>svg:is([data-rayleigh-contour],[data-fanno-contour]){height:auto}
 .scene[data-kind=normal]{aspect-ratio:640/228}.scene-card .card-head{padding-top:12px;padding-bottom:8px}.scene-caption{padding:8px 16px}.scene-card{padding-bottom:4px}
 
-#extraPlotPicker{margin:8px 20px 16px;font-size:13px}#extraPlotPicker summary{cursor:pointer;color:#137d73}#extraPlotPicker>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;padding-top:12px}#extraPlotPicker label{display:flex;align-items:center;gap:6px}.additional-plot{border-top:1px solid #dce5e8;padding:14px 0;margin-top:14px}.additional-plot h3{margin:0 20px 8px;font-size:15px}.additional-plot svg{width:100%;display:block}
+.additional-plot{border-top:1px solid #dce5e8;padding:14px 0;margin-top:14px}.additional-plot h3{margin:0 20px 8px;font-size:15px}.additional-plot svg{width:100%;display:block}
 
 .fanno-geometry-settings{grid-column:1/-1;margin:16px 0 4px;padding-top:12px;border-top:1px solid #dce5e8}.fanno-geometry-settings summary{cursor:pointer;color:var(--teal);font-size:14px;font-weight:600}.fanno-geometry-settings .input-group:last-child{border-bottom:0}
 
@@ -457,8 +457,18 @@ body[data-lab="foundations"] .compare-btn{width:auto;margin:5px var(--card-inset
   outline: 2px solid var(--teal); outline-offset: 2px;
 }
 .scene-tools .export-disclosure { text-align: start; }
-#chartExports { margin: 0 var(--card-inset) 7px; }
-.chart-card:not(:has(#chart svg)) #chartExports { display: none; }
+.chart-actions {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
+  padding: 0 var(--card-inset) 8px;
+}
+.chart-actions[hidden], #pinnedChartCard[hidden] { display: none; }
+.chart-actions .export-disclosure[open] { flex-basis: 100%; }
+#pinnedChartCard .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+#pinnedChartList { list-style: none; margin: 0 var(--card-inset) 10px; padding: 0; }
+#pinnedChartList li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; }
+#pinnedChartImage { margin: 0 var(--card-inset); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+#pinnedChartImage > svg { display: block; width: 100%; height: auto; }
+#pinnedChartExports { margin: 6px var(--card-inset) 7px; }
 .result-actions.export-disclosure, .output-column .result-actions.export-disclosure {
   display: block; margin: 5px 0; padding: 0 var(--card-inset);
 }

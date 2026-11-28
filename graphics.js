@@ -334,7 +334,7 @@ function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=c.x
   const points=s.points.filter(p=>p.every(Number.isFinite));
   const color=s.color??colors[i%colors.length];
   if(c.scatter){
-   for(const [x,y] of points)inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${colors[i%colors.length]}"/>`;
+   for(const [x,y] of points)inner+=`<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="${s.color??colors[i%colors.length]}"/>`;
    return;
   }
   inner+=`<polyline points="${points.map(([x,y])=>[X(x),Y(y)].join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="${s.width??2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round"/>`;
@@ -357,9 +357,11 @@ function renderChartSVG(c){const W=640,H=266,L=c.leftMargin??100,R=23,T=15,B=c.x
  }
  inner+=txt((L+W-R)/2,H-9,c.xlabel,'#4b5563',10,'middle')+`<text transform="translate(14 ${(T+H-B)/2}) rotate(-90)" fill="#4b5563" font-size="12" font-family="${diagramFontFamily}" text-anchor="middle">${esc(c.ylabel)}</text>`;
  const showLineKeys=c.heatmap||c.series.some(s=>s.dash);
+ const timeFraction=c.timeCursorFraction??0;
+ const timeX=L+timeFraction*(W-R-L),timeY=H-B-timeFraction*(H-B-T);
  const timeCursor=c.heatmap?.transposed
-  ? `x1="${L}" x2="${L}" y1="${T}" y2="${H-B}"`
-  : `x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}"`;
+  ? `x1="${timeX}" x2="${timeX}" y1="${T}" y2="${H-B}"`
+  : `x1="${L}" x2="${W-R}" y1="${timeY}" y2="${timeY}"`;
  return {svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(c.title)}"><title>${esc(c.title)}</title>${diagramFontStyle}${inner}<line id="cursorLine" x1="0" y1="${T}" x2="0" y2="${H-B}" stroke="#8caa8d" stroke-dasharray="3 3" opacity="0"/><circle id="cursorPoint" r="4" fill="#17212b" stroke="#fff" stroke-width="1.5" opacity="0" pointer-events="none"/>${c.heatmap?`<line id="finiteTimeCursor" ${timeCursor} stroke="#29394b" stroke-width="1.2" opacity=".8"/>`:''}<rect id="chartHit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent"/></svg>`,legend:c.series.map((s,i)=>s.hideLegend?'':`<span>${showLineKeys?`<svg width="26" height="10" aria-hidden="true"><line x1="0" x2="26" y1="5" y2="5" stroke="${s.legendColor??s.color??colors[i%colors.length]}" stroke-width="2" stroke-dasharray="${s.dash??''}"/></svg>`:`<i style="background:${s.legendColor??s.color??colors[i%colors.length]}"></i>`}${backPressureHTML(esc(s.name))}</span>`).join(''),axis:{xmin,xmax,ymin,ymax,L,R,W,H,T,B}};
 }
 
