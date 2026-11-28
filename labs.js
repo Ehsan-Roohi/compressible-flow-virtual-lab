@@ -402,8 +402,12 @@ export function inputDefinitions(id,x={}){
  }
  if(id==='critical-mach'){
   const automatic=(x.criticalPressureSource??automaticPressure)===automaticPressure;
-  return labs[id].inputs.filter(field=>field.key==='minimumIncompressibleCp'?!automatic:
-   !['criticalNacaCode','criticalAlpha'].includes(field.key)||automatic);
+  const [fluid,gamma]=gasInputFields(x,id);
+  return [
+   {...fluid,help:'Choose Custom gas to enter a different specific heat ratio.'},gamma,
+   ...labs[id].inputs.filter(field=>field.key!=='gamma').filter(field=>field.key==='minimumIncompressibleCp'?!automatic:
+    !['criticalNacaCode','criticalAlpha'].includes(field.key)||automatic)
+  ];
  }
  const fields=stateInputFields(id,x,ductInputDefinitions(id,x)).filter(f=>f.key!=='trackingStation').map(f=>id==='rayleigh'&&f.key==='M1'&&(x.ductSolve==='Upstream reference + sonic outlet'||x.ductProblem==='Upstream adjustment to sonic outlet')?{...f,min:.00001,max:.999999,sliderMin:.00001,sliderMax:.999999}:f);
  const ordered=id==='rayleigh'?
@@ -476,8 +480,9 @@ export function calculate(id,x,publishedPressure){
     row(`Sonic pressure coefficient · ${method}`,pressureCoefficient,'Cp,cr'),
    ])
    :[row('Critical Mach number',result.mach,'Mcr'),row('Sonic pressure coefficient',result.pressureCoefficient,'Cp,cr')];
-  return {id,inputs:x,model:labs[id].model,result,chart:result.chart,scene:null,
-   rows,checks:{},shockDetails:[],notice:null,version:'0.1.0'};
+  const workingGas=gasInfo(x);
+  return {id,inputs:x,gas:{name:workingGas.name,gamma:workingGas.gamma},model:labs[id].model,
+   result,chart:result.chart,scene:null,rows,checks:{},shockDetails:[],notice:null,version:'0.1.0'};
  }
  const finite=id==='tube'&&x.tubeDomain===finiteTubeMode&&![pistonExperiment,singlePistonExperiment,valveExperiment,sinusoidalExperiment].includes(x.unsteadyExperiment);
  x=normalizeStateInputs(id,id==='nozzle'?resolveNozzleCase(x):x);
