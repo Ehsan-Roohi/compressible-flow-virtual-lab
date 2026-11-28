@@ -553,3 +553,14 @@ body[data-lab="nozzle"] #flowRelationsPanel td { font-size: 12px; }
   font-weight: 500;
   font-variant-numeric: lining-nums tabular-nums;
 }
+
+#nozzleViewControl { min-width: 0; }
+#nozzleViewControl .input-group { padding: 0; border: 0; }
+#nozzleViewControl .input-top { margin-bottom: 3px; }
+#nozzleViewControl select {
+  width: auto;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
