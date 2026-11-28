@@ -180,14 +180,17 @@ main{max-width:none;margin:0;padding:0 clamp(8px,1.2vw,16px) 12px;min-width:0}
 .scene,.field-controls{margin-inline:8px}
 #waveKey{margin:6px var(--card-inset) 4px}
 .plot-controls{padding:6px var(--card-inset) 0}
-.plot-controls.calculator-axes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
-.calculator-axes select{min-width:0}
-.calculator-axes #plotXAxisLabel,.calculator-axes #plotXAxis{grid-column:1}
-.calculator-axes #plotYAxisLabel,.calculator-axes #plotQuantity{grid-column:2}
-.calculator-axes label{grid-row:1}
-.calculator-axes select{grid-row:2}
+.plot-controls.chart-axes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
+.chart-axes select{min-width:0}
+.chart-axes #plotXAxisLabel,.chart-axes #plotXAxis{grid-column:1}
+.chart-axes #plotYAxisLabel,.chart-axes #plotQuantity{grid-column:2}
+.chart-axes :is(#plotXAxisLabel,#plotYAxisLabel){grid-row:1}
+.chart-axes :is(#plotXAxis,#plotQuantity){grid-row:2}
+.chart-axes :is(#plotNote,#unsteadyProfileTimeLabel,#expandNozzleWallLabel){grid-column:1/-1}
+.chart-axes #chartPlay{justify-self:start}
+#surfacePlotToggle{justify-self:start}
 .plot-controls [hidden]{display:none}
-@media(max-width:560px){.plot-controls.calculator-axes{display:block}.calculator-axes #plotXAxis{margin-bottom:8px}}
+@media(max-width:560px){.plot-controls.chart-axes{display:block}.chart-axes #plotXAxis{margin-bottom:8px}}
 #chart{padding-inline:6px}
 .legend{padding-inline:var(--card-inset)}
 #examplesPanel{padding:10px var(--card-inset)}

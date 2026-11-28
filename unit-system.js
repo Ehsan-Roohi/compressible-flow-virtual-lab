@@ -80,6 +80,7 @@ export function createUnitView(initial = 'SI') {
     const xUnit = axisUnit(c.xlabel), yUnit = axisUnit(c.ylabel);
     if (system !== 'US' || (!xUnit && !yUnit)) return c;
     const x = n => value(n, xUnit), y = n => value(n, yUnit);
+    const position=c.heatmap?.transposed?y:x, time=c.heatmap?.transposed?x:y;
     const point = p => ({...p, x: x(p.x), y: y(p.y), name: text(p.name), label: text(p.label)});
     return {
       ...c,
@@ -88,7 +89,7 @@ export function createUnitView(initial = 'SI') {
       xRange: c.xRange?.map(x), yRange: c.yRange?.map(y),
       markers: c.markers?.map(point),
       xReference: c.xReference && point(c.xReference),
-      heatmap: c.heatmap && {...c.heatmap, left: x(c.heatmap.left), right: x(c.heatmap.right), end: y(c.heatmap.end)},
+      heatmap: c.heatmap && {...c.heatmap, left: position(c.heatmap.left), right: position(c.heatmap.right), end: time(c.heatmap.end)},
     };
   };
   const plot = option => system === 'US' ? {...option, chart: chart(option.chart), note: text(option.note)} : option;

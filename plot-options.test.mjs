@@ -4,6 +4,9 @@ import {readFileSync} from 'node:fs';
 import {calculate,defaults,labs} from './labs.js';
 import {plotOptions} from './plot-options.js';
 import {chartSVG} from './graphics.js';
+import {experimentXAxisOptions,experimentPlotsOnAxis,plotCoordinateAxis} from './experiment-plot-axes.js';
+import {finiteTubeMode} from './finite-tube.js';
+import {createUnitView} from './unit-system.js';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8*Math.max(1,Math.abs(a),Math.abs(b)));
 test('Every registered experiment offers distinct finite selectable plots with units',()=>{
  for(const id of Object.keys(labs)){
@@ -14,6 +17,70 @@ test('Every registered experiment offers distinct finite selectable plots with u
   assert.equal(new Set(options.map(o=>o.key)).size,options.length);
   for(const o of options){assert.ok(o.chart.xlabel);assert.ok(o.chart.ylabel);assert.ok(o.chart.series.some(s=>s.points.length));assert.ok(!/NaN|Infinity|undefined/.test(chartSVG(o.chart).svg),id+' '+o.key);}
  }
+});
+test('main experiments expose native and compatible alternative axes',()=>{
+ for(const id of Object.keys(labs).filter(id=>id!=='foundations')){
+  const options=plotOptions(calculate(id,defaults(id)),undefined,{includeSurfacePlots:true});
+  const axes=experimentXAxisOptions(options);
+  assert.ok(axes.length>1,id);
+  assert.ok(axes.some(o=>o.key===plotCoordinateAxis(options[0])),id);
+  for(const {key} of axes){
+   const choices=experimentPlotsOnAxis(options,key);
+   assert.ok(choices.length,id+' '+key);
+   for(const {chart} of choices)
+    assert.doesNotMatch(chartSVG(chart).svg,/NaN|Infinity|undefined/,id+' '+key);
+  }
+ }
+});
+test('nozzle cross plots pair the matching sides of a normal shock',()=>{
+ const plots=plotOptions(calculate('nozzle',defaults('nozzle')));
+ const p=plots.find(o=>o.key==='nozzle-p').chart.series[0].points;
+ const m=plots.find(o=>o.key==='nozzle-M').chart.series[0].points;
+ const paired=experimentPlotsOnAxis(plots,'quantity:nozzle-M').find(o=>o.key==='nozzle-p');
+ assert.ok(paired);
+ const states=paired.chart.series[0].points;
+ const i=m.findIndex(([position,value],i)=>i&&position===m[i-1][0]&&value!==m[i-1][1]);
+ assert.ok(i>0);
+ assert.deepEqual(states.slice(i-1,i+1),[[m[i-1][1],p[i-1][1]],[m[i][1],p[i][1]]]);
+ assert.ok(!experimentPlotsOnAxis(plots,'quantity:nozzle-M').some(o=>o.key==='nozzle-book-pressure'));
+});
+test('airfoil cross plots align the same model and surface',()=>{
+ const inputs={...defaults('airfoil'),airfoilMethod:'Compare both'};
+ const plots=plotOptions(calculate('airfoil',inputs),undefined,{includeSurfacePlots:true});
+ const pressure=experimentPlotsOnAxis(plots,'quantity:airfoil-Cp').find(o=>o.key==='airfoil-p');
+ assert.deepEqual(pressure.chart.series.map(s=>s.sampleBranch),['nonlinear-Upper','nonlinear-Lower']);
+ const cp=plots.find(o=>o.key==='airfoil-Cp').chart.series;
+ for(const series of pressure.chart.series)
+  near(series.points[0][0],cp.find(s=>s.sampleBranch===series.sampleBranch).points[0][1]);
+});
+test('wedge surface plots are optional and use the solved face properties',()=>{
+ const d=calculate('cone',{...defaults('cone'),bodyGeometry:'Wedge',wedgeAlpha:4});
+ assert.deepEqual(plotOptions(d),[]);
+ const plots=plotOptions(d,undefined,{includeSurfacePlots:true});
+ const choices=experimentPlotsOnAxis(plots,'quantity:body-M');
+ const {series}=choices.find(o=>o.key==='body-p').chart;
+ assert.equal(series.length,2);
+ for(const [i,s] of series.entries())assert.deepEqual(s.points[0],
+  [d.result.wedge.faces[i].surface.M,d.result.wedge.faces[i].surface.p]);
+});
+test('transposed unsteady maps keep aligned wave paths, units and time cursor',()=>{
+ const inputs={...defaults('tube'),tubeDomain:finiteTubeMode,finiteEndTime:2};
+ const plots=plotOptions(calculate('tube',inputs));
+ const original=plots.find(o=>o.key==='finite-map-pressure');
+ const axis=experimentXAxisOptions(plots).find(o=>o.key.startsWith('map:'));
+ const choices=experimentPlotsOnAxis(plots,axis.key);
+ assert.deepEqual(choices.map(o=>o.key),['finite-map-pressure','finite-map-density']);
+ const {chart}=choices[0];
+ assert.deepEqual(chart.series[0].points[0],original.chart.series[0].points[0].slice().reverse());
+ assert.equal(chart.heatmap.transposed,true);
+ const view=createUnitView('US').plot(choices[0]).chart;
+ assert.match(view.ylabel,/ft/);
+ near(view.heatmap.right,chart.heatmap.right/.3048);
+ near(view.heatmap.end,chart.heatmap.end);
+ const {svg}=chartSVG(view);
+ assert.match(svg,/transform="matrix\(0 -1 -1 0 0 0\)"/);
+ assert.match(svg,/id="finiteTimeCursor" x1="100" x2="100" y1="15"/);
+ assert.doesNotMatch(svg,/NaN|Infinity|undefined/);
 });
 test('All isentropic table ratios and angles are available and agree with the selected state',()=>{
  const x=defaults('foundations'),d=calculate('foundations',x),options=plotOptions(d);assert.ok(options.some(o=>o.key==='iso-pP0'));

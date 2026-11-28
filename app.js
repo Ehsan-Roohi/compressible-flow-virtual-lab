@@ -1,7 +1,8 @@
 import {makeCaseLink,readCaseLink,restoreCaseInputs} from './case-link.js?v=20261128-calculator-axes';
 import {calculatorMachRange,calculatorModes,conicalInputs,shockCalculatorLabs} from './appendix-calculator.js?v=20261128-calculator-axes';
 import {calculatorXAxisOptions,calculatorPlotsOnAxis,parameterAxis,coneFreestreamAxis} from './calculator-plot-axes.js?v=20261128-calculator-axes';
-import {createUnitView} from './unit-system.js?v=20261124-heated-friction-duct';
+import {experimentXAxisOptions,experimentPlotsOnAxis,plotCoordinateAxis} from './experiment-plot-axes.js?v=20261128-lab-axes';
+import {createUnitView} from './unit-system.js?v=20261128-lab-axes';
 import {groupTubeResults} from './tube-result-groups.js?v=20261121-tube-grouped-results';
 import {tubeComparisonNote} from './linearized-tube.js?v=20261121-tube-methods';
 import {finiteTubeMode,finiteTubeFrame,closedPistonMode,sinusoidalExperiment} from './finite-tube.js?v=20261125-boundary-preview';
@@ -40,7 +41,7 @@ import {airfoilTables,airfoilWaveChanges,airfoilWaveDetails} from './airfoil-tab
 import {airfoilGeometry,migrateAirfoilGeometry,diamondModes,diamondInputValues,segmentSurface,constrainedSurface,automaticSurface,connectedSurface,surfaceSegments,presetSegments} from './airfoil.js?v=20261117-multi-inlet';
 import {nearestChartPoint} from './chart-probe.js?v=20261109-wedge-cone';
 import {probeCone} from './cone-probe.js?v=20261109-wedge-cone';
-import {plotOptions} from './plot-options.js?v=20261128-wall-coordinates-detail';
+import {plotOptions} from './plot-options.js?v=20261128-lab-axes';
 import {opposingShockSlipAngle} from './pressure-turning.js?v=20261120-wall-methods-slip';
 import {nozzleMocExamples,nozzleMocStarts,nozzleMocTargetValues,resolveNozzleMocExitMach} from './nozzle-moc.js?v=20261128-wall-coordinates-detail';
 import {nozzleExamples,nozzleModeDefaults,nozzleSolveModes,nozzleBookPlotKey} from './nozzle-book.js?v=20261121-nozzle-merge-converging-examples';
@@ -51,7 +52,7 @@ import {selectGas,gasInfo} from './gas-properties.js?v=20261109-wedge-cone';
 import {controlVolumePreset} from './control-volume.js?v=20261109-wedge-cone';
 import {pressureSweepPlan,advancePressure} from './sweep.js?v=20261109-wedge-cone';
 import {labs,chapters,defaults as experimentDefaults,inputDefinitions,nozzleInfo,trackingShockDetails} from './labs.js?v=20261128-calculator-axes';
-import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-conical-plot-direction';
+import {sceneSVG,chartSVG,fmt,finiteTubeFlowView} from './graphics.js?v=20261128-lab-axes';
 import {pressureAirfoilCode,publishedPressureAngles} from './critical-mach-data.js?v=20261124-expanded-airfoil-bank';
 const normalBookPreset={bookExample:'3-1',M1:2,p1:137.9,T1:277.78};
 const coneBookPreset={
@@ -165,7 +166,13 @@ const displayProbe=([label,number])=>[unitView.axisLabel(label),unitView.value(n
 const nozzleWallPlotKey='nozzle-moc-wall';
 const sharedWallDetailKey='nozzle-moc-wall-segments';
 const expandNozzleWall=$('expandNozzleWall');
-const flowPlots=(result,time)=>plotOptions(result,time,{expandNozzleWall:expandNozzleWall.checked}).map(unitView.plot);
+const surfacePlotsEnabled=new Set();
+function flowPlots(result,time){
+ const plots=plotOptions(result,time,{
+  expandNozzleWall:expandNozzleWall.checked,includeSurfacePlots:surfacePlotsEnabled.has(result.id),
+ });
+ return result.result.ductSystem?plots.map(plot=>({...plot,sampleFamily:'duct-system-profile'})):plots;
+}
 
 // Some analytical views render tables with the unit shared by the entire row.
 function displayMeasuredTable(container){
@@ -210,6 +217,8 @@ function displayMeasurements(...containers){
 let pendingCustomChannel=false,pendingLegacyCorner=null;
 let displayedChart=null,chartChoices=[],plotSelection={};
 const calculatorXSelections=new Map(),calculatorYSelections=new Map();
+const experimentXSelections=new Map();
+let activeExperimentXAxis;
 let calculatorPlotFamily='',coneSweepState;
 const calculatorMode=d=>d?.inputs.calculatorMode??calculatorModes.isentropic;
 const isConeSweepAxis=key=>key===coneFreestreamAxis||key?.startsWith('cone-sweep-');
@@ -355,11 +364,14 @@ function openLab(){
    expandNozzleWall.checked=shared.plot===sharedWallDetailKey;
    plotSelection[id]=expandNozzleWall.checked?nozzleWallPlotKey:shared.plot;
   }else plotSelection[id]=shared.plot;
+  if(shared.plotX&&(id==='airfoil'||id==='cone'))surfacePlotsEnabled.add(id);
   if(id==='foundations'){
    const mode=inputs.calculatorMode??calculatorModes.isentropic;
    calculatorXSelections.set(mode,shared.plotX??parameterAxis);
    calculatorYSelections.set(mode+(isConeSweepAxis(shared.plotX)?'-sweep':''),shared.plot);
   }
+  else if(shared.plotX)experimentXSelections.set(id,shared.plotX);
+  else experimentXSelections.delete(id);
   extraPlotSelections[id]=[];
  }
  renderInputs();
@@ -757,6 +769,7 @@ if(id==='tube'&&(x.key==='pistonType'||x.key==='unsteadyExperiment'&&(n.value===
  stopAnimation();
  const experiment=x.key==='pistonType'?n.value:n.value==='Piston'?'Single-stage piston':'Shock tube';
  inputs=defaults('tube',{unsteadyExperiment:experiment});
+ experimentXSelections.delete(id);
  plotSelection.tube=experiment===sinusoidalExperiment?'tube-profile-sine-u':undefined;
  renderInputs();$('value-'+x.key)?.focus({preventScroll:true});schedule();return;
 }
@@ -844,6 +857,7 @@ function solve({stream=false}={}){
  $('fieldProbe').hidden=true;$('chartProbe').hidden=true;request++;solvePending=true;
  if(!keepView){
   current=null;
+  $('surfacePlotToggle').hidden=true;
   $('tubePlotResults').hidden=true;
   for(const key of ['ductImageNote','ductChartNote','flowRelationsPanel','regionTablePanel','trackingEventPanel','calculatorTablePanel','gasResultSummary'])$(key).hidden=true;
   $('status').textContent='Solving…';$('status').className='status';$('comparison').hidden=true;
@@ -854,7 +868,7 @@ function solve({stream=false}={}){
  stopAnimation();worker.postMessage({request,id,inputs});
 }
 
-worker.onmessage=({data})=>{if(data.coneSweep){receiveConeSweep(data);return;}if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('gasResultSummary').hidden=true;$('airfoilWavePanel').hidden=true;$('airfoilPanel').hidden=true;$('results').closest('.results').hidden=false;stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='boundary-preview-limit'?'Preview unavailable':data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';if(id==='foundations')for(const key of ['plotXAxis','plotXAxisLabel','plotQuantity','plotYAxisLabel','chartExports'])$(key).hidden=true;$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}if(!openedSharedCase){try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}}renderResult();syncSweep();continueSweep();};
+worker.onmessage=({data})=>{if(data.coneSweep){receiveConeSweep(data);return;}if(data.request!==request)return;solvePending=false;if(!data.ok){current=null;$('gasResultSummary').hidden=true;$('airfoilWavePanel').hidden=true;$('airfoilPanel').hidden=true;$('results').closest('.results').hidden=false;stopSweep();syncSweep();$('sweepState').textContent='No accepted state for these inputs.';$('status').textContent=data.code==='boundary-preview-limit'?'Preview unavailable':data.code==='detached'?'Detached':'Check inputs';$('status').className='status error';$('notice').hidden=false;$('notice').textContent=data.error;if(id==='collision'&&data.code==='geometry-limit'){const link=document.createElement('button');link.type='button';link.className='text-btn';link.textContent='Open Custom wall / Channel';link.style.display='block';link.style.marginTop='12px';link.onclick=()=>{pendingCustomChannel=true;location.hash='wall';};$('notice').appendChild(link);}$('scene').innerHTML='<div class="error-display">No field is displayed for these inputs.<br>The selected physical model has no accepted solution.</div>';$('waveKey').hidden=true;$('results').innerHTML='';renderShockDetails([]);$('fieldControls').hidden=true;$('fieldLabel').textContent='No accepted flow field';$('sceneMeta').textContent='';$('chart').innerHTML='';$('legend').textContent='';$('plotQuantity').innerHTML='';for(const key of ['plotXAxis','plotXAxisLabel','plotQuantity','plotYAxisLabel','chartExports'])$(key).hidden=true;$('plotNote').textContent='';return;}current=data.data;const bookResult=chapter6BookResult(current);if(bookResult){current.chapter6Book=bookResult;current.rows.push(...(bookResult.rows??[]));}if(id==='fanno'&&inputs.fannoInterfaceVersion===2&&current.result.fullSystem){if(current.result.ductLengths?.[0]?.value>0)inputs.ductLength=current.result.geometry.ductLength;if(inputs.fannoCondition===fannoConditions[5]||inputs.fannoSystemSolve===fannoSolves[2]){inputs.lambda=current.result.lambda;inputs.frictionInput='Dimensionless';}if(inputs.fannoSystemSolve===fannoSolves[1])inputs.reservoirP0=current.result.supplyPressure/1000;}if(!openedSharedCase){try{localStorage.setItem('gdvl-inputs-'+id+(id==='balances'?'-cv2':''),JSON.stringify(inputs));}catch{}}renderResult();syncSweep();continueSweep();};
 worker.onerror=()=>{solvePending=false;stopSweep();syncSweep();$('status').textContent='Worker error';$('notice').hidden=false;$('notice').textContent='The calculation worker could not start. Serve this folder over HTTP(S) with module support.';};
 function renderShockDetails(groups=[]){const box=$('shockResults');if(!groups.length){box.hidden=true;box.innerHTML='';return;}const compact=id==='collision';box.hidden=false;box.innerHTML=`<h3>${compact?'WAVE ANGLES & ENTROPY':'SHOCK STATES · ONE-SIDED VALUES'}</h3>${groups.map(g=>`<section class="shock-state"><h4>${g.title}</h4>${compact?'':`<p>${g.location}</p><div class="shock-table-wrap"><table><thead><tr><th>Parameter</th><th>Before</th><th>After</th><th>After / before</th></tr></thead><tbody>${g.rows.map(r=>`<tr><th>${r.label}</th><td>${measure(r.before,r.unit)}</td><td>${measure(r.after,r.unit)}</td><td>${fmt(r.ratio)}</td></tr>`).join('')}</tbody></table></div>`}<dl>${g.extra.map(e=>`<div><dt>${e.label}</dt><dd>${measure(e.value,e.unit)}</dd></div>`).join('')}</dl></section>`).join('')}`;addDataExport(box,'shocks',()=>({
   shocks:groups.flatMap(g=>[
@@ -1225,15 +1239,33 @@ function receiveConeSweep(data){
  coneSweepState={key:data.coneSweep,plots:data.plots,error:data.error};
  if(current?.id==='foundations'&&calculatorMode(current)===calculatorModes.conical)updatePlotChoices();
 }
+function experimentChartView(original){
+ const axes=experimentXAxisOptions(original);
+ const preferred=original.find(o=>o.key===plotSelection[id])??original[0];
+ const selected=experimentXSelections.get(id);
+ activeExperimentXAxis=axes.some(o=>o.key===selected)?selected:preferred&&plotCoordinateAxis(preferred);
+ const options=axes.map(({key,label})=>new Option(label.split(' · ').map(s=>unitView.axisLabel(s)).join(' · '),key));
+ const xSelect=$('plotXAxis');
+ xSelect.replaceChildren(...options);
+ xSelect.value=activeExperimentXAxis??'';
+ return {plots:experimentPlotsOnAxis(original,activeExperimentXAxis),showAxis:axes.length>0};
+}
 function updatePlotChoices(){
  const isCalculator=current.id==='foundations';
- const view=isCalculator?calculatorChartView(plotOptions(current,currentPlotTime())):null;
- chartChoices=view?view.plots.map(unitView.plot):flowPlots(current,currentPlotTime());
+ const optionalSurface=current.id==='airfoil'&&current.result.models.some(model=>current.result[model].status==='ok')
+  ||current.id==='cone'&&current.inputs.bodyGeometry==='Wedge'&&current.result.wedge?.faces.some(face=>face.surface);
+ const surfaceToggle=$('surfacePlotToggle'),surfaceOpen=surfacePlotsEnabled.has(current.id);
+ surfaceToggle.hidden=!optionalSurface;
+ surfaceToggle.textContent=surfaceOpen?'Hide flow plots':'Plot flow properties';
+ surfaceToggle.setAttribute('aria-expanded',String(surfaceOpen));
+ const original=flowPlots(current,currentPlotTime());
+ const view=isCalculator?calculatorChartView(original):experimentChartView(original);
+ chartChoices=view.plots.map(unitView.plot);
  const select=$('plotQuantity'),label=$('plotYAxisLabel'),xSelect=$('plotXAxis');
- const showAxis=!!view?.showAxis;
+ const showAxis=view.showAxis;
  xSelect.hidden=$('plotXAxisLabel').hidden=!showAxis;
- xSelect.parentElement.classList.toggle('calculator-axes',showAxis);
- label.textContent=isCalculator?'Vertical axis (Y)':'Plot property';
+ xSelect.parentElement.classList.toggle('chart-axes',showAxis);
+ label.textContent='Vertical axis (Y)';
  select.setAttribute('aria-label',label.textContent);
  $('chartPlay').hidden=!current.result.finiteTube;
  $('unsteadyProfileTimeLabel').hidden=true;
@@ -1246,11 +1278,11 @@ function updatePlotChoices(){
   $('chartExports').hidden=true;displayedChart=null;
   return;
  }
- select.replaceChildren(...chartChoices.map(o=>new Option(o.label,o.key)));
+ select.replaceChildren(...chartChoices.map(o=>new Option(o.chart.heatmap?`${o.chart.ylabel} · ${o.label}`:o.label,o.key)));
  const preferred=isCalculator?calculatorYSelections.get(calculatorPlotFamily):plotSelection[id];
  plotSelection[id]=chartChoices.find(o=>o.key===preferred)?.key??chartChoices[0].key;
  select.value=plotSelection[id];
- select.hidden=label.hidden=!isCalculator&&chartChoices.length===1;
+ select.hidden=label.hidden=false;
  $('chartExports').hidden=false;
  renderSelectedPlot();renderPlotPicker();
 }
@@ -1263,7 +1295,11 @@ function renderSelectedPlot(){
  $('unsteadyProfileTime').min=current.result.finiteTube?'0':'0.01';
  $('unsteadyProfileTime').step=current.result.finiteTube?'0.001':'0.01';
  if(!current.result.finiteTube)$('unsteadyTimeReadout').textContent='';
- if(profile)chartChoices=flowPlots(current,currentPlotTime());
+ if(profile){
+  const refreshed=experimentPlotsOnAxis(flowPlots(current,currentPlotTime()),activeExperimentXAxis);
+  if(!refreshed.some(o=>o.key===plotSelection[id])){updatePlotChoices();return;}
+  chartChoices=refreshed.map(unitView.plot);
+ }
  const option=chartChoices.find(o=>o.key===plotSelection[id])??chartChoices[0];if(!option){$('chart').innerHTML='';$('legend').innerHTML='';$('chartTitle').textContent=current.id==='airfoil'?'No accepted surface profile':'No attached-flow profile';$('plotNote').textContent='';return;}displayedChart=option.chart;const chart=chartSVG(displayedChart);$('chartTitle').textContent=displayedChart.title;$('chart').innerHTML=chart.svg;$('legend').innerHTML=chart.legend;$('plotNote').textContent=option.note??'Choose a property to set its own units and axis. Curves show the current model and input conditions.';if(option.formula){const formula=document.createElement('div');formula.className='plot-formula';formula.textContent=option.formula;$('plotNote').append(formula);}bindProbe(chart.axis);renderExtraPlots();updateFiniteTimeCursor();
 }
 function updateFiniteTimeCursor(){
@@ -1274,8 +1310,10 @@ function updateFiniteTimeCursor(){
  $('unsteadyTimeReadout').textContent=`${selected} / ${end} ${unit}`;
  const cursor=$('finiteTimeCursor'),hit=$('chartHit');
  if(!cursor||!hit)return;
- const y=Number(hit.getAttribute('y'))+Number(hit.getAttribute('height'))*(1-time/r.end);
- cursor.setAttribute('y1',y);cursor.setAttribute('y2',y);
+ const transposed=displayedChart?.heatmap?.transposed;
+ const coordinate=transposed?'x':'y',span=transposed?'width':'height';
+ const position=Number(hit.getAttribute(coordinate))+Number(hit.getAttribute(span))*(transposed?time/r.end:1-time/r.end);
+ cursor.setAttribute(coordinate+'1',position);cursor.setAttribute(coordinate+'2',position);
 }
 function showFiniteTime(){
  renderScene();
@@ -1287,9 +1325,16 @@ $('unsteadyProfileTime').oninput=()=>{
  else renderSelectedPlot();
 };
 $('plotXAxis').onchange=event=>{
- if(current?.id!=='foundations')return;
- calculatorXSelections.set(calculatorMode(current),event.target.value);
+ if(!current)return;
+ if(id==='foundations')calculatorXSelections.set(calculatorMode(current),event.target.value);
+ else experimentXSelections.set(id,event.target.value);
  extraPlotSelections[id]=[];
+ updatePlotChoices();
+};
+$('surfacePlotToggle').onclick=()=>{
+ if(!current)return;
+ if(surfacePlotsEnabled.has(id))surfacePlotsEnabled.delete(id);
+ else surfacePlotsEnabled.add(id);
  updatePlotChoices();
 };
 $('plotQuantity').onchange=()=>{
@@ -1424,6 +1469,7 @@ function selectNozzleExamplePlot(){
 }
 function selectNozzleInputs(selection){
  inputs=defaults('nozzle',selection);
+ experimentXSelections.delete(id);
  sweepPositioned=true;
  sweepFinished=false;
  selectNozzleExamplePlot();
@@ -1539,7 +1585,7 @@ $('copyCaseLink').onclick=async()=>{
  try{
   const selected=$('plotQuantity').value||undefined;
   const plot=selected===nozzleWallPlotKey&&expandNozzleWall.checked?sharedWallDetailKey:selected;
-  const plotX=id==='foundations'?$('plotXAxis').value||undefined:undefined;
+  const plotX=$('plotXAxis').value||undefined;
   href=makeCaseLink(location.href,id,inputs,unitView.system,plot,plotX);
  }catch(error){
   status.textContent=error.message;

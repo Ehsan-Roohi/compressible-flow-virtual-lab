@@ -16,10 +16,11 @@ import {regularChannelPlots} from './regular-channel.js?v=20261120-moc-slip-angl
 import {mocProfilePlots} from './channel-moc.js?v=20261120-wall-methods';
 import {channelPlots} from './wave-channel.js?v=20261109-wedge-cone';
 import {wallPlots} from './wave-wall.js?v=20261109-wedge-cone';
-import {airfoilPlots} from './airfoil.js?v=20261109-wedge-cone';
+import {airfoilPlots} from './airfoil.js?v=20261128-lab-axes';
 import {sonicRelations} from './reference-relations.js?v=20261109-wedge-cone';
 import {linspace,deg,rad,isentropic,isentropicRelations,state,normalShock,obliqueShock,expansion,rayleighRatios,fannoRatios,linearAirfoil} from './physics.js';
 const finiteMaps=new WeakMap();
+const withSampleFamily=(plots,sampleFamily)=>plots.map(plot=>({...plot,sampleFamily}));
 function finiteMapOptions(r){
  if(finiteMaps.has(r))return finiteMaps.get(r);
  const fields=[['pressure','Pressure',1000,'kPa'],['density','Density',1,'kg/m³']];
@@ -50,11 +51,14 @@ function basePlotOptions(d,time=.001){
  if(d.result.ductSystem)return d.result.plots;
  const {id,inputs:x,result:r}=d,g=x.gamma??1.4,R=x.R??287,options=[];
  const add=(key,label,xlabel,ylabel,points,extra={})=>options.push({key,label,chart:{title:label,xlabel,ylabel,zeroBaseline:false,series:[{name:label,points:points.filter(p=>p.every(Number.isFinite))}],...extra}});
- const family=(prefix,xlabel,samples,properties)=>{for(const [key,label,unit,value] of properties)add(prefix+key,label,xlabel,unit,samples.map(([a,s])=>[a,value(s)]));};
+ const family=(prefix,xlabel,samples,properties)=>{for(const [key,label,unit,value] of properties){
+  add(prefix+key,label,xlabel,unit,samples.map(([a,s])=>[a,value(s)]));
+  options.at(-1).sampleFamily=prefix;
+ }};
  if(id==='wall'&&r.simpleCorner)return basePlotOptions({...d,id:r.cornerKind},time);
- if(id==='wall')return r.comparison?comparisonPlots(r,x.comparisonStation):r.tracking?trackingPlots(r,x.trackingStation):r.interaction?regularChannelPlots(r):r.moc?mocProfilePlots(r,x.mocStation):r.channel?channelPlots(r):wallPlots(r);
- if(id==='airfoil')return airfoilPlots(r);
- if(['rayleigh','fanno'].includes(id))options.push(...ductLongitudinalPlots(id,r));
+ if(id==='wall')return withSampleFamily(r.comparison?comparisonPlots(r,x.comparisonStation):r.tracking?trackingPlots(r,x.trackingStation):r.interaction?regularChannelPlots(r):r.moc?mocProfilePlots(r,x.mocStation):r.channel?channelPlots(r):wallPlots(r),'wall-profile');
+ if(id==='airfoil')return withSampleFamily(airfoilPlots(r),'airfoil-surface');
+ if(['rayleigh','fanno'].includes(id))options.push(...withSampleFamily(ductLongitudinalPlots(id,r),'duct-axial-profile'));
  const original={key:'overview',label:d.chart.title,chart:d.chart};if(!['foundations','rayleigh','fanno','balances','oblique'].includes(id))options.push(original);
  if(id==='foundations'){
   const samples=[...new Set([...linspace(.02,Math.max(5,x.M*1.15),201),x.M])].sort((a,b)=>a-b).map(m=>[m,{...state(m,x.T1,x.p1*1000,g,R),...isentropicRelations(m,g)}]);
@@ -70,10 +74,15 @@ function basePlotOptions(d,time=.001){
   if(id==='rayleigh'){
    const inletRatio=fn(x.M1,g).T0,cp=g*R/(g-1),inletT0=r.s1.T0;
    add('rayleigh-heat','Heat relative to inlet','Mach number M','q (kJ/kg)',samples.map(([m,s])=>[m,cp*(inletT0*s.T0/inletRatio-inletT0)/1000]));
+   options.at(-1).sampleFamily=id+'-';
   }
   options.filter(o=>!o.key.includes('-axial-')).forEach(o=>o.note='Theoretical locus anchored to the inlet state. Not every plotted point is reachable from that inlet; branch and choking constraints still apply.');
   add('entropy-star','Entropy deficit to sonic reference','Mach number M','(s* − s)/R',ms.map(m=>[m,sonicRelations(id,m,g).entropyToStar]));
-  if(id==='fanno')add('friction','Available friction length','Mach number M','fᴅL*/D',ms.map(m=>[m,fn(m,g).F]));
+  options.at(-1).sampleFamily=id+'-';
+  if(id==='fanno'){
+   add('friction','Available friction length','Mach number M','fᴅL*/D',ms.map(m=>[m,fn(m,g).F]));
+   options.at(-1).sampleFamily=id+'-';
+  }
  }else if(id==='oblique'||id==='expansion'){
   let samples,xlabel;
   if(id==='oblique'){xlabel='Flow turn θ (°)';samples=linspace(0,deg(r.thetaMax)*(1-1e-8),121).map(t=>[t,obliqueShock(x.M1,rad(t),g,x.branch)]);}
@@ -82,8 +91,9 @@ function basePlotOptions(d,time=.001){
   family('wave-',xlabel,samples,[['M','Downstream Mach','M₂',s=>s.M2],['p','Pressure ratio','p₂/p₁',s=>s.p],['T','Temperature ratio','T₂/T₁',s=>s.T],['rho','Density ratio','ρ₂/ρ₁',s=>s.rho],['p0','Stagnation-pressure recovery','p₀₂/p₀₁',s=>s.p0]]);
   add('wave-speed','Speed ratio',xlabel,'u₂/u₁',samples.map(([t,z])=>[t,z.M2/x.M1*Math.sqrt(z.T)]));
   if(r.simpleCorner)family('wave-dimensional-',xlabel,samples.map(([angle,w])=>[angle,state(w.M2,x.T1*w.T,x.p1*1000*w.p,g,R)]),[['p','Downstream pressure','p (kPa)',z=>z.p/1000],['T','Downstream temperature','T (K)',z=>z.T],['rho','Downstream density','ρ (kg/m³)',z=>z.rho],['u','Downstream speed','u (m/s)',z=>z.u],['p0','Downstream stagnation pressure','p₀ (kPa)',z=>z.p0/1000],['T0','Downstream stagnation temperature','T₀ (K)',z=>z.T0]]);
+  for(const option of options)if(option.key==='beta'||option.key.startsWith('wave-'))option.sampleFamily='wave-turn';
  }else if(id==='cone'){
-  if(r.bodyLab)return bodyPlots(r);
+  if(r.bodyLab)return withSampleFamily(bodyPlots(r),'body-flow-profile').filter(o=>o.chart.series.some(s=>s.points.length));
   if(!r.history)return [];
   const samples=r.history.map(s=>[deg(s.theta),s]).reverse();
   const post=r.history[0],postSpeed=Math.hypot(post.vr,post.vt);
@@ -93,6 +103,7 @@ function basePlotOptions(d,time=.001){
   for(const [key,label,unit,value] of properties){
    const points=samples.map(([theta,z])=>[theta,value(z)]);
    add('cone-'+key,label+' · cone to shock','Polar angle θ (°)',unit,points,{markers:[{name:'Cone surface',x:points[0][0],y:points[0][1]},{name:'Shock · downstream',x:points.at(-1)[0],y:points.at(-1)[1],anchor:'end'}]});
+   options.at(-1).sampleFamily='cone-angular-profile';
    options.at(-1).note='Cone surface → downstream side of shock · reference state 2: immediately behind shock';
   }
  }else if(id==='nozzle'){
@@ -138,7 +149,7 @@ function basePlotOptions(d,time=.001){
      ['p','Pressure','p (kPa)',i=>f.pressure[i]/1000,s=>s.p/1000]
     ]){
      const title=`${label} · Small-amplitude comparison`;
-     if(usable.length)options.push({key:`tube-profile-sine-${key}`,label:title,chart:{title,xlabel:'Position x (m)',ylabel:unit,zeroBaseline:false,series:[
+     if(usable.length)options.push({key:`tube-profile-sine-${key}`,label:title,sampleFamily:'sinusoidal-comparison',chart:{title,xlabel:'Position x (m)',ylabel:unit,zeroBaseline:false,series:[
       {name:'Numerical Euler solution',points:usable.map(([x,i])=>[x,read(i)]),color:'#176f9c'},
       {name:'Small-amplitude solution',points:usable.map(([x])=>[x,reference(sinusoidalReference(r,x,f.time))]),color:'#d47822',dash:'5 3'}
      ]},note:usable.length?`Comparison at ${(f.time*1000).toFixed(2)} ms in cells ahead of the returning reflected wave. The linear comparison uses u = εa₁ sin[ω(t − x/a₁)] for 0 < t − x/a₁ < N/f and p − p₁ = ρ₁a₁u.`:'The reflected wave has reached the whole tube. Select an earlier time to compare with the book’s outgoing-wave solution.'});
@@ -190,7 +201,7 @@ function basePlotOptions(d,time=.001){
  return options.filter(o=>id!=='normal'||['normal-M','normal-p','normal-rho','normal-T','normal-p0','normal-dsR'].includes(o.key)).filter(o=>o.chart.series.some(s=>s.points.length));
 }
 
-export function plotOptions(d,time=.001,{expandNozzleWall=false}={}){
+export function plotOptions(d,time=.001,{expandNozzleWall=false,includeSurfacePlots=false}={}){
  if(d.id==='nozzle-design')return nozzleMocPlots(d.result.designs??[d.result],{expandWall:expandNozzleWall});
  if(d.id==='rayleigh'||d.id==='fanno'){
   const plots=basePlotOptions(d,time);
@@ -201,7 +212,9 @@ export function plotOptions(d,time=.001,{expandNozzleWall=false}={}){
   note:d.result.corrections
    ?'Each colored dot marks where that correction predicts local Mach 1 at the minimum-pressure point.'
    :'At the intersection, the minimum surface pressure corresponds to local Mach 1.'}];
- if(d.result.multiRamp)return basePlotOptions(d,time);if(d.id==='airfoil'||d.id==='cone'&&d.inputs.bodyGeometry==='Wedge')return [];
+ if(d.id==='airfoil'||d.id==='cone'&&d.inputs.bodyGeometry==='Wedge')
+  return includeSurfacePlots?basePlotOptions(d,time):[];
+ if(d.result.multiRamp)return basePlotOptions(d,time);
  if(d.result.wallReference){
   const source={...d,result:d.result.wallReference};
   const turning=source.result.ramjet?ramjetPlots(source.result)[0]:pressureTurningPlot(source);
